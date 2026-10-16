@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+
+<html lang="pt"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-error":"#ffffff","border-subtle":"#E2E8F0","primary":"#004697","surface-container-lowest":"#ffffff","inverse-surface":"#203244","tertiary-container":"#006e4b","on-background":"#0a1d2e","on-tertiary-fixed-variant":"#005236","error":"#ba1a1a","on-secondary-fixed":"#001a41","surface-container":"#e4efff","surface-dim":"#c9dcf4","surface-tint":"#0f5bbd","primary-fixed-dim":"#adc6ff","accent-light":"#EAF2FF","surface-variant":"#d2e4fd","surface-container-low":"#eef4ff","error-container":"#ffdad6","on-primary":"#ffffff","outline":"#727784","surface-container-high":"#daeaff","on-surface-variant":"#424752","surface-container-highest":"#d2e4fd","on-tertiary":"#ffffff","tertiary-fixed":"#6ffbbe","page-bg":"#F4F7FB","inverse-on-surface":"#e9f1ff","tertiary":"#005338","on-error-container":"#93000a","text-secondary":"#526477","status-danger":"#EF4444","surface-bright":"#f8f9ff","primary-container":"#145dbf","on-primary-fixed-variant":"#004494","secondary-fixed":"#d8e2ff","on-primary-fixed":"#001a41","outline-variant":"#c2c6d5","background":"#f8f9ff","tertiary-fixed-dim":"#4edea3","on-primary-container":"#cddbff","on-tertiary-container":"#67f4b7","secondary":"#0058bc","primary-fixed":"#d8e2ff","on-secondary-container":"#fefcff","on-surface":"#0a1d2e","on-tertiary-fixed":"#002113","surface":"#FFFFFF","whatsapp-green":"#25D366","secondary-container":"#0070eb","status-warning":"#F59E0B","on-secondary-fixed-variant":"#004493","on-secondary":"#ffffff","secondary-fixed-dim":"#adc6ff","inverse-primary":"#adc6ff"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"margin-desktop":"2rem","space-md":"1rem",margin:"1rem","space-xl":"2.5rem","space-xs":"0.25rem","space-sm":"0.5rem","gutter-desktop":"1.5rem","space-lg":"1.5rem",gutter:"1rem"},fontFamily:{"code-sm":["JetBrains Mono"],"label-md":["Plus Jakarta Sans"],"body-lg":["Plus Jakarta Sans"],"headline-xl-mobile":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-sm":["Plus Jakarta Sans"],"headline-xl":["Plus Jakarta Sans"],"body-sm":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"]},fontSize:{"code-sm":["12px",{lineHeight:"16px",fontWeight:"500"}],"label-md":["14px",{lineHeight:"20px",fontWeight:"500"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"headline-xl-mobile":["26px",{lineHeight:"34px",fontWeight:"700"}],"label-sm":["12px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"600"}],"headline-md":["20px",{lineHeight:"28px",fontWeight:"600"}],"headline-lg":["24px",{lineHeight:"32px",fontWeight:"600"}],"headline-sm":["16px",{lineHeight:"24px",fontWeight:"600"}],"headline-xl":["32px",{lineHeight:"40px",fontWeight:"700"}],"body-sm":["13px",{lineHeight:"18px",fontWeight:"400"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}]}}}};</script></head><body class="bg-page-bg font-body-md text-on-surface antialiased selection:bg-surface-variant selection:text-primary"><aside class="fixed left-0 top-0 h-full w-64 bg-surface z-50 flex flex-col border-r border-border-subtle shadow-[0_1px_8px_rgba(20,38,56,0.04)]"><div class="h-16 px-space-lg flex items-center gap-space-sm border-b border-border-subtle shrink-0"><img alt="Prospecta Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WcLV1w3M87qAohAelB2H1C1TzV_7bHLvr-fqhmiRHGu88fHb9-SCkv3lrCDQi5TJ1PwugzQxF3VnOV2TUMe8BiLhlnwqiKiXIN_7XYuZDrA8_VNcaT_YMG965euep0lmSCtizrT5TjQzjkVJFjGeItJNzuZSbexN56-jADoH2jqHLHJQo0zd5Ef_kt1ZPi3RxIXh5CI3R_kLKvzOd6KtLlEWGlCAdYACXH2uQUP8X7gg1Eg-icPuQ_DY8N"/><div class="flex flex-col min-w-0 leading-tight"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight font-bold truncate">Prospecta</span><span class="font-code-sm text-[10px] text-text-secondary truncate tracking-tight">Inteligência Comercial MZ</span></div></div><div class="flex-1 px-space-md py-space-lg flex flex-col justify-between overflow-y-auto"><div class="flex flex-col gap-space-sm"><div class="px-space-sm pb-space-xs font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">Navegação</div><nav class="flex flex-col gap-1" data-active-classes="bg-accent-light text-primary font-bold shadow-[0_1px_2px_rgba(20,38,56,0.04)]"><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="visao-geral" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span>Visão geral</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg transition-all duration-150 bg-accent-light text-primary font-bold shadow-[0_1px_2px_rgba(20,38,56,0.04)]" data-path="encontrar-empresas" href="#"><span class="material-symbols-outlined text-[20px]">travel_explore</span><span>Encontrar empresas</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="minhas-oportunidades" href="#"><span class="material-symbols-outlined text-[20px]">view_kanban</span><span>Minhas oportunidades</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="conta-e-utilizacao" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span>Conta e utilização</span></a></nav></div><div class="p-space-md rounded-xl bg-accent-light border border-border-subtle flex flex-col gap-space-xs"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-text-secondary">Plano Activo</span><span class="inline-flex items-center px-1.5 py-0.5 rounded-full font-label-sm text-[10px] bg-primary text-on-primary font-semibold">Pro MZ</span></div><div class="font-headline-sm text-headline-sm text-primary font-bold">45 Créditos</div><p class="font-body-sm text-body-sm text-text-secondary">Válidos para extração directa com WhatsApp verificado (+258).</p></div></div><div class="p-space-md border-t border-border-subtle shrink-0"><div class="flex items-center gap-space-sm"><div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-md text-label-md font-bold shrink-0">MS</div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md font-semibold text-on-surface truncate">Mércio Sitoe</span><span class="font-body-sm text-body-sm text-text-secondary truncate">Freelancer • Maputo</span></div></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/90 backdrop-blur-xl border-b border-border-subtle z-40 px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 bg-page-bg border border-border-subtle rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface transition-all" placeholder="Pesquisar empresas por província, sector ou NUIT..." type="text"/></div></div><div class="flex items-center gap-space-md shrink-0"><div class="flex items-center gap-space-xs px-3 py-1.5 rounded-full bg-accent-light border border-primary/20"><span class="material-symbols-outlined text-primary text-[18px]">toll</span><span class="font-label-sm text-label-sm text-primary font-semibold">45 Créditos disponíveis</span></div><div class="h-5 w-px bg-border-subtle"></div><button class="relative p-2 rounded-lg text-text-secondary hover:text-on-surface hover:bg-page-bg transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-whatsapp-green ring-2 ring-surface"></span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ring-2 ring-surface-variant"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative pt-16 w-full min-h-screen px-space-lg py-space-lg bg-page-bg"><div class="flex flex-col w-full gap-space-lg">
+<!-- Top Navigation & Breadcrumbs -->
+<nav aria-label="Caminho de navegação" class="flex items-center gap-space-xs font-label-md text-label-md">
+<a class="text-secondary hover:text-primary transition-colors flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[18px]">travel_explore</span>
+<span>Encontrar empresas</span>
+</a>
+<span class="material-symbols-outlined text-[16px] text-text-secondary opacity-60">chevron_right</span>
+<a class="px-2 py-0.5 rounded-full bg-accent-light text-primary font-semibold text-label-sm" href="#">
+      Sofala
+    </a>
+<span class="material-symbols-outlined text-[16px] text-text-secondary opacity-60">chevron_right</span>
+<span class="text-on-surface font-semibold truncate max-w-xs md:max-w-md">Restaurante &amp; Lounge Baía da Beira</span>
+</nav>
+<!-- Business Profile Header Card (Level 1 Elevation) -->
+<section class="relative bg-surface rounded-xl p-space-lg shadow-sm overflow-hidden">
+<div class="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-accent-light/50 pointer-events-none blur-2xl"></div>
+<div class="relative flex flex-col lg:flex-row lg:items-center justify-between gap-space-lg">
+<div class="flex flex-col sm:flex-row items-start sm:items-center gap-space-md">
+<!-- Logo / Photo Thumbnail -->
+<div class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden shadow-sm shrink-0 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="Modern beachfront restaurant patio in Beira Mozambique with warm tropical sunlight, wooden pergolas, and ocean breeze setting the ambient mood with deep blue and crisp white colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmd5Im4iyZRkbwDOaMy7TZTnjxiBfQdE3NDeVKSvotXWcPHoXYy3maALnpnG1pb2G5kkSIbOUQmrjGF53XAAKWuBX7jmXDXXwQFwAk5MeIkCjK2kgCWVf4wsD4gVVOr_IIRUlE2mUb__NGVhIWHueUYFFD3ruBchV4WDzbq6z6kW-0VMJeNk5Fwwi4tt6RoucU3jw5QG8Y4qcy3CrprNcl07QRmiiT7RPAj7n1XnpzCVfhtc8pNClS4w"/>
+<div class="absolute bottom-1 right-1 bg-surface/90 backdrop-blur-sm p-1 rounded-full shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[14px]">verified</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-bold tracking-tight">
+              Restaurante &amp; Lounge Baía da Beira
+            </h1>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-light text-primary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[14px]">restaurant</span>
+              Restauração &amp; Eventos
+            </span>
+</div>
+<p class="font-body-md text-body-md text-text-secondary flex items-center gap-1.5 mt-0.5">
+<span class="material-symbols-outlined text-[18px] text-primary shrink-0">location_on</span>
+<span class="truncate">Av. das F.P.L.M., Ponta Gêa, Beira, Sofala (+258 Moçambique)</span>
+</p>
+<div class="flex flex-wrap items-center gap-3 mt-1 text-text-secondary font-body-sm text-body-sm">
+<div class="flex items-center gap-1.5 bg-page-bg px-2.5 py-1 rounded-lg">
+<span class="material-symbols-outlined text-[16px] text-text-secondary">call</span>
+<span class="font-code-sm text-code-sm text-on-surface font-semibold">+258 84 312 9081</span>
+<span class="text-[11px] text-text-secondary">Telefone registado</span>
+</div>
+<div class="flex items-center gap-1 text-[11px] text-text-secondary bg-surface-container-high/60 px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[14px] text-status-warning">info</span>
+<span>Não verificado automaticamente como conta WhatsApp comercial</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Actions CTA Suite -->
+<div class="flex sm:flex-row flex-col items-stretch sm:items-center gap-space-sm shrink-0">
+<button class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent-light text-primary-container font-label-md text-label-md font-semibold hover:bg-surface-variant transition-colors active:scale-95 duration-150" id="btn-save-opp" onclick="toggleSaveOpportunity(this)" type="button">
+<span class="material-symbols-outlined text-[20px]" id="save-icon">bookmark_add</span>
+<span id="save-label">Guardar nas Minhas Oportunidades</span>
+</button>
+<a class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:bg-primary shadow-sm hover:shadow transition-all active:scale-95 duration-150" href="#proximos-passos">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span>Preparar Abordagem</span>
+</a>
+</div>
+</div>
+</section>
+<!-- Metric Badges & Status Ribbon -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">Potencial de Venda</span>
+<span class="font-headline-sm text-headline-sm text-tertiary-container font-bold mt-0.5">Alto (84%)</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed/40 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">trending_up</span>
+</div>
+</div>
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">Ticket Estimado</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold mt-0.5">18k - 35k MT</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-accent-light text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+</div>
+</div>
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">Maturidade Digital</span>
+<span class="font-headline-sm text-headline-sm text-status-warning font-bold mt-0.5">Básica</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-amber-50 text-status-warning flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">speed</span>
+</div>
+</div>
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">Concorrência Local</span>
+<span class="font-headline-sm text-headline-sm text-text-secondary font-bold mt-0.5">Moderada</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-surface-container text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">storefront</span>
+</div>
+</div>
+</div>
+<!-- Dual Workspace Bento: Factos Observados vs Hipóteses da IA -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- Left Column (Factos Observados - 5 cols) -->
+<div class="lg:col-span-5 flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">fact_check</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+            Factos Observados
+          </h2>
+</div>
+<span class="font-code-sm text-code-sm text-text-secondary px-2 py-0.5 rounded bg-surface-container">
+          Dados Públicos
+        </span>
+</div>
+<p class="font-body-sm text-body-sm text-text-secondary -mt-1">
+        Evidências catalogadas sem inferência ou interpretação subjectiva.
+      </p>
+<!-- Fact Card A -->
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex flex-col gap-space-xs relative overflow-hidden group hover:shadow-md transition-shadow">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-danger"></div>
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-status-danger font-semibold">
+<span class="material-symbols-outlined text-[16px]">public_off</span>
+            Presença Web Inexistente
+          </span>
+<span class="font-code-sm text-[11px] text-text-secondary">DNS / Whois MZ</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium pt-1">
+          Nenhum website próprio detetado nos motores de busca nem no domínio nacional <code class="px-1.5 py-0.5 rounded bg-page-bg font-code-sm text-code-sm text-primary font-bold">.co.mz</code>.
+        </p>
+<span class="font-body-sm text-body-sm text-text-secondary mt-1">
+          Impacto directo na indexação no Google para turistas e clientes corporativos na Beira.
+        </span>
+</div>
+<!-- Fact Card B -->
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex flex-col gap-space-xs relative overflow-hidden group hover:shadow-md transition-shadow">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary font-semibold">
+<span class="material-symbols-outlined text-[16px]">thumb_up</span>
+            Comunidade Activa
+          </span>
+<span class="font-code-sm text-[11px] text-text-secondary">Meta Graph API</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium pt-1">
+          Página de Facebook com <strong>3.400 seguidores</strong> registados. Última publicação efectuada há <strong>12 dias</strong>.
+        </p>
+<span class="font-body-sm text-body-sm text-text-secondary mt-1">
+          Audiência estabelecida, contudo com cadência irregular de publicações promocionais.
+        </span>
+</div>
+<!-- Fact Card C -->
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex flex-col gap-space-xs relative overflow-hidden group hover:shadow-md transition-shadow">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-warning"></div>
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-status-warning font-semibold">
+<span class="material-symbols-outlined text-[16px]">menu_book</span>
+            Menu &amp; Experiência de Consulta
+          </span>
+<span class="font-code-sm text-[11px] text-text-secondary">Feed Social</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium pt-1">
+          Fotografias de cardápio em papel publicadas em <strong>2023</strong>, com preços ilegíveis em ecrãs móveis e sem suporte a pesquisa.
+        </p>
+<span class="font-body-sm text-body-sm text-text-secondary mt-1">
+          Causa fricção imediata a clientes que pretendem encomendar via WhatsApp.
+        </span>
+</div>
+<!-- Source & Audit Metadata -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex items-start gap-space-sm text-text-secondary">
+<span class="material-symbols-outlined text-[20px] text-primary shrink-0 mt-0.5">verified_user</span>
+<div class="flex flex-col text-body-sm font-body-sm">
+<span class="font-semibold text-on-surface">Auditoria Factual Verificada</span>
+<span>Diretório Comercial de Sofala e Meta Graph API — Atualizado a 14 de Março de 2025.</span>
+</div>
+</div>
+<!-- Mini Graphic Context: Activity Heatmap Indicator -->
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex flex-col gap-2">
+<span class="font-label-sm text-label-sm text-text-secondary font-semibold uppercase">Regularidade de Publicações (Últimos 6 Meses)</span>
+<svg class="w-full h-12 text-primary" fill="none" viewbox="0 0 300 48">
+<path d="M0 40 L30 35 L60 38 L90 20 L120 28 L150 15 L180 32 L210 42 L240 25 L270 30 L300 44" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+<circle class="fill-primary" cx="150" cy="15" r="4"></circle>
+<circle class="fill-status-warning" cx="300" cy="44" r="4"></circle>
+</svg>
+<div class="flex items-center justify-between text-[11px] text-text-secondary font-code-sm">
+<span>Outubro 2024 (Pico)</span>
+<span class="text-status-warning font-semibold">Março 2025 (Declínio)</span>
+</div>
+</div>
+</div>
+<!-- Right Column (Hipóteses de Oportunidade Comercial - 7 cols) -->
+<div class="lg:col-span-7 flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">lightbulb</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+            Hipóteses de Oportunidade Comercial
+          </h2>
+</div>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary font-semibold px-2 py-0.5 rounded-full bg-accent-light">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+          IA Prospecta MZ
+        </span>
+</div>
+<!-- Disclaimer Alert Banner -->
+<div class="p-space-md rounded-xl bg-amber-50 text-amber-900 shadow-sm flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-[22px] text-status-warning shrink-0 mt-0.5">warning</span>
+<div class="flex flex-col text-body-sm font-body-sm leading-relaxed">
+<span class="font-bold text-amber-950">Atenção Crítica:</span>
+          Estas oportunidades são hipóteses calculadas com base em lacunas de dados públicos. Confirme diretamente as necessidades com o proprietário antes de formalizar uma proposta definitiva.
+        </div>
+</div>
+<!-- Opportunity 1 (Featured Flagship) -->
+<div class="bg-surface p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md relative overflow-hidden group hover:shadow-md transition-all">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-whatsapp-green"></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-lg bg-emerald-50 text-tertiary flex items-center justify-center font-bold font-code-sm text-code-sm">01</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+              Menu Digital Interativo via QR Code &amp; Mini-Site
+            </h3>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-tertiary font-label-sm text-label-sm font-bold shrink-0">
+            Conversão Alta
+          </span>
+</div>
+<p class="font-body-md text-body-md text-text-secondary">
+          Substituição do PDF/fotos desatualizadas por um cardápio digital rápido e leve, adaptado para consumo em redes 3G/4G da Vodacom e Movitel na Beira, com botão de envio direto do pedido para o WhatsApp do restaurante.
+        </p>
+<!-- Market Value Benchmark Box -->
+<div class="p-space-md rounded-xl bg-page-bg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">price_change</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-[11px] text-text-secondary uppercase">Valor Estimado de Mercado (MZ)</span>
+<span class="font-headline-sm text-headline-sm text-primary font-bold">18.000 MT – 35.000 MT</span>
+</div>
+</div>
+<span class="font-body-sm text-body-sm text-text-secondary sm:text-right">
+            Implementação estimada: <strong>3 a 5 dias</strong>
+</span>
+</div>
+<!-- Strategy Hooks for Pitch -->
+<div class="flex flex-col gap-1.5 text-body-sm font-body-sm bg-accent-light/40 p-3 rounded-lg">
+<span class="font-semibold text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">tips_and_updates</span>
+            Ângulo sugerido para WhatsApp:
+          </span>
+<p class="text-on-surface italic">
+            “Reparámos que muitos clientes procuram o menu do Baía da Beira pelo telefone. Criámos um modelo de menu em QR Code que abre num segundo e envia a encomenda pronta para o vosso WhatsApp.”
+          </p>
+</div>
+</div>
+<!-- Opportunity 2 -->
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex flex-col gap-space-sm relative overflow-hidden group hover:shadow-md transition-all">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-lg bg-surface-container text-primary flex items-center justify-center font-bold font-code-sm text-code-sm">02</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+              Gestão de Conteúdo e Fotografia Gastronómica Profissional
+            </h4>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-accent-light text-primary font-label-sm text-label-sm font-semibold shrink-0">
+            Retenção Mensal
+          </span>
+</div>
+<p class="font-body-md text-body-md text-text-secondary">
+          A taxa de interacção nas fotos actuais é baixa devido à iluminação amadora. Sessão fotográfica dos pratos emblemáticos (ex: mariscos frescos e petiscos) e calendário editorial para reactivar a audiência de 3.400 membros.
+        </p>
+<div class="flex items-center justify-between pt-1 font-body-sm text-body-sm">
+<span class="text-text-secondary">Pacote mensal estimado:</span>
+<span class="font-code-sm text-code-sm text-on-surface font-bold">12.000 MT – 25.000 MT / mês</span>
+</div>
+</div>
+<!-- Opportunity 3 -->
+<div class="bg-surface p-space-md rounded-xl shadow-sm flex flex-col gap-space-sm relative overflow-hidden group hover:shadow-md transition-all">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-status-warning"></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-lg bg-amber-50 text-status-warning flex items-center justify-center font-bold font-code-sm text-code-sm">03</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+              Otimização do Perfil da Empresa (Google Maps)
+            </h4>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-label-sm text-label-sm font-semibold shrink-0">
+            Ação Rápida
+          </span>
+</div>
+<p class="font-body-md text-body-md text-text-secondary">
+          A ficha do Google Maps possui <strong>14 avaliações sem resposta</strong> por parte do restaurante e horários desactualizados. Risco de perda de reservas para viajantes em negócios na Ponta Gêa.
+        </p>
+<div class="flex items-center justify-between pt-1 font-body-sm text-body-sm">
+<span class="text-text-secondary">Serviço de saneamento e verificação:</span>
+<span class="font-code-sm text-code-sm text-on-surface font-bold">6.000 MT – 10.000 MT (Taxa única)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Detailed Location & Visual Environment Context -->
+<section class="bg-surface rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+          Contexto Geográfico &amp; Envolvente
+        </h3>
+<p class="font-body-sm text-body-sm text-text-secondary">
+          Ponta Gêa, Beira — Zona ribeirinha nobre com forte circulação executiva e consular.
+        </p>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-text-secondary">Coordenadas aproximadas:</span>
+<span class="font-code-sm text-code-sm text-primary bg-page-bg px-2 py-1 rounded">-19.8436° S, 34.8389° E</span>
+</div>
+</div>
+<!-- Map & Photo Dual Gallery -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<div class="md:col-span-2 w-full h-56 bg-cover bg-center rounded-xl shadow-sm relative overflow-hidden" data-location="Ponta Gea, Beira, Mozambique" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCq5bacN_VL7boATPEuCpFpVleb93_vl76-C1nkoV4GLwHwg1SOCoym61piKyoTa1YmQsAksPmOt-TyqXs2RThhuHfCFt4sIFy4gFVdEvGvqT_hEkSBbJP2Vj81ijrvtlz0eoNZT-DU4HZGGK1T_EKKjyNWOOkGBtjTvB6smFvVDGvXaY0LAWf3KfeoCRs1X0Ldk_rU9HZVxg4CsKm4HDCqtSLLtK8kSfQRLsfhEgpefkdcvYjOUu4ngw')">
+<div class="absolute inset-0 bg-gradient-to-t from-on-background/70 via-transparent to-transparent flex items-end p-space-md">
+<div class="flex items-center gap-2 text-on-primary">
+<span class="material-symbols-outlined text-[20px] text-whatsapp-green">map</span>
+<span class="font-label-md text-label-md font-semibold">Localização no Google Maps: Ponta Gêa, Beira</span>
+</div>
+</div>
+</div>
+<div class="w-full h-56 rounded-xl overflow-hidden shadow-sm relative group">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Interior dining area of a Mozambican seafood lounge in Beira with timber tables, coastal lighting, and tropical plants in soft natural ambient morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbs6zSpj4jR0VNurjsmD_TZabiv8NrByYrkCHFs4oVxQ2kKacIrWJYfRV0bCQTuNrnRC9D5qMRDsyX6CRxTR6acRGLU--Wc7od9lmqM4yZnTzVKgw_CqiB4LeNTHmRiesdcTv7njbzD4Oe0Zb7-zXdnouiw_HCp2tOdRU9VeZ1AZ2_QyodQcUtnUoNroDBrlBj6iOBO_2IQx_OIFOSQ_VJNJPNzd41CTChtdCdxITiHL9AGyIdXiB-Aw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-background/60 via-transparent to-transparent flex items-end p-space-sm">
+<span class="text-on-primary font-body-sm text-body-sm">Fachada interior / Esplanada</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Próximos Passos & Ações Rápidas -->
+<section class="bg-surface rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md" id="proximos-passos">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[24px]">forward</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+        Próximos Passos &amp; Ações Rápidas
+      </h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-space-md items-center">
+<!-- Pipeline Stage Assignment Selector -->
+<div class="md:col-span-5 flex flex-col gap-1.5">
+<label class="font-label-sm text-label-sm text-text-secondary uppercase" for="pipeline-stage">
+          Estado do Contacto no Pipeline
+        </label>
+<div class="relative">
+<select class="w-full px-4 py-2.5 bg-page-bg rounded-lg font-body-md text-body-md text-on-surface appearance-none focus:outline-none focus:bg-surface focus:shadow transition-all cursor-pointer" id="pipeline-stage">
+<option selected="" value="novo">Fase inicial: Novo / A contactar</option>
+<option value="abordagem-enviada">Abordagem enviada (WhatsApp)</option>
+<option value="em-negociacao">Em negociação / Proposta submetida</option>
+<option value="convertido">Convertido / Cliente ganho</option>
+<option value="sem-resposta">Sem resposta / Tentar mais tarde</option>
+</select>
+<span class="material-symbols-outlined text-[20px] text-text-secondary absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            unfold_more
+          </span>
+</div>
+</div>
+<!-- Action Forwarding Buttons -->
+<div class="md:col-span-7 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-space-sm">
+<button class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-md text-label-md transition-colors" onclick="copyProspectSummary()" type="button">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+<span id="copy-summary-text">Copiar Resumo Executivo</span>
+</button>
+<button class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-bold hover:bg-primary shadow-sm hover:shadow-md transition-all active:scale-95" onclick="openWhatsAppDrawer()" type="button">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+<span>Avançar para: Preparar Abordagem WhatsApp Personalizada</span>
+</button>
+</div>
+</div>
+<!-- WhatsApp Outreach Previewer Panel -->
+<div class="mt-space-sm p-space-md rounded-xl bg-accent-light/50 flex flex-col gap-space-sm" id="whatsapp-preview-drawer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wide flex items-center gap-1.5">
+<span class="material-symbols-outlined text-whatsapp-green text-[18px]">mark_chat_unread</span>
+          Pré-visualização do Modelo Dinâmico
+        </span>
+<span class="font-code-sm text-[11px] text-text-secondary">Destino: +258 84 312 9081</span>
+</div>
+<!-- Mock WhatsApp Bubble -->
+<div class="max-w-2xl bg-[#DCF8C6] text-on-surface p-space-md rounded-xl rounded-tl-none shadow-sm flex flex-col gap-2 font-body-md text-body-md">
+<p class="leading-relaxed">
+          Olá! Falo com o responsável do 
+          <span class="inline-block px-1.5 py-0.2 rounded bg-surface text-primary font-semibold text-body-sm shadow-xs">{{empresa: Baía da Beira}}</span>?
+        </p>
+<p class="leading-relaxed">
+          Chamo-me Mércio e notei que os vossos clientes na Ponta Gêa procuram frequentemente o menu pelo telemóvel, mas o acesso ainda está dependente de fotos de 2023.
+        </p>
+<p class="leading-relaxed">
+          Preparamos um exemplo gratuito de 
+          <span class="inline-block px-1.5 py-0.2 rounded bg-surface text-primary font-semibold text-body-sm shadow-xs">{{serviço: Menu Digital via QR Code}}</span> 
+          compatível com redes móveis locais. Posso partilhar a demonstração de 1 minuto consigo aqui no WhatsApp?
+        </p>
+<div class="flex items-center justify-end gap-1 text-[11px] text-text-secondary pt-1">
+<span>10:42</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">done_all</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm text-text-secondary pt-1">
+<span>Gere variações da mensagem usando créditos do plano Pro MZ.</span>
+<span class="text-primary font-semibold cursor-pointer hover:underline">Personalizar campos dinâmicos</span>
+</div>
+</div>
+</section>
+</div>
+<script>
+  function toggleSaveOpportunity(button) {
+    const icon = document.getElementById('save-icon');
+    const label = document.getElementById('save-label');
+    const isSaved = button.classList.contains('bg-tertiary-fixed/30');
+
+    if (!isSaved) {
+      button.classList.remove('bg-accent-light', 'text-primary-container');
+      button.classList.add('bg-tertiary-fixed/30', 'text-tertiary');
+      icon.textContent = 'bookmark_added';
+      label.textContent = 'Oportunidade Guardada';
+    } else {
+      button.classList.add('bg-accent-light', 'text-primary-container');
+      button.classList.remove('bg-tertiary-fixed/30', 'text-tertiary');
+      icon.textContent = 'bookmark_add';
+      label.textContent = 'Guardar nas Minhas Oportunidades';
+    }
+  }
+
+  function copyProspectSummary() {
+    const summary = "Restaurante & Lounge Baía da Beira (+258 84 312 9081) - Beira, Sofala. Oportunidades: Menu Digital QR Code (18k-35k MT), Gestão Redes Sociais, Otimização Google Maps.";
+    navigator.clipboard.writeText(summary).then(() => {
+      const copyText = document.getElementById('copy-summary-text');
+      const originalText = copyText.textContent;
+      copyText.textContent = "Resumo Copiado!";
+      setTimeout(() => {
+        copyText.textContent = originalText;
+      }, 2000);
+    });
+  }
+
+  function openWhatsAppDrawer() {
+    const drawer = document.getElementById('whatsapp-preview-drawer');
+    drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    drawer.classList.add('ring-2', 'ring-primary');
+    setTimeout(() => {
+      drawer.classList.remove('ring-2', 'ring-primary');
+    }, 1500);
+  }
+</script></main></div></body></html>

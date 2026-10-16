@@ -1,0 +1,2 @@
+/* A local-first fallback is used when the optional self-hosted font is unavailable. */
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:200 800;font-display:swap;src:local('Plus Jakarta Sans')}

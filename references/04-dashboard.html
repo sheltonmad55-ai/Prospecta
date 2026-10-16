@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html lang="pt"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-error":"#ffffff","border-subtle":"#E2E8F0","primary":"#004697","surface-container-lowest":"#ffffff","inverse-surface":"#203244","tertiary-container":"#006e4b","on-background":"#0a1d2e","on-tertiary-fixed-variant":"#005236","error":"#ba1a1a","on-secondary-fixed":"#001a41","surface-container":"#e4efff","surface-dim":"#c9dcf4","surface-tint":"#0f5bbd","primary-fixed-dim":"#adc6ff","accent-light":"#EAF2FF","surface-variant":"#d2e4fd","surface-container-low":"#eef4ff","error-container":"#ffdad6","on-primary":"#ffffff","outline":"#727784","surface-container-high":"#daeaff","on-surface-variant":"#424752","surface-container-highest":"#d2e4fd","on-tertiary":"#ffffff","tertiary-fixed":"#6ffbbe","page-bg":"#F4F7FB","inverse-on-surface":"#e9f1ff","tertiary":"#005338","on-error-container":"#93000a","text-secondary":"#526477","status-danger":"#EF4444","surface-bright":"#f8f9ff","primary-container":"#145dbf","on-primary-fixed-variant":"#004494","secondary-fixed":"#d8e2ff","on-primary-fixed":"#001a41","outline-variant":"#c2c6d5","background":"#f8f9ff","tertiary-fixed-dim":"#4edea3","on-primary-container":"#cddbff","on-tertiary-container":"#67f4b7","secondary":"#0058bc","primary-fixed":"#d8e2ff","on-secondary-container":"#fefcff","on-surface":"#0a1d2e","on-tertiary-fixed":"#002113","surface":"#FFFFFF","whatsapp-green":"#25D366","secondary-container":"#0070eb","status-warning":"#F59E0B","on-secondary-fixed-variant":"#004493","on-secondary":"#ffffff","secondary-fixed-dim":"#adc6ff","inverse-primary":"#adc6ff"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"margin-desktop":"2rem","space-md":"1rem",margin:"1rem","space-xl":"2.5rem","space-xs":"0.25rem","space-sm":"0.5rem","gutter-desktop":"1.5rem","space-lg":"1.5rem",gutter:"1rem"},fontFamily:{"code-sm":["JetBrains Mono"],"label-md":["Plus Jakarta Sans"],"body-lg":["Plus Jakarta Sans"],"headline-xl-mobile":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-sm":["Plus Jakarta Sans"],"headline-xl":["Plus Jakarta Sans"],"body-sm":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"]},fontSize:{"code-sm":["12px",{lineHeight:"16px",fontWeight:"500"}],"label-md":["14px",{lineHeight:"20px",fontWeight:"500"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"headline-xl-mobile":["26px",{lineHeight:"34px",fontWeight:"700"}],"label-sm":["12px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"600"}],"headline-md":["20px",{lineHeight:"28px",fontWeight:"600"}],"headline-lg":["24px",{lineHeight:"32px",fontWeight:"600"}],"headline-sm":["16px",{lineHeight:"24px",fontWeight:"600"}],"headline-xl":["32px",{lineHeight:"40px",fontWeight:"700"}],"body-sm":["13px",{lineHeight:"18px",fontWeight:"400"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}]}}}};</script></head><body class="bg-page-bg font-body-md text-on-surface antialiased selection:bg-surface-variant selection:text-primary"><aside class="fixed left-0 top-0 h-full w-64 bg-surface z-50 flex flex-col border-r border-border-subtle shadow-[0_1px_8px_rgba(20,38,56,0.04)]"><div class="h-16 px-space-lg flex items-center gap-space-sm border-b border-border-subtle shrink-0"><img alt="Prospecta Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WcLV1w3M87qAohAelB2H1C1TzV_7bHLvr-fqhmiRHGu88fHb9-SCkv3lrCDQi5TJ1PwugzQxF3VnOV2TUMe8BiLhlnwqiKiXIN_7XYuZDrA8_VNcaT_YMG965euep0lmSCtizrT5TjQzjkVJFjGeItJNzuZSbexN56-jADoH2jqHLHJQo0zd5Ef_kt1ZPi3RxIXh5CI3R_kLKvzOd6KtLlEWGlCAdYACXH2uQUP8X7gg1Eg-icPuQ_DY8N"/><div class="flex flex-col min-w-0 leading-tight"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight font-bold truncate">Prospecta</span><span class="font-code-sm text-[10px] text-text-secondary truncate tracking-tight">Inteligência Comercial MZ</span></div></div><div class="flex-1 px-space-md py-space-lg flex flex-col justify-between overflow-y-auto"><div class="flex flex-col gap-space-sm"><div class="px-space-sm pb-space-xs font-label-sm text-label-sm text-text-secondary uppercase tracking-wider">Navegação</div><nav class="flex flex-col gap-1" data-active-classes="bg-accent-light text-primary font-bold shadow-[0_1px_2px_rgba(20,38,56,0.04)]"><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="visao-geral" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span>Visão geral</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="encontrar-empresas" href="#"><span class="material-symbols-outlined text-[20px]">travel_explore</span><span>Encontrar empresas</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="minhas-oportunidades" href="#"><span class="material-symbols-outlined text-[20px]">view_kanban</span><span>Minhas oportunidades</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-text-secondary hover:bg-accent-light hover:text-primary transition-all duration-150" data-path="conta-e-utilizacao" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span>Conta e utilização</span></a></nav></div><div class="p-space-md rounded-xl bg-accent-light border border-border-subtle flex flex-col gap-space-xs"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-text-secondary">Plano Activo</span><span class="inline-flex items-center px-1.5 py-0.5 rounded-full font-label-sm text-[10px] bg-primary text-on-primary font-semibold">Pro MZ</span></div><div class="font-headline-sm text-headline-sm text-primary font-bold">45 Créditos</div><p class="font-body-sm text-body-sm text-text-secondary">Válidos para extração directa com WhatsApp verificado (+258).</p></div></div><div class="p-space-md border-t border-border-subtle shrink-0"><div class="flex items-center gap-space-sm"><div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-md text-label-md font-bold shrink-0">MS</div><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md font-semibold text-on-surface truncate">Mércio Sitoe</span><span class="font-body-sm text-body-sm text-text-secondary truncate">Freelancer • Maputo</span></div></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/90 backdrop-blur-xl border-b border-border-subtle z-40 px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 bg-page-bg border border-border-subtle rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface transition-all" placeholder="Pesquisar empresas por província, sector ou NUIT..." type="text"/></div></div><div class="flex items-center gap-space-md shrink-0"><div class="flex items-center gap-space-xs px-3 py-1.5 rounded-full bg-accent-light border border-primary/20"><span class="material-symbols-outlined text-primary text-[18px]">toll</span><span class="font-label-sm text-label-sm text-primary font-semibold">45 Créditos disponíveis</span></div><div class="h-5 w-px bg-border-subtle"></div><button class="relative p-2 rounded-lg text-text-secondary hover:text-on-surface hover:bg-page-bg transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-whatsapp-green ring-2 ring-surface"></span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ring-2 ring-surface-variant"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative pt-16 w-full min-h-screen px-space-lg py-space-lg bg-page-bg"><div class="flex flex-col w-full">
+<!-- Dynamic Greeting Header & Quick Beacon Action -->
+<section class="relative overflow-hidden rounded-xl bg-surface p-space-lg shadow-sm mb-space-lg">
+<div class="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-accent-light opacity-60 pointer-events-none"></div>
+<div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex flex-col gap-space-xs max-w-2xl">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-light text-primary font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-whatsapp-green"></span>
+            Operação Comercial Activa • MZ
+          </span>
+<span class="font-code-sm text-code-sm text-text-secondary tracking-tight">NUIT: 400192831</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight font-bold">
+          Olá Mércio, bom trabalho! Encontre empresas e prepare a sua próxima venda.
+        </h1>
+<p class="font-body-md text-body-md text-text-secondary">
+          Monitorização em tempo real de prospeção B2B, leads qualificadas por WhatsApp e pipeline de fecho em Meticais (MT).
+        </p>
+</div>
+<div class="flex items-center gap-space-sm shrink-0">
+<a class="inline-flex items-center gap-space-sm px-5 py-3 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md font-semibold transition-all shadow-sm hover:shadow-md transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px] animate-pulse">radar</span>
+<span>+ Encontrar empresas em Moçambique</span>
+</a>
+</div>
+</div>
+</section>
+<!-- 4 Vital KPI Summary Metric Cards -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-lg">
+<!-- KPI 1 -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-primary-container"></div>
+<div class="flex items-start justify-between mb-space-sm pl-2">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">Oportunidades ativas</span>
+<div class="w-9 h-9 rounded-lg bg-accent-light text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">corporate_fare</span>
+</div>
+</div>
+<div class="pl-2">
+<div class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">14 <span class="font-body-sm text-body-sm text-text-secondary font-normal">empresas</span></div>
+<div class="mt-2 flex items-center gap-1.5 font-body-sm text-body-sm text-tertiary">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-medium">+3 esta semana em Sofala e Nampula</span>
+</div>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-status-warning"></div>
+<div class="flex items-start justify-between mb-space-sm pl-2">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">Seguimentos pendentes</span>
+<div class="w-9 h-9 rounded-lg bg-surface-container text-on-secondary-fixed-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">mark_chat_unread</span>
+</div>
+</div>
+<div class="pl-2">
+<div class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">4 <span class="font-body-sm text-body-sm text-text-secondary font-normal">para hoje</span></div>
+<div class="mt-2 flex items-center gap-1.5 font-body-sm text-body-sm text-text-secondary">
+<span class="material-symbols-outlined text-[16px] text-whatsapp-green">chat</span>
+<span>2 mensagens WhatsApp aguardam resposta</span>
+</div>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-secondary"></div>
+<div class="flex items-start justify-between mb-space-sm pl-2">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">Créditos disponíveis</span>
+<div class="w-9 h-9 rounded-lg bg-accent-light text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">toll</span>
+</div>
+</div>
+<div class="pl-2">
+<div class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">45 <span class="font-body-sm text-body-sm text-text-secondary font-normal">MT / Créditos</span></div>
+<div class="mt-2 flex items-center gap-1.5 font-body-sm text-body-sm text-text-secondary">
+<span class="material-symbols-outlined text-[16px]">event_repeat</span>
+<span>Plano Pro Freelancer — renova a 1 de Abril</span>
+</div>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-tertiary"></div>
+<div class="flex items-start justify-between mb-space-sm pl-2">
+<span class="font-label-sm text-label-sm text-text-secondary uppercase">Propostas em negociação</span>
+<div class="w-9 h-9 rounded-lg bg-surface-container-low text-tertiary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+</div>
+<div class="pl-2">
+<div class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">85.000 <span class="font-body-sm text-body-sm text-primary font-semibold">MT</span></div>
+<div class="mt-2 flex items-center gap-1.5 font-body-sm text-body-sm text-text-secondary">
+<span class="material-symbols-outlined text-[16px] text-primary">send</span>
+<span>3 propostas enviadas na Beira e Maputo</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Interactive Pipeline Funnel Strip -->
+<section class="bg-surface rounded-xl p-space-md shadow-sm mb-space-lg">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-space-md">
+<div>
+<span class="font-label-sm text-label-sm uppercase text-text-secondary tracking-wider">Estado Comercial da Carteira</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Distribuição por Etapa do Pipeline</h2>
+</div>
+<div class="flex items-center gap-space-xs text-text-secondary font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[18px]">filter_alt</span>
+<span>21 oportunidades mapeadas</span>
+</div>
+</div>
+<!-- Filter chips for funnel -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+<button class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-accent-light text-primary font-label-md text-label-md font-semibold transition-all hover:bg-surface-variant">
+<span>Novo</span>
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary font-code-sm text-code-sm flex items-center justify-center">5</span>
+</button>
+<button class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container font-label-md text-label-md transition-all">
+<span>Contactado</span>
+<span class="w-6 h-6 rounded-full bg-surface-variant text-primary font-code-sm text-code-sm flex items-center justify-center">4</span>
+</button>
+<button class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container font-label-md text-label-md transition-all">
+<span>Em conversa</span>
+<span class="w-6 h-6 rounded-full bg-surface-variant text-primary font-code-sm text-code-sm flex items-center justify-center">3</span>
+</button>
+<button class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container font-label-md text-label-md transition-all">
+<span>Proposta</span>
+<span class="w-6 h-6 rounded-full bg-surface-variant text-primary font-code-sm text-code-sm flex items-center justify-center">2</span>
+</button>
+<button class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-container-low text-tertiary hover:bg-surface-container font-label-md text-label-md font-semibold transition-all">
+<span>Ganho</span>
+<span class="w-6 h-6 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-code-sm text-code-sm flex items-center justify-center">6</span>
+</button>
+<button class="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-container-low text-error hover:bg-surface-container font-label-md text-label-md transition-all">
+<span>Perdido</span>
+<span class="w-6 h-6 rounded-full bg-error-container text-on-error-container font-code-sm text-code-sm flex items-center justify-center">1</span>
+</button>
+</div>
+<!-- Graphical Pipeline Proportion Bar -->
+<div class="mt-4 w-full h-2 rounded-full bg-surface-container overflow-hidden flex">
+<div class="bg-primary h-full" style="width: 24%"></div>
+<div class="bg-secondary-container h-full" style="width: 19%"></div>
+<div class="bg-surface-tint h-full" style="width: 14%"></div>
+<div class="bg-status-warning h-full" style="width: 10%"></div>
+<div class="bg-whatsapp-green h-full" style="width: 28%"></div>
+<div class="bg-status-danger h-full" style="width: 5%"></div>
+</div>
+</section>
+<!-- Dual Workspace: Priority Follow-ups (Left) & Recent Insights (Right) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg mb-space-lg">
+<!-- Left Column: Priority Follow-ups (8 Cols) -->
+<div class="lg:col-span-8 flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-whatsapp-green animate-ping"></div>
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold">
+            Seguimentos prioritários para hoje
+          </h2>
+</div>
+<span class="font-label-sm text-label-sm text-text-secondary">3 tarefas em fila</span>
+</div>
+<!-- Task Card 1: Baia da Beira -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-whatsapp-green"></div>
+<div class="flex items-start gap-space-md pl-2 flex-1">
+<img class="w-14 h-14 rounded-lg object-cover shrink-0 shadow-sm" data-alt="High quality commercial interior photo of a beachside restaurant in Beira Mozambique with wooden tables, ocean view, bright sunny daylight and contemporary Mozambican decor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpnCWmDvqg_oQyYGN511IJ9rm90sElcR9yP2voT8T6s9ej8DC_8EZtSQCRiYJw5gfrbPsu_aqruYK1ZFgN4Pclwwkjjq3u4fQj9bH4Dz-4KSvDYHfq5Fij91bOpxCGWWVZvkP9atcJgI8NnWzq5mVSOoyoxX_4psQdsAAljTd6Lamk2FPGNVDFze0gSbQyQOhEmISRmtv3MhG3BRWckfrnoXL2yEMKHOxznBgl_w2IptdfZXH4su3UmQ"/>
+<div class="flex flex-col min-w-0">
+<div class="flex flex-wrap items-center gap-2 mb-1">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Restaurante Baía da Beira</span>
+<span class="px-2 py-0.5 rounded-full bg-accent-light text-primary font-label-sm text-[11px]">Sofala (Beira)</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[11px] text-text-secondary">Restauração</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium mb-1">
+              Ação: Confirmar se viram a demonstração do menu digital
+            </p>
+<div class="flex flex-wrap items-center gap-space-md font-body-sm text-body-sm text-text-secondary">
+<span class="flex items-center gap-1 text-whatsapp-green font-semibold">
+<span class="material-symbols-outlined text-[16px]">call</span>
+                +258 84 312 9081
+              </span>
+<span class="flex items-center gap-1 font-code-sm text-code-sm bg-surface-container-low px-2 py-0.5 rounded text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-status-warning">schedule</span>
+                Hoje às 15:00
+              </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm pl-2 md:pl-0 shrink-0">
+<button class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-whatsapp-green hover:opacity-90 text-on-primary font-label-md text-label-md font-semibold transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+<span>Abrir conversa</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-low hover:bg-surface-container text-text-secondary transition-colors" title="Ver detalhes do NUIT">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Task Card 2: Clinica Zambezia -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+<div class="flex items-start gap-space-md pl-2 flex-1">
+<img class="w-14 h-14 rounded-lg object-cover shrink-0 shadow-sm" data-alt="Clean and modern private medical clinic facade in Quelimane Zambezia Mozambique with professional health personnel and neat glass entrance" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkNs4IGG0t7Q8STs78lCJa14Ggdk1Gqm_QoL46JmiHhvB-ZV1lEMLofS_joXWTyuONnPkn9EkOOFD6ypzUY-gMyfi8A5I7oUFFXDilUteUNC-3RSjkWPSoKXPlZusIHSC94y1avd4_t_Fltdx0Y3XcrYyh1JYQ9d_88bkUSFWeDCzwk281YSi9zxUXFSQqVVrROz0IjILpgh9gcV0HhSUavqcx1vvkFGDcqRg_BfcWSmI-HXAqZs2_cA"/>
+<div class="flex flex-col min-w-0">
+<div class="flex flex-wrap items-center gap-2 mb-1">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Clínica Médica Zambézia</span>
+<span class="px-2 py-0.5 rounded-full bg-accent-light text-primary font-label-sm text-[11px]">Zambézia</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[11px] text-text-secondary">Saúde Privada</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium mb-1">
+              Ação: Enviar orçamento detalhado de website institucional (<span class="font-bold text-primary">25.000 MT</span>)
+            </p>
+<div class="flex flex-wrap items-center gap-space-md font-body-sm text-body-sm text-text-secondary">
+<span class="flex items-center gap-1 text-whatsapp-green font-semibold">
+<span class="material-symbols-outlined text-[16px]">call</span>
+                +258 82 890 1204
+              </span>
+<span class="flex items-center gap-1 font-code-sm text-code-sm bg-surface-container-low px-2 py-0.5 rounded text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-error">priority_high</span>
+                Prazo: Hoje
+              </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm pl-2 md:pl-0 shrink-0">
+<button class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md font-semibold transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">description</span>
+<span>Enviar proposta</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-low hover:bg-surface-container text-text-secondary transition-colors" title="Ver detalhes do NUIT">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Task Card 3: Hotel Gorongosa -->
+<div class="bg-surface rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-surface-tint"></div>
+<div class="flex items-start gap-space-md pl-2 flex-1">
+<img class="w-14 h-14 rounded-lg object-cover shrink-0 shadow-sm" data-alt="Eco-tourism safari lodge in Gorongosa National Park Mozambique with thatched roof villas surrounded by lush African savanna trees and safari vehicles" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAy9ncJ8KF6BL9HnLj2zAS7VAtAInyITUBd2P5QCQGK4l0X73ZHwwA0ZJIkIADimgjc6xP3e86JJLBF0q8LWYmA0r8gAMs441zmRsP5OiPHOVjH9JXkeXdU1MDLgMItRDUVwFmi1TzSFJoWL_WSUwl15HztzlM-zWUW3mVWKQGsw8-jTeVUAz_hLhYZUBG4frlaI3KdCehVgCYYf0w9mPOtVgUSsH3J-Xu_7Y4gJ2ejk0STJsKA4qCeAg"/>
+<div class="flex flex-col min-w-0">
+<div class="flex flex-wrap items-center gap-2 mb-1">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Hotel &amp; Safaris Gorongosa</span>
+<span class="px-2 py-0.5 rounded-full bg-accent-light text-primary font-label-sm text-[11px]">Sofala</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[11px] text-text-secondary">Turismo</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium mb-1">
+              Ação: Primeiro contacto com Diretor Comercial
+            </p>
+<div class="flex flex-wrap items-center gap-space-md font-body-sm text-body-sm text-text-secondary">
+<span class="flex items-center gap-1 text-whatsapp-green font-semibold">
+<span class="material-symbols-outlined text-[16px]">call</span>
+                +258 86 541 7890
+              </span>
+<span class="flex items-center gap-1 font-code-sm text-code-sm bg-surface-container-low px-2 py-0.5 rounded text-text-secondary">
+<span class="material-symbols-outlined text-[14px]">event</span>
+                Prazo: Amanhã
+              </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm pl-2 md:pl-0 shrink-0">
+<button class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md font-semibold transition-all">
+<span class="material-symbols-outlined text-[18px]">calendar_add_on</span>
+<span>Agendar</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-low hover:bg-surface-container text-text-secondary transition-colors" title="Opções">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Column: Recent Activity & Discovery Log (4 Cols) -->
+<div class="lg:col-span-4 flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold">
+          Atividade Recente
+        </h2>
+<span class="material-symbols-outlined text-text-secondary text-[20px]">history</span>
+</div>
+<div class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<!-- Activity Item 1 -->
+<div class="flex items-start gap-space-sm pb-space-sm">
+<div class="w-8 h-8 rounded-full bg-accent-light text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">travel_explore</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md font-semibold text-on-surface">
+              Identificou 18 empresas em Sofala (Beira)
+            </span>
+<span class="font-body-sm text-body-sm text-text-secondary mt-0.5">
+              Setor de Logística &amp; Restauração mapeado via base pública.
+            </span>
+<span class="font-code-sm text-[11px] text-primary mt-1">há 2 horas</span>
+</div>
+</div>
+<!-- Activity Item 2 -->
+<div class="flex items-start gap-space-sm pb-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container text-on-secondary-fixed-variant flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">bookmark_added</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md font-semibold text-on-surface">
+              Guardou oportunidade: Moçambique Solar &amp; Engenharia
+            </span>
+<span class="font-body-sm text-body-sm text-text-secondary mt-0.5">
+              Adicionado à fase de contacto direto pelo WhatsApp (+258).
+            </span>
+<span class="font-code-sm text-[11px] text-text-secondary mt-1">ontem</span>
+</div>
+</div>
+<!-- Activity Item 3 -->
+<div class="flex items-start gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container-low text-tertiary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md font-semibold text-on-surface">
+              Mudança de estado: Pastelaria Maputo Central
+            </span>
+<span class="font-body-sm text-body-sm text-text-secondary mt-0.5">
+              Fase alterada para <strong class="text-tertiary font-semibold">"Ganho" (15.000 MT)</strong> com fecho presencial.
+            </span>
+<span class="font-code-sm text-[11px] text-text-secondary mt-1">há 3 dias</span>
+</div>
+</div>
+<!-- Pro-tip Box -->
+<div class="mt-2 p-space-sm rounded-lg bg-page-bg flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px] shrink-0">lightbulb</span>
+<p class="font-body-sm text-[12px] text-text-secondary">
+            Dica: Empresas em <strong>Nampula</strong> têm respondido 25% mais rápido a propostas enviadas de manhã.
+          </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Mozambican Commercial Data Transparency Banner -->
+<section class="bg-surface rounded-xl p-space-md shadow-sm flex flex-col sm:flex-row items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-accent-light text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">verified_user</span>
+</div>
+<p class="font-body-sm text-body-sm text-text-secondary">
+<strong class="text-on-surface font-semibold">Nota de integridade:</strong> O Prospecta utiliza exclusivamente dados e registos públicos de entidades empresariais em Moçambique. Todas as hipóteses comerciais e tomadas de contacto requerem validação humana e conformidade com as boas práticas locais.
+      </p>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="font-code-sm text-[11px] text-text-secondary">Versão MZ 2.4</span>
+<span class="w-1.5 h-1.5 rounded-full bg-border-subtle"></span>
+<a class="font-label-sm text-label-sm text-primary hover:underline" href="#">Políticas de Prospeção</a>
+</div>
+</section>
+</div></main></div></body></html>
