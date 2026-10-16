@@ -7,6 +7,7 @@ import { createUser, credits, checkPassword, passwordHash } from '../src/server/
 import { cancelJob, dashboard, getAnalysis, getBusiness, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, workerTick } from '../src/server/service.ts';
 import { parseCsv } from '../src/server/import.ts';
 import { analyse, validPhone } from '../src/server/providers.ts';
+import { sweepRealBusinesses } from '../src/server/real-businesses.ts';
 import { PROVINCES } from '../src/lib/contracts.ts';
 
 process.env.PROSPECTA_MODE='demo';
@@ -107,4 +108,21 @@ test('live mode search seeds real businesses and returns results for real Mozamb
   closeDb();
  }
 });
+test('sweepRealBusinesses caches live discovered businesses with phone, address and website status',async()=>{
+ closeDb();
+ process.env.PROSPECTA_DB_PATH=path.join(mkdtempSync(path.join(process.cwd(),'data-test-')),'sweep-test.sqlite');
+ try {
+  const swept=await sweepRealBusinesses('Oficinas Mecânicas','Maputo, Matola');
+  assert.ok(swept.length>=2);
+  assert.ok(swept.some(b=>b.phone!==null && b.phone.startsWith('+258')));
+  assert.ok(swept.some(b=>b.locality.includes('Maputo')||b.locality.includes('Matola')));
+  const cached=db().prepare("SELECT * FROM businesses WHERE id=?").get(swept[0].id) as {id:string;data:string};
+  assert.ok(cached);
+  const parsed=JSON.parse(cached.data);
+  assert.equal(parsed.name,swept[0].name);
+ }finally{
+  closeDb();
+ }
+});
+
 

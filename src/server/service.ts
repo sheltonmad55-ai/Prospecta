@@ -3,7 +3,7 @@ import { PROVINCES, STAGES } from '../lib/contracts.ts';
 import { db, id, now, transaction } from './db.ts';
 import { analyse, fetchDataset, mode, normalize } from './providers.ts';
 import { AppError, audit, credits, hash } from './auth.ts';
-import { dynamicGatherBusinesses, ensureRealBusinessesSeeded } from './real-businesses.ts';
+import { dynamicGatherBusinesses, ensureRealBusinessesSeeded, sweepRealBusinesses } from './real-businesses.ts';
 
 type Row=Record<string,string|number|null>;
 
@@ -85,6 +85,12 @@ export function startSearch(user:User,filters:SearchFilters):SearchResult {
  transaction(()=>{
   db().prepare('INSERT INTO searches VALUES(?,?,?,?,?,?,?,?,?)').run(searchId,user.workspaceId,JSON.stringify(filters),JSON.stringify(tasks),'[]','queued',mode(),timestamp,timestamp);
  });
+ setTimeout(()=>{
+  const r=db().prepare("SELECT * FROM searches WHERE id=?").get(searchId) as Row|undefined;
+  if(r && ['queued','running'].includes(String(r.status))) {
+   processSearch(r).catch(()=>{});
+  }
+ }, 10);
  return readSearch(user,searchId);
 }
 export function readSearch(user:User,searchId:string,page=1):SearchResult {
@@ -175,14 +181,24 @@ async function processSearch(row:Row) {
   businesses=sourceRows.map(b=>JSON.parse(b.data));
 
   if(row.mode==='live') {
-   const matches=businesses.filter(b=>businessMatchesFilter(b,filters));
-   if(matches.length<4 && (filters.niche || filters.cities)) {
+   if(filters.niche || filters.cities) {
     try {
-     await dynamicGatherBusinesses(filters.niche || '', filters.cities || '');
+     await sweepRealBusinesses(filters.niche || '', filters.cities || '');
      sourceRows=db().prepare("SELECT data FROM businesses WHERE source_key<>'demo'").all() as {data:string}[];
      businesses=sourceRows.map(b=>JSON.parse(b.data));
     } catch {
      // Gracefully keep existing businesses
+    }
+   }
+  } else {
+   if(filters.niche || filters.cities) {
+    const matches=businesses.filter(b=>businessMatchesFilter(b,filters));
+    if(matches.length<2) {
+     try {
+      await sweepRealBusinesses(filters.niche || '', filters.cities || '');
+      sourceRows=db().prepare("SELECT data FROM businesses").all() as {data:string}[];
+      businesses=sourceRows.map(b=>JSON.parse(b.data));
+     } catch {}
     }
    }
   }

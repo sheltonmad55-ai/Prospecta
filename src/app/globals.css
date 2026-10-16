@@ -41,6 +41,14 @@
 .radar-search-pill .pill-dot{color:#9ab4d3}
 .radar-search-pill .pill-status{color:#6584a8;font-size:11px}
 .ig-fact{display:flex;align-items:center;gap:7px;font-size:12px;color:#833ab4}
+.fact-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.fact-phone{background:#eaf8ef;color:#18794e;border:1px solid #b7ebd0}
+.fact-phone b{font-weight:700;color:#116840}
+.fact-phone-none{background:#f6f8fa;color:#7b8ea5;border:1px solid #e1e7ec}
+.fact-web{background:#eef6ff;color:#1967d2;border:1px solid #c7defa}
+.fact-web-none{background:#fdf8ed;color:#9b5a00;border:1px solid #f6dfbe}
+.fact-ig{background:#fbf0f9;color:#9b2c8c;border:1px solid #f2c7ed}
 @media(max-width:960px){.radar-row-1{grid-template-columns:1fr}.radar-row-2{grid-template-columns:1fr 1fr}.radar-action-col{grid-column:1 / -1}.radar-submit-button{width:100%}}
 @media(max-width:600px){.radar-row-2{grid-template-columns:1fr}}
+
 
