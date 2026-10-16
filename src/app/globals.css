@@ -18,3 +18,29 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition:none!important}}
 
 .legal-links{display:flex;gap:15px;font-size:12px}.legal-page{max-width:760px;margin:50px auto;padding:35px;background:white;border:1px solid var(--line);border-radius:14px}.legal-page>.eyebrow{margin:35px 0 15px}.legal-page h1{margin-bottom:25px}.legal-page h2{margin:30px 0 10px}.legal-page p{font-size:14px;line-height:1.9;color:var(--text)}.legal-page>a{font-size:13px}@media(max-width:768px){.legal-page{margin:18px;padding:24px}.checkbox{flex-wrap:wrap;gap:5px}.checkbox input{margin-right:4px}}
+
+/* Radar Search Interface */
+.radar-search-panel{overflow:visible;border-radius:14px}
+.radar-search-panel form{padding:24px}
+.radar-row-1{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.radar-row-2{display:grid;grid-template-columns:1fr 1fr 1fr 1.35fr auto;gap:14px;align-items:flex-end}
+.radar-search-panel .field-group{margin-bottom:0}
+.radar-search-panel .field-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#556982;margin-bottom:6px}
+.radar-search-panel input,.radar-search-panel select{font-size:13px;min-height:44px;border-radius:8px}
+.radar-action-col{display:flex;align-items:flex-end}
+.radar-submit-button{min-height:44px;padding:10px 22px;font-weight:700;font-size:13.5px;white-space:nowrap}
+.radar-my-searches{padding:16px 24px 20px;border-top:1px solid #edf2f7;background:#fbfdff}
+.radar-my-searches-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.radar-my-searches-title{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#3b506c}
+.radar-my-searches-title svg{color:var(--blue)}
+.radar-my-searches-title small{font-weight:500;font-size:11.5px;color:#7b8ea5}
+.radar-search-pills{display:flex;gap:8px;flex-wrap:wrap}
+.radar-search-pill{display:inline-flex;align-items:center;gap:6px;background:#ffffff;border:1px solid #d8e4f3;color:#3a5372;border-radius:20px;padding:6px 13px;font-size:12px;font-weight:600;transition:all .15s ease;box-shadow:0 1px 2px #14263805}
+.radar-search-pill:hover{background:#f0f6ff;border-color:#a9c6ee;color:var(--action);transform:translateY(-1px)}
+.radar-search-pill.active{background:#eaf2ff;border-color:#79a8e8;color:var(--action);font-weight:700}
+.radar-search-pill .pill-dot{color:#9ab4d3}
+.radar-search-pill .pill-status{color:#6584a8;font-size:11px}
+.ig-fact{display:flex;align-items:center;gap:7px;font-size:12px;color:#833ab4}
+@media(max-width:960px){.radar-row-1{grid-template-columns:1fr}.radar-row-2{grid-template-columns:1fr 1fr}.radar-action-col{grid-column:1 / -1}.radar-submit-button{width:100%}}
+@media(max-width:600px){.radar-row-2{grid-template-columns:1fr}}
+

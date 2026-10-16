@@ -6,8 +6,8 @@ export interface Credits { available: number; reserved: number; spent: number }
 export interface Profile { service: string; pitch: string; province: string; phone: string; nationwide: boolean; onboarded: boolean }
 export interface User { id: string; name: string; email: string; workspaceId: string; role: 'owner' | 'admin'; profile: Profile; credits: Credits }
 export interface Evidence { id: string; field: string; value: string; source: string; observedAt: string }
-export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean }
-export interface SearchFilters { province: string; locality: string; category: string; service: string; budget?: number }
+export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean }
+export interface SearchFilters { province?: string; locality?: string; category?: string; service: string; budget?: number; niche?: string; cities?: string; phone?: string; website?: string; instagram?: string }
 export interface SearchTask { province: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'limited'; count: number; error?: string }
 export interface SearchResult { id: string; status: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed'; filters: SearchFilters; tasks: SearchTask[]; results: Business[]; total: number; page: number; pages: number; createdAt: string; mode: 'demo' | 'live' }
 export interface Analysis { id: string; businessId: string; facts: {text: string; evidenceIds: string[]}[]; hypotheses: string[]; recommendedService: string; reason: string; missingData: string[]; draftMessage: string; confidence: string; mode: 'demo' | 'live'; createdAt: string }

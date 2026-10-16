@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '@/lib/contracts';
 import { db, id, now, transaction } from '@/server/db';
 import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, getUser, hash, passwordHash, rateLimit, requireUser, sessionToken, supabase, userById } from '@/server/auth';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, readJob, readSearch, requestAnalysis, saveLead, startSearch } from '@/server/service';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch } from '@/server/service';
 import { mode, validPhone } from '@/server/providers';
 import { parseCsv } from '@/server/import';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '@/server/google-oauth';
@@ -143,9 +143,21 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(route==='profile')return reply({user});
   if(route==='dashboard' && method==='GET')return reply(dashboard(user));
   if(route==='locations' && method==='GET')return reply({locations:db().prepare('SELECT * FROM locations').all(),catalogue:'Unidades de primeiro nível; localidades pesquisáveis por texto. Não é um catálogo completo de distritos.'});
+  if(route==='searches' && method==='GET')return reply({searches:listSearches(user)});
   if(route==='searches' && method==='POST') {
    rateLimit('search:'+user.id,20,60000);
-   const filters=z.object({province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])),locality:z.string().trim().max(120),category:z.string().max(120),service:z.string().max(120),budget:z.number().int().min(1).max(11).optional()}).parse(input);
+   const filters=z.object({
+     province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).optional().default(''),
+     locality:z.string().trim().max(120).optional().default(''),
+     category:z.string().max(120).optional().default(''),
+     service:z.string().max(120).default('Criação de websites'),
+     budget:z.number().int().min(1).max(11).optional(),
+     niche:z.string().trim().max(200).optional().default(''),
+     cities:z.string().trim().max(200).optional().default(''),
+     phone:z.string().optional().default('all'),
+     website:z.string().optional().default('all'),
+     instagram:z.string().optional().default('all')
+   }).parse(input);
    return reply(startSearch(user,filters),202);
   }
   if(path[0]==='searches' && path[1] && method==='GET')return reply(readSearch(user,path[1],Number(new URL(request.url).searchParams.get('page'))||1));

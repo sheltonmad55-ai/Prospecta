@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import path from 'node:path';
 import { db, closeDb, id } from '../src/server/db.ts';
 import { createUser, credits, checkPassword, passwordHash } from '../src/server/auth.ts';
-import { cancelJob, dashboard, getAnalysis, getBusiness, listLeads, readJob, readSearch, requestAnalysis, saveLead, startSearch, workerTick } from '../src/server/service.ts';
+import { cancelJob, dashboard, getAnalysis, getBusiness, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, workerTick } from '../src/server/service.ts';
 import { parseCsv } from '../src/server/import.ts';
 import { analyse, validPhone } from '../src/server/providers.ts';
 import { PROVINCES } from '../src/lib/contracts.ts';
@@ -76,3 +76,35 @@ test('30 deterministic analysis cases preserve evidence references and introduce
  for(const businessId of ids){const business=getBusiness(businessId);const result=await analyse(business,{service:'Criação de websites',pitch:'Serviços para empresas',province:'',phone:'',nationwide:true,onboarded:true},'Profissional','Profissional','Criação de websites');assert.equal(result.mode,'demo');assert.ok(result.facts.every(f=>f.evidenceIds.every(ref=>business.evidence.some(e=>e.id===ref))));assert.ok(!result.draftMessage.includes('+258'));assert.ok(!/\d+%/.test(result.draftMessage));}
  closeDb();
 });
+test('radar search interface: flexible matching by niche, cities, contacts and history',async()=>{
+ const user=createUser('Radar teste','radar-'+id()+'@test.invalid','a very long password');
+ const search1=startSearch(user,{niche:'restaurantes',cities:'Maputo, Matola',phone:'all',website:'all',instagram:'all',province:'',locality:'',category:'',service:'Criação de websites',budget:11});
+ await workerTick();
+ const res1=readSearch(user,search1.id);
+ assert.ok(res1.total>0);
+ assert.ok(res1.results.some(b=>b.category.toLowerCase().includes('restauração')||b.name.toLowerCase().includes('restaurante')));
+ const past=listSearches(user);
+ assert.ok(past.length>=1);
+ assert.equal(past[0].id,search1.id);
+ assert.equal(past[0].filters.niche,'restaurantes');
+ closeDb();
+});
+test('live mode search seeds real businesses and returns results for real Mozambican niches',async()=>{
+ closeDb();
+ process.env.PROSPECTA_DB_PATH=path.join(mkdtempSync(path.join(process.cwd(),'data-test-')),'live-search.sqlite');
+ process.env.PROSPECTA_MODE='live';
+ try {
+  const user=createUser('Live Teste','live-'+id()+'@test.invalid','a very long password');
+  const search=startSearch(user,{niche:'clínicas odontológicas',cities:'Maputo, Matola',phone:'all',website:'all',instagram:'all',province:'',locality:'',category:'',service:'Criação de websites',budget:11});
+  await workerTick();
+  const res=readSearch(user,search.id);
+  assert.ok(res.total>=2);
+  assert.equal(res.mode,'live');
+  assert.ok(res.results.some(b=>b.name.toLowerCase().includes('sorriso')||b.name.toLowerCase().includes('matola')||b.name.toLowerCase().includes('clínica')));
+  assert.ok(res.results.some(b=>b.phone!==null));
+ }finally{
+  process.env.PROSPECTA_MODE='demo';
+  closeDb();
+ }
+});
+

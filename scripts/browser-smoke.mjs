@@ -9,7 +9,7 @@ await page.goto('http://127.0.0.1:4317',{waitUntil:'networkidle'});
 await page.screenshot({path:directory+'/01-inicio.png',fullPage:true});
 await page.getByRole('button',{name:'Explorar demonstração'}).click();
 await page.getByRole('heading',{name:'O próximo cliente pode estar aqui.'}).waitFor();
-await page.getByRole('button',{name:'Pesquisar empresas',exact:true}).click();
+await page.getByRole('button',{name:/Buscar negócios|Pesquisar empresas/}).click();
 await page.getByRole('heading',{name:/44 empresas encontradas/}).waitFor({timeout:30000});
 await page.screenshot({path:directory+'/02-pesquisa.png',fullPage:true});
 await page.getByRole('button',{name:'Ver empresa e possibilidades'}).first().click();

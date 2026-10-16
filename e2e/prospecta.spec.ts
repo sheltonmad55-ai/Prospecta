@@ -3,7 +3,7 @@ test('percurso completo: pesquisa, análise, mensagem persistente e CRM',async({
  await page.goto('/');
  await page.getByRole('button',{name:'Explorar demonstração'}).click();
  await expect(page.getByRole('heading',{name:'O próximo cliente pode estar aqui.'})).toBeVisible();
- await page.getByRole('button',{name:'Pesquisar empresas',exact:true}).click();
+ await page.getByRole('button',{name:/Buscar negócios|Pesquisar empresas/}).click();
  await expect(page.getByRole('heading',{name:/44 empresas encontradas/})).toBeVisible({timeout:30000});
  await page.getByRole('button',{name:'Ver empresa e possibilidades'}).first().click();
  await page.getByRole('button',{name:'Analisar oportunidade · 1 crédito'}).click();

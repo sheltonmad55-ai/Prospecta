@@ -30,7 +30,7 @@ function heading(text){return [...document.querySelectorAll('h1,h2,h3')].find(h=
 try{
  (await waitFor('landing',()=>button('Explorar demonstração'))).click();
  await waitFor('authenticated search',()=>heading('O próximo cliente pode estar aqui.'));
- (await waitFor('search action',()=>button('Pesquisar empresas'))).click();
+ (await waitFor('search action',()=>button('Buscar negócios')||button('Pesquisar empresas'))).click();
  await waitFor('national result rendered',()=>heading('44 empresas encontradas'));
  (await waitFor('company action',()=>button('Ver empresa e possibilidades'))).click();
  await waitFor('business evidence view',()=>heading('Primeiro, os factos.'));

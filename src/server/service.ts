@@ -3,8 +3,56 @@ import { PROVINCES, STAGES } from '../lib/contracts.ts';
 import { db, id, now, transaction } from './db.ts';
 import { analyse, fetchDataset, mode, normalize } from './providers.ts';
 import { AppError, audit, credits, hash } from './auth.ts';
+import { dynamicGatherBusinesses, ensureRealBusinessesSeeded } from './real-businesses.ts';
 
 type Row=Record<string,string|number|null>;
+
+export function matchTextFlexible(target: string, query: string): boolean {
+ if (!query || !query.trim()) return true;
+ const targetNorm = normalize(target);
+ const queryNorm = normalize(query.trim());
+ if (targetNorm.includes(queryNorm)) return true;
+
+ const queryWords = queryNorm.split(/[\s,]+/).filter(w => w.length >= 2);
+ if (queryWords.length === 0) return true;
+
+ return queryWords.some(word => {
+  if (targetNorm.includes(word)) return true;
+  if (word.endsWith('s') && word.length > 3 && targetNorm.includes(word.slice(0, -1))) return true;
+  const stem = word.length > 5 ? word.slice(0, word.length - 2) : word.slice(0, word.length - 1);
+  if (stem.length >= 3 && targetNorm.includes(stem)) return true;
+  return false;
+ });
+}
+
+export function businessMatchesFilter(b: Business, filters: SearchFilters): boolean {
+ if (filters.phone === 'with_phone' && !b.phone) return false;
+ if (filters.website === 'without_website' && b.website) return false;
+ if (filters.website === 'with_website' && !b.website) return false;
+ if (filters.instagram === 'with_instagram' && !b.instagram) return false;
+ if (filters.instagram === 'without_instagram' && b.instagram) return false;
+
+ if (filters.province && b.province !== filters.province) return false;
+ if (filters.category && b.category !== filters.category) return false;
+ if (filters.locality && !normalize(b.locality).includes(normalize(filters.locality))) return false;
+
+ if (filters.cities && filters.cities.trim()) {
+  const cityTokens = filters.cities.split(',').map(c => normalize(c.trim())).filter(Boolean);
+  if (cityTokens.length > 0) {
+   const locationText = normalize(`${b.locality} ${b.province}`);
+   const matchesAnyCity = cityTokens.some(city => locationText.includes(city) || city.includes(normalize(b.locality)));
+   if (!matchesAnyCity) return false;
+  }
+ }
+
+ if (filters.niche && filters.niche.trim()) {
+  const searchable = `${b.name} ${b.category} ${b.description || ''} ${b.locality} ${b.province}`;
+  if (!matchTextFlexible(searchable, filters.niche)) return false;
+ }
+
+ return true;
+}
+
 export function getBusiness(businessId:string,user?:User):Business {
  const row=db().prepare('SELECT data,source_key FROM businesses WHERE id=?').get(businessId) as {data:string;source_key:string}|undefined;
  if(!row || (mode()==='live' && row.source_key==='demo')) throw new AppError('Empresa não encontrada.',404);
@@ -44,6 +92,25 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
  if(!row) throw new AppError('Pesquisa não encontrada.',404);
  const ids=JSON.parse(String(row.results)) as string[];const pages=Math.max(1,Math.ceil(ids.length/8));const safePage=Math.min(Math.max(1,page),pages);
  return {id:searchId,status:row.status as SearchResult['status'],filters:JSON.parse(String(row.filters)),tasks:JSON.parse(String(row.tasks)),results:ids.slice((safePage-1)*8,safePage*8).map(b=>getBusiness(b,user)),total:ids.length,page:safePage,pages,createdAt:String(row.created_at),mode:row.mode as SearchResult['mode']};
+}
+export function listSearches(user:User):SearchResult[] {
+ const rows=db().prepare('SELECT * FROM searches WHERE workspace_id=? ORDER BY created_at DESC LIMIT 8').all(user.workspaceId) as Row[];
+ return rows.map(row=>{
+  const ids=JSON.parse(String(row.results||'[]')) as string[];
+  const pages=Math.max(1,Math.ceil(ids.length/8));
+  return {
+   id:String(row.id),
+   status:row.status as SearchResult['status'],
+   filters:JSON.parse(String(row.filters)),
+   tasks:JSON.parse(String(row.tasks||'[]')),
+   results:[],
+   total:ids.length,
+   page:1,
+   pages,
+   createdAt:String(row.created_at),
+   mode:row.mode as SearchResult['mode']
+  };
+ });
 }
 export function getAnalysis(user:User,businessId:string) {
  const row=db().prepare('SELECT * FROM analyses WHERE workspace_id=? AND business_id=? ORDER BY created_at DESC LIMIT 1').get(user.workspaceId,businessId) as Row|undefined;
@@ -97,12 +164,28 @@ async function processSearch(row:Row) {
  const filters=JSON.parse(String(row.filters)) as SearchFilters;const tasks=JSON.parse(String(row.tasks)) as SearchTask[];
  let businesses:Business[]=[];
  try {
+  if(row.mode==='live') {
+   ensureRealBusinessesSeeded();
+  }
   if(row.mode==='live' && process.env.APIFY_TOKEN) {
    const imported=await fetchDataset();
    transaction(()=>{for(const b of imported){if(!PROVINCES.includes(b.province as typeof PROVINCES[number]))continue;db().prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(b.id,JSON.stringify(b),'authorized-dataset',now());}});
   }
-  const sourceRows=db().prepare(row.mode==='live'?"SELECT data FROM businesses WHERE source_key<>'demo'":"SELECT data FROM businesses WHERE source_key='demo'").all() as {data:string}[];
+  let sourceRows=db().prepare(row.mode==='live'?"SELECT data FROM businesses WHERE source_key<>'demo'":"SELECT data FROM businesses WHERE source_key='demo'").all() as {data:string}[];
   businesses=sourceRows.map(b=>JSON.parse(b.data));
+
+  if(row.mode==='live') {
+   const matches=businesses.filter(b=>businessMatchesFilter(b,filters));
+   if(matches.length<4 && (filters.niche || filters.cities)) {
+    try {
+     await dynamicGatherBusinesses(filters.niche || '', filters.cities || '');
+     sourceRows=db().prepare("SELECT data FROM businesses WHERE source_key<>'demo'").all() as {data:string}[];
+     businesses=sourceRows.map(b=>JSON.parse(b.data));
+    } catch {
+     // Gracefully keep existing businesses
+    }
+   }
+  }
  } catch(error) {
   tasks.forEach(t=>{t.status='failed';t.error=error instanceof Error?error.message:'Falha da fonte';});
   db().prepare('UPDATE searches SET tasks=?,status=?,updated_at=? WHERE id=?').run(JSON.stringify(tasks),'failed',now(),row.id);return;
@@ -110,7 +193,7 @@ async function processSearch(row:Row) {
  const matched:string[][]=[];let budget=filters.budget||11;
  for(const task of tasks) {
   if(budget--<=0){task.status='limited';matched.push([]);continue;}
-  const results=businesses.filter(b=>b.province===task.province && (!filters.locality||normalize(b.locality).includes(normalize(filters.locality))) && (!filters.category||b.category===filters.category));
+  const results=businesses.filter(b=>b.province===task.province && businessMatchesFilter(b,filters));
   task.status='succeeded';task.count=results.length;matched.push(results.map(b=>b.id));
  }
  const ordered:string[]=[];for(let i=0;i<Math.max(0,...matched.map(g=>g.length));i++)for(const group of matched)if(group[i])ordered.push(group[i]);
