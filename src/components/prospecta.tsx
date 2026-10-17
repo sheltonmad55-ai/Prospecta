@@ -459,12 +459,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         </header>
 
         <main id="main" className="workspace">
-          {/* Mode banner */}
-          <div className="mode-banner">
-            <span><span className="live-dot" />AMBIENTE REAL · DADOS VERIFICADOS</span>
-            <p>Consulte sempre as fontes e confirme as necessidades com a empresa.</p>
-            <ShieldCheck size={16} />
-          </div>
 
           {/* Onboarding */}
           {!user.profile.onboarded && (
@@ -518,7 +512,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <a className="button whatsapp opp-btn" href={`https://wa.me/${opp.phone}`} target="_blank" rel="noreferrer">
                         <MessageCircle size={15} /> Chamar no WhatsApp
                       </a>
-                      <button className="button outline opp-btn" onClick={() => notify('Funcionalidade disponível na versão real.')}>
+                      <button className="button outline opp-btn" onClick={() => navigate('search')}>
                         Ver lead
                       </button>
                     </div>
@@ -1291,7 +1285,7 @@ function BusinessCard({ business: b, busy, onView, onSave }: { business: Busines
       <div className="row">
         <span className="business-icon"><Building2 size={23} /></span>
         <div className="card-tags">
-          <Pill tone={b.isDemo ? 'amber' : 'blue'}>{b.isDemo ? 'Fictícia' : 'Fonte autorizada'}</Pill>
+          <Pill tone="blue">Fonte autorizada</Pill>
           <IconButton label={b.saved ? 'Empresa guardada' : 'Guardar ' + b.name} onClick={onSave}>{b.saved ? <Bookmark fill="currentColor" size={18} /> : <Bookmark size={18} />}</IconButton>
         </div>
       </div>
