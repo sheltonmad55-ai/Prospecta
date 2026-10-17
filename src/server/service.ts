@@ -93,6 +93,22 @@ export function startSearch(user:User,filters:SearchFilters):SearchResult {
  }, 10);
  return readSearch(user,searchId);
 }
+export async function startSearchAsync(user:User,filters:SearchFilters):Promise<SearchResult> {
+ const tasks:SearchTask[]=(filters.province? [filters.province]:[...PROVINCES]).map(province=>({province,status:'queued',count:0}));
+ const searchId=id();const timestamp=now();
+ transaction(()=>{
+  db().prepare('INSERT INTO searches VALUES(?,?,?,?,?,?,?,?,?)').run(searchId,user.workspaceId,JSON.stringify(filters),JSON.stringify(tasks),'[]','queued',mode(),timestamp,timestamp);
+ });
+ const r=db().prepare("SELECT * FROM searches WHERE id=?").get(searchId) as Row|undefined;
+ if(r && ['queued','running'].includes(String(r.status))) {
+  try {
+   await processSearch(r);
+  } catch (err) {
+   console.error('[startSearchAsync] processSearch failed:', err);
+  }
+ }
+ return readSearch(user,searchId);
+}
 export function readSearch(user:User,searchId:string,page=1):SearchResult {
  const row=db().prepare('SELECT * FROM searches WHERE workspace_id=? AND id=?').get(user.workspaceId,searchId) as Row|undefined;
  if(!row) throw new AppError('Pesquisa não encontrada.',404);

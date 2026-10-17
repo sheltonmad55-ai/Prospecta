@@ -187,7 +187,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       if (currentUser && initialAuth && !query.get('reset')) { setAuth(null); navigate('opportunities'); }
       if (query.get('auth') === 'recover') setAuth('recover');
       const oauthError = query.get('auth_error');
-      if (oauthError) notify(
+      if (oauthError && !currentUser) notify(
         oauthError === 'google_cancelled' ? 'O acesso com Google foi cancelado. Pode tentar novamente.'
           : oauthError === 'google_terms' ? 'Para continuar com Google, crie a conta e aceite os termos.'
             : 'Não foi possível concluir o acesso com Google. Tente novamente.', true
@@ -195,6 +195,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       const initial = query.get('view') as View | null;
       const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
       if (initial && validViews.includes(initial)) setView(initial);
+      if (currentUser && (query.get('error') || query.get('error_code') || query.get('error_description') || query.get('auth_error'))) {
+        const targetView = (initial && validViews.includes(initial)) ? initial : 'opportunities';
+        window.history.replaceState({}, '', window.location.pathname + '?view=' + targetView);
+      }
       if (currentUser && query.get('business')) loadBusiness(query.get('business')!, initial === 'outreach' ? 'outreach' : 'business').catch(e => notify(e.message, true));
       if (query.get('reset') || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') setAuth('reset');
       if (query.get('confirm')) post('auth/confirm', { token: query.get('confirm') }).then(() => notify('E-mail confirmado.')).catch(e => notify(e.message, true));

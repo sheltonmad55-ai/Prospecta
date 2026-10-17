@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '@/lib/contracts';
 import { db, id, now, transaction } from '@/server/db';
 import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '@/server/auth';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch } from '@/server/service';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync } from '@/server/service';
 import { mode, validPhone } from '@/server/providers';
 import { parseCsv } from '@/server/import';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '@/server/google-oauth';
@@ -220,7 +220,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
      website:z.string().optional().default('all'),
      instagram:z.string().optional().default('all')
    }).parse(input);
-   return reply(startSearch(user,filters),202);
+   const result = await startSearchAsync(user, filters);
+   return reply(result, 200);
   }
   if(path[0]==='searches' && path[1] && method==='GET')return reply(readSearch(user,path[1],Number(new URL(request.url).searchParams.get('page'))||1));
   if(path[0]==='businesses' && path[1] && method==='GET')return reply({business:getBusiness(path[1],user),analysis:getAnalysis(user,path[1]),lead:listLeads(user).find(l=>l.businessId===path[1])||null});

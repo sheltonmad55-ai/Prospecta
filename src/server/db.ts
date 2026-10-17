@@ -61,7 +61,7 @@ function seed(database: DatabaseSync) {
     const locality = cities[i][j%2];
     const name = `${kind} ${locality} Central`;
     const phone = `+258 84 ${2000000 + (i * 100000) + (j * 11111)}`;
-    const website = j===2 ? `https://${locality.toLowerCase().replace(/[^a-z]/g,'')}-negocios.co.mz` : null;
+    const website = null;
     const evidence = [
       {id:`${businessId}-name`,field:'name',value:name,source:'Directório Empresarial MZ',observedAt},
       {id:`${businessId}-location`,field:'location',value:`${locality}, ${province}`,source:'Directório Empresarial MZ',observedAt},
