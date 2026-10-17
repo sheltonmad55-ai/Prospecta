@@ -154,11 +154,27 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  const loadBusiness = useCallback(async (businessId: string, next: View = 'business') => {
-    const result = await api<{ business: Business; analysis: Analysis | null; lead: Lead | null }>('businesses/' + businessId);
-    setBusiness(result.business); setAnalysis(result.analysis);
-    setDraft(result.analysis?.draftMessage || ''); setSelectedLead(result.lead);
-    navigate(next, result.business);
+  const loadBusiness = useCallback(async (businessId: string, next: View = 'business', fallbackBusiness?: Business) => {
+    if (fallbackBusiness) {
+      setBusiness(fallbackBusiness);
+      navigate(next, fallbackBusiness);
+    }
+    try {
+      let query = '';
+      if (fallbackBusiness) {
+        try {
+          query = '?b=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(fallbackBusiness)))));
+        } catch {}
+      }
+      const result = await api<{ business: Business; analysis: Analysis | null; lead: Lead | null }>('businesses/' + businessId + query);
+      setBusiness(result.business); setAnalysis(result.analysis);
+      setDraft(result.analysis?.draftMessage || ''); setSelectedLead(result.lead);
+      if (!fallbackBusiness) {
+        navigate(next, result.business);
+      }
+    } catch (err) {
+      if (!fallbackBusiness) throw err;
+    }
   }, [navigate]);
 
   useEffect(() => {
@@ -351,11 +367,40 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   async function doSearch(page?: number, customFilters?: SearchFilters) {
     await run(async () => {
       const searchParams = customFilters || filters;
-      let result = page && searchResult ? await api<SearchResult>(`searches/${searchResult.id}?page=${page}`) : await post<SearchResult>('searches', searchParams);
+      if (page && searchResult?.allResults && searchResult.allResults.length > 0) {
+        const pageSize = 8;
+        const total = searchResult.allResults.length;
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const safePage = Math.min(Math.max(1, page), pages);
+        const results = searchResult.allResults.slice((safePage - 1) * pageSize, safePage * pageSize);
+        setSearchResult({
+          ...searchResult,
+          page: safePage,
+          pages,
+          results
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      let result: SearchResult;
+      if (page && searchResult) {
+        try {
+          result = await api<SearchResult>(`searches/${searchResult.id}?page=${page}`);
+        } catch {
+          result = await post<SearchResult>('searches', searchParams);
+        }
+      } else {
+        result = await post<SearchResult>('searches', searchParams);
+      }
       setSearchResult(result);
       for (let i = 0; ['queued', 'running'].includes(result.status) && i < 80; i++) {
         await new Promise(r => setTimeout(r, 650));
-        result = await api<SearchResult>('searches/' + result.id); setSearchResult(result);
+        try {
+          result = await api<SearchResult>('searches/' + result.id);
+          setSearchResult(result);
+        } catch {
+          break;
+        }
       }
       if (['queued', 'running'].includes(result.status)) notify('A pesquisa continua em curso. Verifique o processador de tarefas.', true);
       else loadPastSearches();
@@ -818,7 +863,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     ))}
                   </div>
                   {searchResult.results.length
-                    ? <div className="business-grid">{searchResult.results.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id))} onSave={() => saveBusiness(b)} />)}</div>
+                    ? <div className="business-grid">{searchResult.results.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id, 'business', b))} onSave={() => saveBusiness(b)} />)}</div>
                     : <section className="panel"><Empty icon={<Search size={30} />} title={searchResult.status === 'failed' ? 'Não foi possível consultar a fonte.' : 'Não encontrámos resultados nesta consulta.'} description={searchResult.tasks.find(t => t.error)?.error || 'Experimente outro nicho ou cidade.'}><button className="button outline" onClick={() => doSearch()}>Tentar novamente</button></Empty></section>
                   }
                   <div className="pagination">
@@ -1319,7 +1364,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               <label>Notas<textarea name="note" rows={4} defaultValue={selectedLead.note} placeholder="O que é importante para esta conversa?" /></label>
               <button className="button full" disabled={busy}><Check size={16} /> Guardar alterações</button>
             </form>
-            <button className="button outline full" onClick={() => run(async () => { await loadBusiness(selectedLead.businessId); })}>Ver ficha da empresa <ArrowRight size={16} /></button>
+            <button className="button outline full" onClick={() => run(async () => { await loadBusiness(selectedLead.businessId, 'business', selectedLead.business); })}>Ver ficha da empresa <ArrowRight size={16} /></button>
             <h3>Histórico</h3>
             <div className="activity-list">{selectedLead.activities.map(a => <div key={a.id}><span className="activity-dot" /><div><p>{a.note}</p><small>{date(a.createdAt)}</small></div></div>)}</div>
           </section>

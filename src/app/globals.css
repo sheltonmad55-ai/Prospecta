@@ -91,12 +91,12 @@
 .radar-search-pill .pill-status{color:#94A3B8;font-size:11px}
 .ig-fact{display:flex;align-items:center;gap:7px;font-size:12px;color:#833ab4}
 .fact-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
-.fact-phone{background:#eaf8ef;color:#18794e;border:1px solid #b7ebd0}
-.fact-phone b{font-weight:700;color:#116840}
-.fact-phone-none{background:#f6f8fa;color:#7b8ea5;border:1px solid #e1e7ec}
-.fact-web{background:#eef6ff;color:#1967d2;border:1px solid #c7defa}
-.fact-web-none{background:#fdf8ed;color:#9b5a00;border:1px solid #f6dfbe}
-.fact-ig{background:#fbf0f9;color:#9b2c8c;border:1px solid #f2c7ed}
+.fact-phone{background:rgba(16,185,129,0.15);color:#34D399;border:1px solid rgba(16,185,129,0.3)}
+.fact-phone b{font-weight:700;color:#34D399}
+.fact-phone-none{background:#11233D;color:#94A3B8;border:1px solid rgba(59,130,246,0.25)}
+.fact-web{background:rgba(24,119,242,0.15);color:#60A5FA;border:1px solid rgba(59,130,246,0.3)}
+.fact-web-none{background:#11233D;color:#94A3B8;border:1px solid rgba(59,130,246,0.25)}
+.fact-ig{background:rgba(192,132,252,0.15);color:#C084FC;border:1px solid rgba(192,132,252,0.3)}
 @media(max-width:960px){.radar-row-1{grid-template-columns:1fr}.radar-row-2{grid-template-columns:repeat(auto-fit, minmax(130px, 1fr))}.radar-action-col{grid-column:1 / -1}.radar-submit-button{width:100%}}
 @media(max-width:600px){.radar-row-2{grid-template-columns:1fr}}
 
@@ -1233,6 +1233,111 @@ label span {
 }
 
 /* Leads & CRM */
+.stage-filters,
+.crm-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 21px;
+}
+.stage-filters > button,
+.crm-tabs > button {
+  background: #11233D !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  color: #94A3B8 !important;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.stage-filters > button:hover,
+.crm-tabs > button:hover {
+  background: #152B4A !important;
+  color: #FFFFFF !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+.stage-filters > button.active,
+.crm-tabs > button.active {
+  background: #1877F2 !important;
+  border-color: #1877F2 !important;
+  color: #FFFFFF !important;
+  font-weight: 700;
+}
+.stage-filters > button > b,
+.crm-tabs > button > b {
+  background: #0D1B2E !important;
+  color: #60A5FA !important;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.stage-filters > button.active > b,
+.crm-tabs > button.active > b {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #FFFFFF !important;
+}
+
+/* Status pills on leads/CRM */
+.stage-tone-0 { background: rgba(59, 130, 246, 0.15) !important; color: #60A5FA !important; border: 1px solid rgba(59, 130, 246, 0.3) !important; }
+.stage-tone-1 { background: rgba(245, 158, 11, 0.15) !important; color: #FBBF24 !important; border: 1px solid rgba(245, 158, 11, 0.3) !important; }
+.stage-tone-2 { background: rgba(168, 85, 247, 0.15) !important; color: #C084FC !important; border: 1px solid rgba(168, 85, 247, 0.3) !important; }
+.stage-tone-3 { background: rgba(14, 165, 233, 0.15) !important; color: #38BDF8 !important; border: 1px solid rgba(14, 165, 233, 0.3) !important; }
+.stage-tone-4 { background: rgba(16, 185, 129, 0.15) !important; color: #34D399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
+.stage-tone-5 { background: rgba(239, 68, 68, 0.15) !important; color: #F87171 !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; }
+
+/* Pagination buttons in search results footer */
+.pagination {
+  color: #94A3B8;
+}
+.pagination b,
+.pagination button,
+.pagination .icon-button {
+  background: #11233D !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  color: #FFFFFF !important;
+  border-radius: 6px;
+}
+.pagination b {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+.pagination .icon-button:hover:not(:disabled) {
+  background: var(--navy-blue) !important;
+  color: #FFFFFF !important;
+}
+
+/* Province coverage pills */
+.coverage-progress > span,
+.province-cloud > span {
+  background: #0D1B2E !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  color: #CBD5E1 !important;
+  border-radius: 6px;
+}
+.coverage-progress > span.complete {
+  background: rgba(24, 119, 242, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: #93C5FD !important;
+}
+.coverage-progress > span.failed {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #FCA5A5 !important;
+}
+.coverage-progress b {
+  background: #11233D !important;
+  color: #60A5FA !important;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
 .lead-row,
 .task-row {
   background: var(--navy-surface) !important;

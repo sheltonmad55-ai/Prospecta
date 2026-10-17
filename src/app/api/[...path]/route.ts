@@ -1,13 +1,13 @@
 import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
-import { PROVINCES, STAGES } from '@/lib/contracts';
-import { db, id, now, transaction } from '@/server/db';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '@/server/auth';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync } from '@/server/service';
-import { mode, validPhone } from '@/server/providers';
-import { parseCsv } from '@/server/import';
-import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '@/server/google-oauth';
-import { getAllVaultScripts, getVaultScriptsByCategory, searchVaultScripts, VAULT_CATEGORIES } from '@/server/vault-scripts';
+import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
+import { db, id, now, transaction } from '../../../server/db.ts';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync } from '../../../server/service.ts';
+import { mode, validPhone } from '../../../server/providers.ts';
+import { parseCsv } from '../../../server/import.ts';
+import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '../../../server/google-oauth.ts';
+import { getAllVaultScripts, getVaultScriptsByCategory, searchVaultScripts, VAULT_CATEGORIES } from '../../../server/vault-scripts.ts';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -223,8 +223,41 @@ async function handler(request:Request,context:Context):Promise<Response> {
    const result = await startSearchAsync(user, filters);
    return reply(result, 200);
   }
-  if(path[0]==='searches' && path[1] && method==='GET')return reply(readSearch(user,path[1],Number(new URL(request.url).searchParams.get('page'))||1));
-  if(path[0]==='businesses' && path[1] && method==='GET')return reply({business:getBusiness(path[1],user),analysis:getAnalysis(user,path[1]),lead:listLeads(user).find(l=>l.businessId===path[1])||null});
+  if(path[0]==='searches' && path[1] && method==='GET') {
+   try {
+    return reply(readSearch(user,path[1],Number(new URL(request.url).searchParams.get('page'))||1));
+   } catch (err) {
+    if (err instanceof AppError && err.status === 404) {
+      return reply({ id: path[1], status: 'failed', filters: { service: user.profile?.service || 'Criação de websites' }, tasks: [], results: [], total: 0, page: 1, pages: 1, createdAt: now(), mode: mode() });
+    }
+    throw err;
+   }
+  }
+  if(path[0]==='businesses' && path[1] && method==='GET') {
+   const bId = path[1];
+   let biz: import('@/lib/contracts').Business;
+   try {
+    biz = getBusiness(bId, user);
+   } catch (err) {
+    const bParam = new URL(request.url).searchParams.get('b');
+    if (bParam) {
+      try {
+        const parsed = JSON.parse(Buffer.from(decodeURIComponent(bParam), 'base64').toString('utf-8')) as import('@/lib/contracts').Business;
+        if (parsed && parsed.id === bId) {
+          db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(bId, JSON.stringify(parsed), 'live', now());
+          biz = parsed;
+        } else {
+          throw err;
+        }
+      } catch {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+   }
+   return reply({business:biz,analysis:getAnalysis(user,bId),lead:listLeads(user).find(l=>l.businessId===bId)||null});
+  }
   if(route==='analyses' && method==='POST') {
    const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional()}).parse(input);
    const key=request.headers.get('idempotency-key');if(!key||key.length>100)throw new AppError('É necessária uma chave de operação válida.');

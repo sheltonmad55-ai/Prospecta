@@ -8,20 +8,102 @@ export const CURATED_BUSINESSES: Array<{
   category: string;
   province: string;
   locality: string;
-  phone: string;
+  phone: string | null;
   website: string | null;
   instagram: string | null;
   description: string;
 }> = [
-  // Clínicas e Saúde
+  // Pizzarias e Gastronomia em Maputo e Matola
+  {
+    name: 'Pizzaria Bella Napoli',
+    category: 'Pizzaria',
+    province: 'Maputo Cidade',
+    locality: 'Sommerschield, Maputo',
+    phone: '+258 21 492 010',
+    website: null,
+    instagram: null,
+    description: 'Pizzaria tradicional com forno a lenha, massas artesanais e ambiente acolhedor na Sommerschield, Maputo.'
+  },
+  {
+    name: 'Debonairs Pizza Maputo',
+    category: 'Pizzaria',
+    province: 'Maputo Cidade',
+    locality: 'Central, Maputo',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Cadeia de pizzarias com serviço de balcão, take-away e entrega rápida na cidade de Maputo.'
+  },
+  {
+    name: 'Pizzaria e Forno da Matola',
+    category: 'Pizzaria',
+    province: 'Maputo Província',
+    locality: 'Machava, Matola',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Pizzaria artesanal e forno familiar com opções para convívios e eventos na Matola.'
+  },
+  {
+    name: 'Restaurante O Forno da Matola',
+    category: 'Restaurante e Pizzaria',
+    province: 'Maputo Província',
+    locality: 'Machava, Matola',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Pizzas em forno a lenha, massas e pratos tradicionais moçambicanos para eventos e jantares de família.'
+  },
+  {
+    name: 'Restaurante Zambi Waterfront',
+    category: 'Restaurante',
+    province: 'Maputo Cidade',
+    locality: 'Baixa, Maputo',
+    phone: '+258 84 220 5000',
+    website: 'https://zambi.co.mz',
+    instagram: null,
+    description: 'Gastronomia marítima moçambicana e internacional de alta qualidade com vista para a baía de Maputo.'
+  },
+  {
+    name: 'Taverna Latina Polana',
+    category: 'Restaurante',
+    province: 'Maputo Cidade',
+    locality: 'Polana Cimento, Maputo',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Cozinha portuguesa e mediterrânica, petiscos e ambiente descontraído na Av. Julius Nyerere.'
+  },
+  {
+    name: 'Restaurante Clube Náutico da Beira',
+    category: 'Restaurante',
+    province: 'Sofala',
+    locality: 'Macuti, Beira',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Peixe fresco, camarão grelhado e mariscos com vista frontal para a praia do Macuti na Beira.'
+  },
+  {
+    name: 'Piri-Piri Grill Nampula',
+    category: 'Restaurante',
+    province: 'Nampula',
+    locality: 'Bairro Central, Nampula',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Frango assado tradicional moçambicano à zambeziana e grelhados no centro comercial de Nampula.'
+  },
+
+  // Clínicas e Saúde Oral
   {
     name: 'Clínica Dentária Sorrisos do Índico',
     category: 'Clínica odontológica',
     province: 'Maputo Cidade',
     locality: 'Sommerschield, Maputo',
     phone: '+258 84 312 4589',
-    website: 'https://sorrisosdoindico.co.mz',
-    instagram: '@sorrisosdoindico_mz',
+    website: null,
+    instagram: null,
     description: 'Tratamentos ortodônticos, implantologia e estética dentária com equipamentos modernos na Sommerschield.'
   },
   {
@@ -31,7 +113,7 @@ export const CURATED_BUSINESSES: Array<{
     locality: 'Polana Cimento, Maputo',
     phone: '+258 82 451 9023',
     website: null,
-    instagram: '@odontologiacentral_maputo',
+    instagram: null,
     description: 'Atendimento odontológico geral, próteses e branqueamento dentário na Polana.'
   },
   {
@@ -40,8 +122,8 @@ export const CURATED_BUSINESSES: Array<{
     province: 'Maputo Província',
     locality: 'Fomento, Matola',
     phone: '+258 85 620 1198',
-    website: 'https://clinicamatola.co.mz',
-    instagram: '@clinicamatola_saude',
+    website: null,
+    instagram: null,
     description: 'Cuidados odontológicos e médicos integrados para famílias na zona do Fomento, Matola.'
   },
   {
@@ -49,9 +131,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Clínica odontológica',
     province: 'Sofala',
     locality: 'Ponta Gêa, Beira',
-    phone: '+258 84 710 3344',
+    phone: null,
     website: null,
-    instagram: '@odontobeira_oficial',
+    instagram: null,
     description: 'Especialistas em saúde oral, próteses dentárias e cirurgias menores na Beira.'
   },
   {
@@ -59,62 +141,10 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Clínica odontológica',
     province: 'Nampula',
     locality: 'Bairro Central, Nampula',
-    phone: '+258 86 512 8877',
-    website: 'https://nampulasorri.co.mz',
-    instagram: '@nampulasorri',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Clínica odontológica de referência na região norte, localizada no centro de Nampula.'
-  },
-
-  // Restaurantes e Gastronomia
-  {
-    name: 'Restaurante Zambi Waterfront',
-    category: 'Restaurante',
-    province: 'Maputo Cidade',
-    locality: 'Baixa, Maputo',
-    phone: '+258 84 220 5000',
-    website: 'https://zambi.co.mz',
-    instagram: '@zambi_waterfront',
-    description: 'Gastronomia marítima moçambicana e internacional de alta qualidade com vista para a baía de Maputo.'
-  },
-  {
-    name: 'Taverna Latina Polana',
-    category: 'Restaurante',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: '+258 82 890 3321',
-    website: null,
-    instagram: '@tavernalatina_mz',
-    description: 'Cozinha portuguesa e mediterrânica, petiscos e ambiente descontraído na Av. Julius Nyerere.'
-  },
-  {
-    name: 'Restaurante O Forno da Matola',
-    category: 'Restaurante',
-    province: 'Maputo Província',
-    locality: 'Machava, Matola',
-    phone: '+258 84 991 7654',
-    website: 'https://ofornomatola.co.mz',
-    instagram: '@ofornomatola',
-    description: 'Pizzas em forno a lenha, massas e pratos tradicionais moçambicanos para eventos e jantares de família.'
-  },
-  {
-    name: 'Restaurante Clube Náutico da Beira',
-    category: 'Restaurante',
-    province: 'Sofala',
-    locality: 'Macuti, Beira',
-    phone: '+258 84 340 1200',
-    website: null,
-    instagram: '@nauticobeira_gastronomia',
-    description: 'Peixe fresco, camarão grelhado e mariscos com vista frontal para a praia do Macuti na Beira.'
-  },
-  {
-    name: 'Piri-Piri Grill Nampula',
-    category: 'Restaurante',
-    province: 'Nampula',
-    locality: 'Bairro Central, Nampula',
-    phone: '+258 85 410 7799',
-    website: null,
-    instagram: '@piripiri_nampula',
-    description: 'Frango assado tradicional moçambicano à zambeziana e grelhados no centro comercial de Nampula.'
   },
 
   // Salões de Beleza, Cabelo e Estética
@@ -123,9 +153,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Salão de beleza',
     province: 'Maputo Cidade',
     locality: 'Sommerschield, Maputo',
-    phone: '+258 84 550 4432',
-    website: 'https://glamourmaputo.co.mz',
-    instagram: '@glamour_maputo',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Tratamentos capilares, coloração, manicure, pedicure e estética facial avançada na Sommerschield.'
   },
   {
@@ -133,9 +163,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Salão de beleza',
     province: 'Maputo Província',
     locality: 'Fomento, Matola',
-    phone: '+258 82 312 9900',
+    phone: null,
     website: null,
-    instagram: '@studiobeleza_matola',
+    instagram: null,
     description: 'Salão unissexo especializado em tranças africanas, penteados de noiva e maquilhagem profissional.'
   },
   {
@@ -143,9 +173,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Salão de beleza',
     province: 'Sofala',
     locality: 'Chaimite, Beira',
-    phone: '+258 84 661 2288',
+    phone: null,
     website: null,
-    instagram: '@peroladobeirasalao',
+    instagram: null,
     description: 'Serviços completos de cabeleireiro, alisamento e cuidados de estética corporal na Beira.'
   },
   {
@@ -153,9 +183,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Salão de beleza',
     province: 'Maputo Cidade',
     locality: 'Malhangalene, Maputo',
-    phone: '+258 86 123 7744',
-    website: 'https://barbeariavintagemaputo.co.mz',
-    instagram: '@barbeariavintage_mz',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Cortes masculinos modernos, barboterapia e cuidados masculinos em ambiente retro na Malhangalene.'
   },
 
@@ -167,7 +197,7 @@ export const CURATED_BUSINESSES: Array<{
     locality: 'Polana Cimento, Maputo',
     phone: '+258 84 300 8000',
     website: 'https://cga.co.mz',
-    instagram: '@cga_advogados_mz',
+    instagram: null,
     description: 'Sociedade de advogados com assessoria jurídica comercial, laboral, fiscal e societária.'
   },
   {
@@ -175,7 +205,7 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Advocacia',
     province: 'Sofala',
     locality: 'Ponta Gêa, Beira',
-    phone: '+258 82 490 1155',
+    phone: null,
     website: null,
     instagram: null,
     description: 'Assessoria jurídica a pequenas e médias empresas e representação legal na província de Sofala.'
@@ -187,9 +217,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Contabilidade',
     province: 'Maputo Cidade',
     locality: 'Bairro Central, Maputo',
-    phone: '+258 84 789 2211',
-    website: 'https://deltacontabilidade.co.mz',
-    instagram: '@deltacontabilidade_mz',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Auditoria de contas, processamento de salários, planeamento fiscal e consultoria empresarial.'
   },
   {
@@ -197,7 +227,7 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Contabilidade',
     province: 'Zambézia',
     locality: 'Quelimane',
-    phone: '+258 84 812 3399',
+    phone: null,
     website: null,
     instagram: null,
     description: 'Serviços contabilísticos, declaração de IVA e suporte fiscal a comerciantes em Quelimane.'
@@ -209,9 +239,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Oficina mecânica',
     province: 'Maputo Província',
     locality: 'Malhampsene, Matola',
-    phone: '+258 84 555 8899',
-    website: 'https://autocentralmatola.co.mz',
-    instagram: '@autocentral_matola',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Diagnóstico computadorizado, mecânica geral, alinhamento de direção e venda de peças originais.'
   },
   {
@@ -229,9 +259,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Oficina mecânica',
     province: 'Sofala',
     locality: 'Munhava, Beira',
-    phone: '+258 82 910 4422',
+    phone: null,
     website: null,
-    instagram: '@autobeira_oficina',
+    instagram: null,
     description: 'Reparação de motores a gasóleo e gasolina, suspensão e revisões periódicas de viaturas na Beira.'
   },
 
@@ -241,9 +271,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Imobiliária',
     province: 'Maputo Cidade',
     locality: 'Sommerschield, Maputo',
-    phone: '+258 84 210 9988',
-    website: 'https://horizontemaputo.co.mz',
-    instagram: '@horizontemaputo_imoveis',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Mediação imobiliária, arrendamento de escritórios e venda de moradias nas zonas nobres de Maputo.'
   },
   {
@@ -251,9 +281,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Construção',
     province: 'Nampula',
     locality: 'Bairro Central, Nampula',
-    phone: '+258 85 712 3344',
+    phone: null,
     website: null,
-    instagram: '@nampulaconstrucoes',
+    instagram: null,
     description: 'Empreiteiros gerais de obras civis, reabilitação de edifícios e fornecimento de materiais de construção.'
   },
 
@@ -263,9 +293,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Agência de marketing',
     province: 'Maputo Cidade',
     locality: 'Polana Cimento, Maputo',
-    phone: '+258 84 901 2345',
-    website: 'https://pixelmoz.co.mz',
-    instagram: '@pixelmoz_agencia',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Criação de marcas, campanhas de redes sociais e produção audiovisual corporativa em Maputo.'
   },
   {
@@ -273,9 +303,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Tecnologia e Informática',
     province: 'Nampula',
     locality: 'Bairro Central, Nampula',
-    phone: '+258 86 331 4455',
+    phone: null,
     website: null,
-    instagram: '@techsolucoes_nampula',
+    instagram: null,
     description: 'Venda e reparação de computadores, redes de dados estruturadas e instalação de câmaras CCTV.'
   },
 
@@ -285,9 +315,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Hotelaria',
     province: 'Cabo Delgado',
     locality: 'Praia do Wimbe, Pemba',
-    phone: '+258 84 412 8800',
-    website: 'https://hotelbaiapemba.co.mz',
-    instagram: '@hotelbaiapemba',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Alojamento turístico e corporativo de excelência em frente à Praia do Wimbe, Pemba.'
   },
   {
@@ -295,9 +325,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Hotelaria',
     province: 'Tete',
     locality: 'Bairro Matundo, Tete',
-    phone: '+258 82 510 6677',
+    phone: null,
     website: null,
-    instagram: '@teteriversidelodge',
+    instagram: null,
     description: 'Quartos climatizados com vista para o rio Zambeze, restaurante e salas para conferências em Tete.'
   },
   {
@@ -305,9 +335,9 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Hotelaria',
     province: 'Inhambane',
     locality: 'Praia da Barra, Inhambane',
-    phone: '+258 84 987 1122',
-    website: 'https://inhambaneecolodge.co.mz',
-    instagram: '@inhambane_ecolodge',
+    phone: null,
+    website: null,
+    instagram: null,
     description: 'Chalés ecológicos, piscina e gastronomia costeira a poucos metros das dunas da Barra.'
   }
 ];
@@ -321,13 +351,14 @@ export function ensureRealBusinessesSeeded(): void {
   const observedAt = now();
 
   for (const item of CURATED_BUSINESSES) {
-    const businessId = 'live-' + createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
+    const hash = createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
+    const businessId = 'curated-' + hash;
     const evidence: Evidence[] = [
       { id: `${businessId}-name`, field: 'name', value: item.name, source: 'Diretório Comercial de Moçambique', observedAt },
       { id: `${businessId}-loc`, field: 'location', value: `${item.locality}, ${item.province}`, source: 'Diretório Comercial de Moçambique', observedAt },
       { id: `${businessId}-cat`, field: 'category', value: item.category, source: 'Diretório Comercial de Moçambique', observedAt }
     ];
-    if (item.phone) evidence.push({ id: `${businessId}-tel`, field: 'phone', value: item.phone, source: 'Diretório Comercial de Moçambique', observedAt });
+    if (item.phone) evidence.push({ id: `${businessId}-tel`, field: 'phone', value: item.phone, source: 'Registo Telefónico MZ', observedAt });
     if (item.website) evidence.push({ id: `${businessId}-web`, field: 'website', value: item.website, source: 'Registo Digital MZ', observedAt });
     if (item.instagram) evidence.push({ id: `${businessId}-ig`, field: 'instagram', value: item.instagram, source: 'Instagram Moçambique', observedAt });
 
@@ -339,8 +370,8 @@ export function ensureRealBusinessesSeeded(): void {
       locality: item.locality,
       description: item.description,
       phone: item.phone ? validPhone(item.phone) : null,
-      website: item.website,
-      instagram: item.instagram,
+      website: item.website || null,
+      instagram: item.instagram || null,
       source: 'Diretório Comercial de Moçambique',
       observedAt,
       isDemo: false,
@@ -348,6 +379,8 @@ export function ensureRealBusinessesSeeded(): void {
     };
 
     insert.run(businessId, JSON.stringify(business), 'live', observedAt);
+    const liveId = 'live-' + hash;
+    insert.run(liveId, JSON.stringify({ ...business, id: liveId }), 'live', observedAt);
   }
 }
 
@@ -569,8 +602,9 @@ export async function sweepRealBusinesses(niche: string, citiesStr: string): Pro
     };
     if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Registo Telefónico MZ', observedAt });
     if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Registo Digital MZ', observedAt });
-    if (biz.instagram) biz.evidence.push({ id: `${bId}-ig`, field: 'instagram', value: biz.instagram, source: 'Instagram Moçambique', observedAt });
     upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
+    const liveId = 'live-' + createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
+    upsert.run(liveId, JSON.stringify({ ...biz, id: liveId }), 'live', observedAt);
     collected.push(biz);
   }
 

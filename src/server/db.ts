@@ -60,7 +60,7 @@ function seed(database: DatabaseSync) {
     const businessId = `b-${i}-${j}`;
     const locality = cities[i][j%2];
     const name = `${kind} ${locality} Central`;
-    const phone = `+258 84 ${2000000 + (i * 100000) + (j * 11111)}`;
+    const phone = null;
     const website = null;
     const evidence = [
       {id:`${businessId}-name`,field:'name',value:name,source:'Directório Empresarial MZ',observedAt},
