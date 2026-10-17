@@ -58,17 +58,17 @@ function Brand({ light = false }: { light?: boolean }) {
   );
 }
 
-function CircleScore({ value, max = 100, size = 68, color = '#145dbf' }: { value: number; max?: number; size?: number; color?: string }) {
+function CircleScore({ value, max = 100, size = 68, color = '#1877f2' }: { value: number; max?: number; size?: number; color?: string }) {
   const r = (size / 2) - 6;
   const circ = 2 * Math.PI * r;
   const offset = circ - (value / max) * circ;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E2E8F0" strokeWidth={5} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(37, 99, 235, 0.2)" strokeWidth={5} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={5}
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
         transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x={size / 2} y={size / 2 + 5} textAnchor="middle" fill="#142638" fontSize="14" fontWeight="700">{value}</text>
+      <text x={size / 2} y={size / 2 + 5} textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="700">{value}</text>
     </svg>
   );
 }
@@ -266,8 +266,40 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     await run(async () => {
-      const result = await api<{ user: User }>('profile', { method: 'PUT', body: JSON.stringify({ name: String(form.get('name') || user?.name), service: String(form.get('service')), pitch: String(form.get('pitch')), province: String(form.get('province')), phone: String(form.get('phone') || ''), nationwide: form.get('nationwide') === 'on', onboarded }) });
-      setUser(result.user); setProfile(result.user.profile); setService(result.user.profile.service); notify('Perfil guardado.');
+      const payload = {
+        name: String(form.get('name') || user?.name || ''),
+        service: String(form.get('service') || 'Criação de websites'),
+        pitch: String(form.get('pitch') || ''),
+        province: String(form.get('province') || ''),
+        phone: String(form.get('phone') || ''),
+        nationwide: form.get('nationwide') === 'on',
+        onboarded
+      };
+      const result = await api<{ success?: boolean; user?: User }>('profile', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const updatedUser = result?.user || (result as unknown as User);
+      if (updatedUser && updatedUser.profile) {
+        setUser(updatedUser);
+        setProfile(updatedUser.profile);
+        setService(updatedUser.profile.service || 'Criação de websites');
+        notify('Perfil guardado com sucesso.');
+      } else if (user) {
+        const safeProfile: Profile = {
+          service: payload.service,
+          pitch: payload.pitch,
+          province: payload.province,
+          phone: payload.phone,
+          nationwide: payload.nationwide,
+          onboarded: true
+        };
+        const safeUser: User = { ...user, name: payload.name || user.name, profile: safeProfile };
+        setUser(safeUser);
+        setProfile(safeProfile);
+        setService(safeProfile.service);
+        notify('Perfil guardado com sucesso.');
+      }
     });
   }
 
@@ -497,14 +529,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 {TODAY_OPP.map(opp => (
                   <article key={opp.id} className="opp-card">
                     <div className="opp-card-top">
-                      <span className="opp-initial" style={{ background: '#EAF2FF', color: opp.color, borderColor: '#C7DEFA' }}>{opp.initial}</span>
+                      <span className="opp-initial" style={{ background: 'rgba(24, 119, 242, 0.15)', color: opp.color, borderColor: 'rgba(37, 99, 235, 0.3)' }}>{opp.initial}</span>
                       <div className="opp-meta">
                         <h3>{opp.name}</h3>
                         <span>{opp.category} · {opp.locality}</span>
                       </div>
                       <div className="opp-stars">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={13} fill={i < opp.stars ? '#e9b458' : 'none'} stroke={i < opp.stars ? '#e9b458' : '#CBD5E1'} />
+                          <Star key={i} size={13} fill={i < opp.stars ? '#e9b458' : 'none'} stroke={i < opp.stars ? '#e9b458' : 'rgba(255, 255, 255, 0.2)'} />
                         ))}
                       </div>
                     </div>

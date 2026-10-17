@@ -76,20 +76,162 @@ export function credits(workspaceId: string): Credits {
 
 export function userById(userId: string): User | null {
   try {
-    const row = db().prepare('SELECT u.*,w.id as workspace_id,w.profile FROM users u JOIN workspaces w ON w.user_id=u.id WHERE u.id=?').get(userId) as Record<string, string> | undefined;
+    const row = db().prepare(`
+      SELECT u.*, COALESCE(w.id, u.id) as workspace_id, w.profile
+      FROM users u
+      LEFT JOIN workspaces w ON (w.user_id = u.id OR w.id = u.id)
+      WHERE u.id = ?
+    `).get(userId) as Record<string, string> | undefined;
+
     if (!row) return null;
+
+    let parsedProfile: Profile = { ...defaultProfile };
+    if (row.profile) {
+      try {
+        parsedProfile = { ...defaultProfile, ...JSON.parse(row.profile) };
+      } catch {
+        parsedProfile = { ...defaultProfile };
+      }
+    } else {
+      // Auto-create missing workspace row
+      try {
+        db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(row.id, row.id, JSON.stringify(defaultProfile), now());
+      } catch {}
+    }
+
+    const workspaceId = row.workspace_id || row.id;
+
     return {
       id: row.id,
       name: row.name,
       email: row.email,
-      workspaceId: row.workspace_id,
-      role: row.role as User['role'],
-      profile: { ...defaultProfile, ...JSON.parse(row.profile || '{}') },
-      credits: credits(row.workspace_id)
+      workspaceId,
+      role: (row.role || 'owner') as User['role'],
+      profile: parsedProfile,
+      credits: credits(workspaceId)
     };
   } catch {
     return null;
   }
+}
+
+export function ensureUserAndWorkspace(user: { id: string; name?: string; email?: string; role?: User['role']; workspaceId?: string; profile?: Partial<Profile> }): User {
+  const timestamp = now();
+  const workspaceId = user.workspaceId || user.id;
+  const role = user.role || 'owner';
+  const profileToSave: Profile = {
+    ...defaultProfile,
+    ...(user.profile || {})
+  };
+
+  try {
+    transaction(() => {
+      // Upsert user in local SQLite
+      db().prepare(`
+        INSERT INTO users (id, name, email, password_hash, role, marketing, created_at)
+        VALUES (?, ?, ?, '', ?, 0, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = CASE WHEN excluded.name != '' THEN excluded.name ELSE users.name END,
+          email = CASE WHEN excluded.email != '' THEN excluded.email ELSE users.email END
+      `).run(user.id, user.name || 'Utilizador', (user.email || '').toLowerCase(), role, timestamp);
+
+      // Check if workspace exists
+      const existingWorkspace = db().prepare('SELECT id, profile FROM workspaces WHERE user_id=? OR id=?').get(user.id, workspaceId) as { id: string; profile: string } | undefined;
+
+      if (existingWorkspace) {
+        let existingProfile = {};
+        try {
+          existingProfile = existingWorkspace.profile ? JSON.parse(existingWorkspace.profile) : {};
+        } catch {}
+        const mergedProfile = { ...defaultProfile, ...existingProfile, ...(user.profile || {}) };
+        db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify(mergedProfile), existingWorkspace.id);
+      } else {
+        db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(workspaceId, user.id, JSON.stringify(profileToSave), timestamp);
+        try {
+          db().prepare('INSERT OR IGNORE INTO credit_entries VALUES(?,?,NULL,?,?,?,?)').run(id(), workspaceId, 'grant', 20, 'Créditos de boas-vindas do piloto', timestamp);
+        } catch {}
+      }
+    });
+  } catch (err) {
+    console.warn('[ensureUserAndWorkspace warning]:', err);
+  }
+
+  const loaded = userById(user.id);
+  if (loaded) return loaded;
+
+  return {
+    id: user.id,
+    name: user.name || 'Utilizador',
+    email: user.email || '',
+    workspaceId,
+    role,
+    profile: profileToSave,
+    credits: { available: 20, reserved: 0, spent: 0 }
+  };
+}
+
+export async function saveUserProfile(userId: string, data: { name?: string; service?: string; pitch?: string; province?: string; phone?: string; nationwide?: boolean; onboarded?: boolean }): Promise<User> {
+  const existing = userById(userId);
+  const currentProfile = existing?.profile || { ...defaultProfile };
+  const updatedProfile: Profile = {
+    ...defaultProfile,
+    ...currentProfile,
+    service: data.service ?? currentProfile.service,
+    pitch: data.pitch ?? currentProfile.pitch,
+    province: data.province ?? currentProfile.province,
+    phone: data.phone !== undefined ? data.phone : currentProfile.phone,
+    nationwide: data.nationwide !== undefined ? data.nationwide : currentProfile.nationwide,
+    onboarded: data.onboarded !== undefined ? data.onboarded : true
+  };
+
+  const workspaceId = existing?.workspaceId || userId;
+  const newName = data.name || existing?.name || 'Utilizador';
+
+  try {
+    transaction(() => {
+      db().prepare(`
+        INSERT INTO users (id, name, email, password_hash, role, marketing, created_at)
+        VALUES (?, ?, '', '', 'owner', 0, ?)
+        ON CONFLICT(id) DO UPDATE SET name = excluded.name
+      `).run(userId, newName, now());
+
+      const ws = db().prepare('SELECT id FROM workspaces WHERE user_id=? OR id=?').get(userId, workspaceId) as { id: string } | undefined;
+      if (ws) {
+        db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify(updatedProfile), ws.id);
+      } else {
+        db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(workspaceId, userId, JSON.stringify(updatedProfile), now());
+      }
+    });
+  } catch (err) {
+    console.warn('[saveUserProfile DB warning]:', err);
+  }
+
+  // Update Supabase metadata if available
+  if (supabaseConfigured()) {
+    try {
+      const client = supabase();
+      await client.auth.updateUser({
+        data: {
+          name: newName,
+          workspaceId,
+          profile: updatedProfile
+        }
+      }).catch(() => {});
+    } catch {}
+  }
+
+  const refreshed = userById(userId);
+  if (refreshed) return refreshed;
+
+  return {
+    id: userId,
+    name: newName,
+    email: existing?.email || '',
+    workspaceId,
+    role: existing?.role || 'owner',
+    profile: updatedProfile,
+    credits: existing?.credits || { available: 20, reserved: 0, spent: 0 }
+  };
 }
 
 export function createUser(name: string, email: string, password: string, marketing = false, role: 'owner' | 'admin' = 'owner', userId: string = id()) {
@@ -140,9 +282,6 @@ export async function userFromSupabaseToken(token: string): Promise<User | null>
     if (error || !data.user) return null;
     const su = data.user;
 
-    const local = userById(su.id);
-    if (local) return local;
-
     const email = su.email || '';
     const name = su.user_metadata?.name || su.user_metadata?.full_name || email.split('@')[0] || 'Utilizador';
     const role = (su.app_metadata?.role || su.user_metadata?.role || 'owner') as User['role'];
@@ -152,15 +291,15 @@ export async function userFromSupabaseToken(token: string): Promise<User | null>
       phone: su.user_metadata?.phone || defaultProfile.phone
     };
 
-    return {
+    // Ensure synchronized locally
+    return ensureUserAndWorkspace({
       id: su.id,
       name,
       email,
       workspaceId: su.user_metadata?.workspaceId || su.id,
       role,
-      profile,
-      credits: su.user_metadata?.credits || { available: 20, reserved: 0, spent: 0 }
-    };
+      profile
+    });
   } catch {
     return null;
   }

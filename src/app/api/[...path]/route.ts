@@ -2,7 +2,7 @@ import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '@/lib/contracts';
 import { db, id, now, transaction } from '@/server/db';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, sessionToken, supabase, supabaseConfigured, userById } from '@/server/auth';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '@/server/auth';
 import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch } from '@/server/service';
 import { mode, validPhone } from '@/server/providers';
 import { parseCsv } from '@/server/import';
@@ -47,7 +47,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({scripts,categories:VAULT_CATEGORIES,total:scripts.length});
   }
   if(route==='me' && method==='GET') {
-    const user=current;
+    const user=current ? ensureUserAndWorkspace(current) : null;
     return reply({user,mode:mode(),capabilities:{demo:false,google:googleConfigured(),ai:!!process.env.GEMINI_API_KEY,data:process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:supabaseConfigured()?'supabase':'local-outbox'}});
   }
   if(route.startsWith('auth/')) {
@@ -186,13 +186,23 @@ async function handler(request:Request,context:Context):Promise<Response> {
   }
   const user=await requireUser(request);
   rateLimit(`user:${user.id}`,240,60000);
-  if(route==='profile' && method==='PUT') {
-   const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120),pitch:z.string().max(1000),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])),phone:z.string().max(30),nationwide:z.boolean(),onboarded:z.boolean()}).parse(input);
+  if(route==='profile' && (method==='PUT' || method==='POST')) {
+   const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120).default('Criação de websites'),pitch:z.string().max(1000).default(''),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),phone:z.string().max(30).default(''),nationwide:z.boolean().default(true),onboarded:z.boolean().default(true)}).parse(input);
    if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número moçambicano válido, com +258.');
-   transaction(()=>{if(data.name)db().prepare('UPDATE users SET name=? WHERE id=?').run(data.name,user.id);const {name,...profile}=data;void name;db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({...profile,phone:data.phone?validPhone(data.phone):''}),user.workspaceId);});
-   return reply({user:userById(user.id)});
+   const updatedUser = await saveUserProfile(user.id, {
+     name: data.name,
+     service: data.service,
+     pitch: data.pitch,
+     province: data.province,
+     phone: data.phone ? validPhone(data.phone) || '' : '',
+     nationwide: data.nationwide,
+     onboarded: data.onboarded
+   });
+   const token = sessionToken(request);
+   const headers: Record<string, string> = token ? { 'Set-Cookie': cookie(token, request) } : {};
+   return reply({ success: true, user: updatedUser }, 200, headers);
   }
-  if(route==='profile')return reply({user});
+  if(route==='profile')return reply({ success: true, user, profile: user.profile });
   if(route==='dashboard' && method==='GET')return reply(dashboard(user));
   if(route==='locations' && method==='GET')return reply({locations:db().prepare('SELECT * FROM locations').all(),catalogue:'Unidades de primeiro nível; localidades pesquisáveis por texto. Não é um catálogo completo de distritos.'});
   if(route==='searches' && method==='GET')return reply({searches:listSearches(user)});
