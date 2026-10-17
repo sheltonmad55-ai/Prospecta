@@ -74,9 +74,9 @@ function CircleScore({ value, max = 100, size = 68, color = '#1877f2' }: { value
 }
 
 const TODAY_OPP = [
-  { id: 'o1', name: 'Clínica Dental Maputo', category: 'Saúde', initial: 'C', color: '#145dbf', stars: 4, phone: '258841234567', locality: 'Maputo' },
-  { id: 'o2', name: 'Restaurante Baía Azul', category: 'Restauração', initial: 'R', color: '#137958', stars: 5, phone: '258829876543', locality: 'Matola' },
-  { id: 'o3', name: 'Salão Beleza Nobre', category: 'Beleza', initial: 'S', color: '#d39838', stars: 3, phone: '258864567890', locality: 'Beira' },
+  { id: 'o1', name: 'Clínica Dental Maputo', category: 'Saúde', initial: 'C', color: '#60A5FA', stars: 4, phone: '258841234567', locality: 'Maputo' },
+  { id: 'o2', name: 'Restaurante Baía Azul', category: 'Restauração', initial: 'R', color: '#34D399', stars: 5, phone: '258829876543', locality: 'Matola' },
+  { id: 'o3', name: 'Salão Beleza Nobre', category: 'Beleza', initial: 'S', color: '#FBBF24', stars: 3, phone: '258864567890', locality: 'Beira' },
 ];
 
 export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMode | null } = {}) {
@@ -611,7 +611,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <Target size={19} />
                   </div>
                   <div className="meta-circle-wrap">
-                    <CircleScore value={0} max={5} size={80} color="#145dbf" />
+                    <CircleScore value={0} max={5} size={80} color="#1877F2" />
                     <div><strong>0 / 5</strong><small>contactos hoje</small></div>
                   </div>
                   <div className="meta-progress"><span style={{ width: '0%' }} /></div>
@@ -737,7 +737,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <div className="analysis-deep-card">
                     <div className="adc-header"><span className="eyebrow"><Sparkles size={13} /> ANÁLISE PROFUNDA</span></div>
                     <div className="adc-score-row">
-                      <CircleScore value={87} max={100} size={72} color="#145dbf" />
+                      <CircleScore value={87} max={100} size={72} color="#1877F2" />
                       <div>
                         <strong className="adc-score-label">Score de oportunidade</strong>
                         <p>Alta probabilidade de interesse</p>
