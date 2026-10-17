@@ -6,10 +6,11 @@ import { createHash } from 'node:crypto';
 export const mode = () => process.env.PROSPECTA_MODE === 'live' ? 'live' as const : 'demo' as const;
 export const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 export function validPhone(value:string) {const number=parsePhoneNumberFromString(value,'MZ');return number?.isValid() && number.country==='MZ' ? number.number : null;}
+const coerceStr=(max:number)=>z.union([z.string(),z.number(),z.boolean()]).transform(v=>String(v)).pipe(z.string().max(max));
 export const analysisSchema = z.object({
-  facts:z.array(z.object({text:z.string().max(500),evidenceIds:z.array(z.string()).min(1)})).max(12),
-  hypotheses:z.array(z.string().max(600)).max(6),recommendedService:z.string().max(200),reason:z.string().max(1000),
-  missingData:z.array(z.string().max(300)).max(10),draftMessage:z.string().min(10).max(4000),confidence:z.string().max(300)
+  facts:z.array(z.object({text:coerceStr(500),evidenceIds:z.array(z.string()).min(1)})).max(12),
+  hypotheses:z.array(coerceStr(600)).max(6),recommendedService:coerceStr(200),reason:coerceStr(1000),
+  missingData:z.array(coerceStr(300)).max(10),draftMessage:z.string().min(10).max(4000),confidence:coerceStr(300)
 });
 export async function analyse(business:Business, profile:Profile, name:string, tone:string, service:string):Promise<Omit<Analysis,'id'|'businessId'|'createdAt'>> {
   const chosen=service || profile.service || 'Criação de websites';
