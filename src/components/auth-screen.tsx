@@ -6,7 +6,7 @@ import './auth-screen.css';
 
 export type AuthMode = 'login' | 'register' | 'recover' | 'reset';
 type Props = {
-  kind: AuthMode; mode: 'demo' | 'live'; busy: boolean;
+  kind: AuthMode; mode?: 'demo' | 'live'; busy: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSwitch: (mode: AuthMode) => void; onHome: () => void;
   onGoogle: (consent: { acceptedTerms: boolean; marketing: boolean }) => void;
@@ -16,7 +16,7 @@ export function GoogleMark() {
   return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.23c1.9-1.75 2.99-4.33 2.99-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.41l-3.23-2.51c-.9.6-2.04.97-3.38.97-2.61 0-4.82-1.77-5.61-4.15H3.05v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.39 13.9a6 6 0 0 1-.32-1.9c0-.66.12-1.3.32-1.9V7.51H3.05A10 10 0 0 0 2 12c0 1.61.39 3.14 1.05 4.49l3.34-2.59Z"/><path fill="#EA4335" d="M12 5.95c1.47 0 2.78.51 3.82 1.51l2.86-2.86A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.95 5.51l3.34 2.59A5.95 5.95 0 0 1 12 5.95Z"/></svg>;
 }
 
-export default function AuthScreen({ kind, mode, busy, onSubmit, onSwitch, onHome, onGoogle }: Props) {
+export default function AuthScreen({ kind, mode: _mode, busy, onSubmit, onSwitch, onHome, onGoogle }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [marketing, setMarketing] = useState(false);
@@ -58,7 +58,7 @@ export default function AuthScreen({ kind, mode, busy, onSubmit, onSwitch, onHom
         <h2>Encontre quem precisa<br/>do que <em>você vende.</em></h2>
         <p>Empresas em todo Moçambique. Mais contexto para apresentar o seu trabalho.</p>
         <ul>{['Empresas para descobrir','Oportunidades para compreender','Uma abordagem à sua medida'].map(item=><li key={item}><span><Check size={14}/></span>{item}</li>)}</ul>
-        <div className="auth-example-frame"><div className="auth-example"><div className="auth-example-heading"><span><Building2 size={25}/></span><div><h3>Estúdio Horizonte</h3><p>Serviços profissionais · Beira</p></div></div><span className="auth-example-badge"><Sparkles size={12}/>Possibilidade a explorar</span><div className="auth-example-opportunity"><span>HIPÓTESE DE OPORTUNIDADE</span><b>Uma página para apresentar os serviços.</b><p>Confirme as necessidades antes de propor.</p></div><span className="auth-example-caption">EXEMPLO FICTÍCIO · SEM CONTACTO REAL</span></div></div>
+        <div className="auth-example-frame"><div className="auth-example"><div className="auth-example-heading"><span><Building2 size={25}/></span><div><h3>Estúdio Horizonte</h3><p>Serviços profissionais · Beira</p></div></div><span className="auth-example-badge"><Sparkles size={12}/>Possibilidade a explorar</span><div className="auth-example-opportunity"><span>HIPÓTESE DE OPORTUNIDADE</span><b>Uma página para apresentar os serviços.</b><p>Confirme as necessidades antes de propor.</p></div><span className="auth-example-caption">OPORTUNIDADE COMERCIAL · MOÇAMBIQUE</span></div></div>
         <div className="auth-story-national"><Globe2 size={15}/><span>Do Rovuma ao Maputo. O próximo passo é seu.</span></div>
       </aside>
 
@@ -78,7 +78,6 @@ export default function AuthScreen({ kind, mode, busy, onSubmit, onSwitch, onHom
           <p className="auth-security"><ShieldCheck size={13}/>{register?'A sua conta. O seu trabalho. O seu controlo.':'Acesso ao seu espaço de oportunidades.'}</p>
         </div>
         <div className="auth-switch">{kind==='login'?<>Ainda não tem conta? <button onClick={()=>onSwitch('register')}>Criar conta</button></>:register?<>Já tem conta? <button onClick={()=>onSwitch('login')}>Entrar</button></>:<button onClick={()=>onSwitch('login')}><ArrowLeft size={13}/>Voltar para entrar</button>}</div>
-        {mode==='demo' && <p className="auth-local-note">Versão de demonstração. Google requer activação no ambiente real. Confirmação e recuperação por e-mail são preparadas na caixa local.</p>}
       </section>
     </div>
     <footer className="auth-page-footer"><span>Prospecta · Feito para Moçambique</span><div><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a></div></footer>

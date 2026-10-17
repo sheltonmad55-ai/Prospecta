@@ -47,21 +47,23 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({scripts,categories:VAULT_CATEGORIES,total:scripts.length});
   }
   if(route==='me' && method==='GET') {
-   const user=current;
-   return reply({user,mode:mode(),capabilities:{demo:mode()==='demo',google:googleConfigured(),ai:mode()==='demo'?'simulated':!!process.env.GEMINI_API_KEY,data:mode()==='demo'?'fixtures':process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:(mode()==='live'||supabaseConfigured())?'supabase':'local-outbox'}});
+    const user=current;
+    return reply({user,mode:mode(),capabilities:{demo:false,google:googleConfigured(),ai:!!process.env.GEMINI_API_KEY,data:process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:supabaseConfigured()?'supabase':'local-outbox'}});
   }
   if(route.startsWith('auth/')) {
    const action=path[1];
    const ip=request.headers.get('x-forwarded-for')?.split(',')[0]||'local';
    rateLimit('auth:'+ip,35,60000);
    if(action==='google' && method==='POST') {
-    const data=z.object({intent:z.enum(['login','register']),acceptedTerms:z.boolean().default(false),marketing:z.boolean().default(false)}).parse(input);
+    const data=z.object({intent:z.enum(['login','register']),acceptedTerms:z.boolean().default(false),marketing:z.boolean().default(false),redirectTo:z.string().optional()}).parse(input);
     const result=await beginGoogleOAuth(request,data);
-    return reply({redirectUrl:result.redirectUrl},200,{'Set-Cookie':result.cookie});
+    const response=reply({redirectUrl:result.redirectUrl},200,{'Set-Cookie':result.cookie});
+    if(result.pkceCookie) response.headers.append('Set-Cookie',result.pkceCookie);
+    return response;
    }
    if(action==='callback' && method==='GET') {
     const query=new URL(request.url).searchParams;
-    let destination='/?view=dashboard';let session:string|undefined;
+    let destination='/?view=radar';let session:string|undefined;
     try {
      if(query.has('error')){try{consumeGoogleFlow(request);}catch{}destination='/login?auth_error=google_cancelled';}
      else {const result=await completeGoogleOAuth(request,query.get('code')||'');session=result.token;}
@@ -71,13 +73,6 @@ async function handler(request:Request,context:Context):Promise<Response> {
     response.headers.set('Cache-Control','no-store');
     if(session)response.headers.append('Set-Cookie',cookie(session,request));
     return response;
-   }
-   if(action==='demo' && method==='POST') {
-    if(mode()!=='demo')throw new AppError('A demonstração está desactivada neste ambiente.',403);
-    if(!['127.0.0.1','localhost','[::1]'].includes(new URL(request.url).hostname))throw new AppError('A demonstração com administração é exclusiva do ambiente local.',403);
-    const user=createUser('Mércio Sitoe',`demo-${id()}@prospecta.invalid`,randomBytes(24).toString('hex'),false,'admin');
-    db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({...user.profile,onboarded:true,service:'Criação de websites',province:'Maputo Cidade',pitch:'Ajudo pequenos negócios a apresentar os seus serviços online.'}),user.workspaceId);
-    return reply({user:userById(user.id)},200,{'Set-Cookie':cookie(createSession(user.id),request)});
    }
    if(action==='register' && method==='POST') {
     const data=z.object({name:z.string().trim().min(2).max(100),email:z.email().max(180).transform(s=>s.toLowerCase()),phone:z.string().trim().max(30).optional(),password:z.string().min(10).max(128),consent:z.boolean().optional(),acceptedTerms:z.literal(true)}).parse(input);
@@ -244,7 +239,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(route==='usage')return reply({credits:credits(user.workspaceId),entries:db().prepare('SELECT id,kind,units,created_at as createdAt,description FROM credit_entries WHERE workspace_id=? ORDER BY created_at DESC').all(user.workspaceId)});
   if(route==='suppressions' && method==='POST') {const data=z.object({businessId:z.string(),reason:z.string().min(3).max(500)}).parse(input);getBusiness(data.businessId,user);db().prepare('INSERT INTO suppressions VALUES(?,?,?,?) ON CONFLICT(workspace_id,business_id) DO UPDATE SET reason=excluded.reason').run(user.workspaceId,data.businessId,data.reason,now());audit(user,'contact.suppressed',data.businessId);return reply({ok:true});}
   if(route==='corrections' && method==='POST') {const data=z.object({businessId:z.string(),note:z.string().min(3).max(1000)}).parse(input);getBusiness(data.businessId,user);db().prepare('INSERT INTO corrections VALUES(?,?,?,?,?,?)').run(id(),user.workspaceId,data.businessId,data.note,'pending',now());return reply({ok:true});}
-  if(route==='outbox' && method==='GET')return reply({messages:mode()==='demo'?db().prepare('SELECT id,kind,link,created_at as createdAt FROM outbox WHERE user_id=? ORDER BY created_at DESC').all(user.id):[]});
+  if(route==='outbox' && method==='GET')return reply({messages:[]});
   if(route==='privacy' && method==='GET')return reply({requests:db().prepare('SELECT * FROM privacy_requests WHERE workspace_id=? ORDER BY created_at DESC').all(user.workspaceId)});
   if(route==='privacy' && method==='POST') {const {type}=z.object({type:z.enum(['export','delete'])}).parse(input);const requestId=id();db().prepare('INSERT INTO privacy_requests VALUES(?,?,?,?,?,?)').run(requestId,user.workspaceId,type,type==='export'?'ready':'pending',now(),type==='export'?now():null);return reply({request:{id:requestId,type,status:type==='export'?'ready':'pending'}});}
   if(path[0]==='privacy' && path[2]==='export' && method==='GET') {
@@ -256,7 +251,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    if(route==='admin' && method==='GET')return reply({workspaces:db().prepare('SELECT w.id,u.name,u.email FROM workspaces w JOIN users u ON w.user_id=u.id').all(),jobs:db().prepare('SELECT id,kind,status,attempts,error,created_at as createdAt FROM jobs ORDER BY created_at DESC LIMIT 30').all(),requests:db().prepare('SELECT * FROM privacy_requests ORDER BY created_at DESC LIMIT 50').all(),corrections:db().prepare('SELECT * FROM corrections ORDER BY created_at DESC LIMIT 50').all(),mode:mode()});
    if(route==='admin/import' && method==='POST') {
     const data=z.object({csv:z.string().min(1).max(400000),source:z.string().min(3).max(150),authorized:z.literal(true)}).parse(input);const rows=parseCsv(data.csv,data.source);
-    transaction(()=>{for(const b of rows)db().prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(b.id,JSON.stringify(b),mode()==='demo'?'demo':'authorized-csv',now());audit(user,'businesses.import',String(rows.length));});return reply({imported:rows.length});
+    transaction(()=>{for(const b of rows)db().prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(b.id,JSON.stringify(b),'authorized-csv',now());audit(user,'businesses.import',String(rows.length));});return reply({imported:rows.length});
    }
    if(route==='admin/grant' && method==='POST') {const data=z.object({workspaceId:z.string(),units:z.number().int().min(1).max(10000),reason:z.string().min(3).max(300)}).parse(input);grant(user,data.workspaceId,data.units,data.reason);return reply({ok:true});}
    if(path[1]==='jobs' && path[3]==='retry' && method==='POST')throw new AppError('A análise falhada libertou o crédito. Inicie uma nova análise na ficha da empresa.');

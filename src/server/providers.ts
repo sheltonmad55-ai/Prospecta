@@ -3,12 +3,7 @@ import type { Analysis, Business, Profile } from '../lib/contracts.ts';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { createHash } from 'node:crypto';
 
-export const mode = () => {
-  if (process.env.PROSPECTA_MODE === 'demo') return 'demo' as const;
-  if (process.env.PROSPECTA_MODE === 'live') return 'live' as const;
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) return 'live' as const;
-  return 'demo' as const;
-};
+export const mode = () => 'live' as const;
 export const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 export function validPhone(value:string) {const number=parsePhoneNumberFromString(value,'MZ');return number?.isValid() && number.country==='MZ' ? number.number : null;}
 const coerceStr=(max:number)=>z.union([z.string(),z.number(),z.boolean()]).transform(v=>String(v)).pipe(z.string().max(max));
@@ -21,24 +16,6 @@ import { buildVaultPromptMatrix } from './vault-scripts.ts';
 
 export async function analyse(business:Business, profile:Profile, name:string, tone:string, service:string):Promise<Omit<Analysis,'id'|'businessId'|'createdAt'>> {
   const chosen=service || profile.service || 'Criação de websites';
-  if(mode()==='demo') {
-    const intro=tone==='Amigável'?'Olá!':'Bom dia!';
-    const angle=!business.website
-      ? ` Notei que ainda não têm um website próprio, o que faz muitos clientes hesitarem antes de entrar em contacto. Se fizer sentido, posso preparar um rascunho sem compromisso de uma página moderna para o(a) ${business.name}.`
-      : ` Gostaria de perceber se o vosso atendimento no WhatsApp dá conta de responder aos clientes de ${business.locality} sem demora. Se fizer sentido, posso partilhar uma ideia sem compromisso.`;
-    return {
-      facts:business.evidence.map(e=>({text:e.value,evidenceIds:[e.id]})),
-      hypotheses:[
-        `Uma conversa sobre ${chosen.toLowerCase()} pode ajudar a perceber se existe uma necessidade.`,
-        business.website?'Vale a pena confirmar se a presença digital actual responde aos objectivos da empresa.':'Não foi identificado um site nesta fonte. Isto não demonstra que a empresa não tem site.'
-      ],
-      recommendedService:chosen,
-      reason:'Sugestão comercial modelada na matriz do Cofre de scripts para Moçambique. Confirme a necessidade com a empresa.',
-      missingData:[...(!business.phone?['Contacto telefónico não disponível']:[]),'Necessidades e interesse do responsável não confirmados'],
-      draftMessage:`${intro} Chamo-me ${name} e trabalho com ${chosen.toLowerCase()} em Moçambique. Encontrei o(a) ${business.name}, em ${business.locality}.${angle}`,
-      confidence:'Informação limitada. Simulação determinística baseada no Cofre de scripts; não é uma previsão de venda.',mode:'demo'
-    };
-  }
   const key=process.env.GEMINI_API_KEY;
   const rawModel=process.env.GEMINI_MODEL;
   const model=(rawModel && rawModel!=='gemini-1.5-flash')?rawModel:'gemini-flash-lite-latest';

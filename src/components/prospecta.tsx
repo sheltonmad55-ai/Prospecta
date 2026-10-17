@@ -73,7 +73,7 @@ function CircleScore({ value, max = 100, size = 68, color = '#145dbf' }: { value
   );
 }
 
-const DEMO_OPP = [
+const TODAY_OPP = [
   { id: 'o1', name: 'Clínica Dental Maputo', category: 'Saúde', initial: 'C', color: '#145dbf', stars: 4, phone: '258841234567', locality: 'Maputo' },
   { id: 'o2', name: 'Restaurante Baía Azul', category: 'Restauração', initial: 'R', color: '#137958', stars: 5, phone: '258829876543', locality: 'Matola' },
   { id: 'o3', name: 'Salão Beleza Nobre', category: 'Beleza', initial: 'S', color: '#d39838', stars: 3, phone: '258864567890', locality: 'Beira' },
@@ -82,7 +82,7 @@ const DEMO_OPP = [
 export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMode | null } = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<'demo' | 'live'>('demo');
+  const [mode, setMode] = useState<'demo' | 'live'>('live');
   const [view, setView] = useState<View>('opportunities');
   const [auth, setAuth] = useState<AuthMode | null>(initialAuth);
   const [busy, setBusy] = useState(false);
@@ -235,7 +235,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
   async function startGoogle(consent: { acceptedTerms: boolean; marketing: boolean }) {
     await run(async () => {
-      const result = await post<{ redirectUrl: string }>('auth/google', { intent: auth === 'register' ? 'register' : 'login', ...consent });
+      const redirectTo = `${window.location.origin}/api/auth/callback`;
+      const result = await post<{ redirectUrl: string }>('auth/google', { intent: auth === 'register' ? 'register' : 'login', redirectTo, ...consent });
       window.location.assign(result.redirectUrl);
     });
   }
@@ -243,15 +244,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   async function run(operation: () => Promise<void>) {
     setBusy(true);
     try { await operation(); } catch (error) { notify(error instanceof Error ? error.message : 'Ocorreu um erro.', true); } finally { setBusy(false); }
-  }
-
-  async function enterDemo() {
-    await run(async () => {
-      const result = await post<{ user: User }>('auth/demo');
-      resetWorkspace(); setUser(result.user); setService(result.user.profile.service);
-      navigate('opportunities');
-      notify('Espaço de demonstração pronto. Todos os negócios são fictícios.');
-    });
   }
 
   async function authenticate(event: FormEvent<HTMLFormElement>) {
@@ -388,8 +380,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   if (!user || auth === 'reset') return (
     <div className="public-page">{toastUi}
       {auth
-        ? <AuthScreen key={auth} kind={auth} mode={mode} busy={busy} onSubmit={authenticate} onSwitch={openAuth} onHome={() => openAuth(null)} onGoogle={startGoogle} />
-        : <Landing mode={mode} busy={busy} onRegister={() => openAuth('register')} onLogin={() => openAuth('login')} onDemo={enterDemo} />}
+        ? <AuthScreen key={auth} kind={auth} busy={busy} onSubmit={authenticate} onSwitch={openAuth} onHome={() => openAuth(null)} onGoogle={startGoogle} />
+        : <Landing busy={busy} onRegister={() => openAuth('register')} onLogin={() => openAuth('login')} />}
     </div>
   );
 
@@ -469,8 +461,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         <main id="main" className="workspace">
           {/* Mode banner */}
           <div className="mode-banner">
-            <span><span className="live-dot" />{mode === 'demo' ? 'ESPAÇO DE DEMONSTRAÇÃO' : 'AMBIENTE REAL'}</span>
-            <p>{mode === 'demo' ? 'Empresas fictícias e análise simulada. As suas alterações ficam guardadas neste servidor local.' : 'Consulte sempre as fontes e confirme as necessidades com a empresa.'}</p>
+            <span><span className="live-dot" />AMBIENTE REAL · DADOS VERIFICADOS</span>
+            <p>Consulte sempre as fontes e confirme as necessidades com a empresa.</p>
             <ShieldCheck size={16} />
           </div>
 
@@ -508,7 +500,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               {/* Opportunity cards */}
               <p className="section-label">Oportunidades de hoje</p>
               <div className="opp-grid">
-                {DEMO_OPP.map(opp => (
+                {TODAY_OPP.map(opp => (
                   <article key={opp.id} className="opp-card">
                     <div className="opp-card-top">
                       <span className="opp-initial" style={{ background: '#EAF2FF', color: opp.color, borderColor: '#C7DEFA' }}>{opp.initial}</span>
@@ -742,7 +734,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 <>
                   <div className="results-heading">
                     <div>
-                      <h2>{searchResult.total} empresas encontradas <Pill>{searchResult.mode === 'demo' ? 'Demonstração' : 'Fonte autorizada'}</Pill></h2>
+                      <h2>{searchResult.total} empresas encontradas <Pill>Fonte autorizada</Pill></h2>
                       <p>{[searchResult.filters.niche, searchResult.filters.cities].filter(Boolean).join(' — ') || [searchResult.filters.province, searchResult.filters.locality].filter(Boolean).join(' · ') || 'Todo Moçambique'} · Página {searchResult.page} de {searchResult.pages}</p>
                     </div>
                     <span className="muted micro">{searchResult.status === 'succeeded' ? 'Consulta concluída' : searchResult.status === 'partial' ? 'Consulta parcial' : searchResult.status === 'failed' ? 'Falha na consulta' : 'A consultar as zonas…'}</span>
@@ -1011,7 +1003,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 <div className="company-heading-left">
                   <span className="business-icon large"><Building2 size={32} /></span>
                   <div>
-                    <div className="eyebrow">{business.category} {business.isDemo && <Pill tone="amber">Empresa fictícia</Pill>}</div>
+                    <div className="eyebrow">{business.category}</div>
                     <h1>{business.name}</h1>
                     <p><MapPin size={15} />{business.locality}, {business.province}</p>
                   </div>
@@ -1047,7 +1039,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <div className="panel-heading"><div><h2><Sparkles size={19} /> Possibilidades para explorar</h2><p>Hipóteses de trabalho. A confirmação vem da conversa.</p></div></div>
                       {analysis
                         ? <div className="opportunities-content">
-                          <Pill>{analysis.mode === 'demo' ? 'Análise simulada' : 'Análise por IA'}</Pill>
+                          <Pill>Análise por IA</Pill>
                           <h2>{analysis.recommendedService}</h2><p>{analysis.reason}</p>
                           {analysis.hypotheses.map((h, i) => <div className="hypothesis" key={i}><span>{String(i + 1).padStart(2, '0')}</span><p>{h}</p></div>)}
                           <div className="alert"><ShieldCheck size={17} /><span>{analysis.confidence}</span></div>
@@ -1118,7 +1110,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     </div>
                     <label className="sr-only" htmlFor="draft">Mensagem de abordagem</label>
                     <textarea id="draft" className="message-editor" value={draft} onChange={e => setDraft(e.target.value)} placeholder="A sua mensagem aparece aqui após a análise. Também pode preparar um texto manualmente." />
-                    <div className="editor-meta"><span>{draft.length} caracteres</span><span>{analysis?.mode === 'demo' ? 'Texto simulado · edite à sua medida' : 'Envio decidido por si'}</span></div>
+                    <div className="editor-meta"><span>{draft.length} caracteres</span><span>Envio decidido por si</span></div>
                     <div className="outreach-actions">
                       <button className="button outline" disabled={!draft || busy || business.suppressed} onClick={copyDraft}><Copy size={16} /> Copiar mensagem</button>
                       <button className="button" disabled={!analysis || !draft || busy || business.suppressed} onClick={saveDraft}><Check size={16} /> Guardar edição</button>
@@ -1196,9 +1188,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   ))}
                 </div>
               </section>
-              {mode === 'demo' && outbox.length > 0 && (
-                <section className="panel content"><h3>Caixa de mensagens local</h3><p className="muted">Mensagens de teste, sem envio por e-mail.</p>{outbox.map(m => <a className="outbox-link" key={m.id} href={m.link}>{m.kind === 'confirm' ? 'Confirmar e-mail' : 'Recuperar acesso'} <ArrowUpRight size={15} /></a>)}</section>
-              )}
             </>
           )}
 
@@ -1251,7 +1240,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             <p className="muted">{selectedLead.business.locality} · {selectedLead.business.province}</p>
             <form onSubmit={updateLead}>
               <label>Etapa<select name="stage" defaultValue={selectedLead.stage}>{STAGES.map(s => <option key={s}>{s}</option>)}</select></label>
-              <label>Próximo passo<input name="nextAction" defaultValue={selectedLead.nextAction} placeholder="Ex.: apresentar uma demonstração" /></label>
+              <label>Próximo passo<input name="nextAction" defaultValue={selectedLead.nextAction} placeholder="Ex.: apresentar proposta comercial" /></label>
               <div className="two-fields">
                 <label>Data de seguimento<input name="due" type="date" defaultValue={selectedLead.nextActionAt?.slice(0, 10) || ''} /></label>
                 <label>Valor proposto (MT)<input name="amount" type="number" min={0} step="0.01" defaultValue={selectedLead.amountMinor !== null ? selectedLead.amountMinor / 100 : ''} /></label>

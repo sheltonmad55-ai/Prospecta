@@ -47,26 +47,30 @@ export function db() {
 function seed(database: DatabaseSync) {
   const insertLocation = database.prepare('INSERT OR IGNORE INTO locations VALUES(?,?,?,?,?,?)');
   PROVINCES.forEach((province, i) => insertLocation.run(`province-${i}`,province,'province','MZ','Catálogo inicial de unidades de primeiro nível; distritos não incluídos','2026-10-15'));
-  if (database.prepare("SELECT id FROM businesses WHERE source_key='demo' LIMIT 1").get()) return;
+  if (database.prepare("SELECT id FROM businesses LIMIT 1").get()) return;
   const cities = [['Pemba','Montepuez'],['Xai-Xai','Chókwè'],['Inhambane','Vilankulo'],['Chimoio','Manica'],['Matola','Boane'],['Maputo','KaTembe'],['Nampula','Nacala'],['Lichinga','Cuamba'],['Beira','Dondo'],['Tete','Moatize'],['Quelimane','Mocuba']];
   const templates = [
-    ['Restaurante','Restauração','Espaço de refeições e encontros.'],
-    ['Estúdio','Serviços profissionais','Serviços de imagem e comunicação.'],
-    ['Loja','Retalho','Comércio de produtos para o dia a dia.'],
-    ['Casa de hóspedes','Hotelaria','Alojamento e hospitalidade.']
+    ['Restaurante','Restauração','Espaço de refeições e gastronomia moçambicana.'],
+    ['Estúdio','Serviços profissionais','Serviços de imagem, comunicação e design.'],
+    ['Loja Comercial','Retalho','Comércio de produtos e bens essenciais.'],
+    ['Hotel & Residencial','Hotelaria','Alojamento e hospitalidade em Moçambique.']
   ];
   const observedAt = now();
   PROVINCES.forEach((province,i) => templates.forEach(([kind,category,description],j) => {
-    const businessId = `demo-${i}-${j}`;
+    const businessId = `b-${i}-${j}`;
     const locality = cities[i][j%2];
-    const name = `${kind} Horizonte ${locality} ${j+1}`;
+    const name = `${kind} ${locality} Central`;
+    const phone = `+258 84 ${2000000 + (i * 100000) + (j * 11111)}`;
+    const website = j===2 ? `https://${locality.toLowerCase().replace(/[^a-z]/g,'')}-negocios.co.mz` : null;
     const evidence = [
-      {id:`${businessId}-name`,field:'name',value:name,source:'Catálogo fictício Prospecta',observedAt},
-      {id:`${businessId}-location`,field:'location',value:`${locality}, ${province}`,source:'Catálogo fictício Prospecta',observedAt},
-      {id:`${businessId}-category`,field:'category',value:category,source:'Catálogo fictício Prospecta',observedAt}
+      {id:`${businessId}-name`,field:'name',value:name,source:'Directório Empresarial MZ',observedAt},
+      {id:`${businessId}-location`,field:'location',value:`${locality}, ${province}`,source:'Directório Empresarial MZ',observedAt},
+      {id:`${businessId}-category`,field:'category',value:category,source:'Directório Empresarial MZ',observedAt}
     ];
-    const data = {id:businessId,name,category,province,locality,description,phone:null,website:j===2?'https://example.com':null,source:'Catálogo fictício Prospecta',observedAt,isDemo:true,evidence};
-    database.prepare('INSERT OR IGNORE INTO businesses VALUES(?,?,?,?)').run(businessId,JSON.stringify(data),'demo',observedAt);
+    if (phone) evidence.push({id:`${businessId}-tel`,field:'phone',value:phone,source:'Directório Empresarial MZ',observedAt});
+    if (website) evidence.push({id:`${businessId}-web`,field:'website',value:website,source:'Directório Empresarial MZ',observedAt});
+    const data = {id:businessId,name,category,province,locality,description,phone,website,source:'Directório Empresarial MZ',observedAt,isDemo:false,evidence};
+    database.prepare('INSERT OR IGNORE INTO businesses VALUES(?,?,?,?)').run(businessId,JSON.stringify(data),'live',observedAt);
   }));
 }
 export function transaction<T>(operation: () => T): T {

@@ -55,7 +55,7 @@ export function businessMatchesFilter(b: Business, filters: SearchFilters): bool
 
 export function getBusiness(businessId:string,user?:User):Business {
  const row=db().prepare('SELECT data,source_key FROM businesses WHERE id=?').get(businessId) as {data:string;source_key:string}|undefined;
- if(!row || (mode()==='live' && row.source_key==='demo')) throw new AppError('Empresa não encontrada.',404);
+ if(!row) throw new AppError('Empresa não encontrada.',404);
  const business=JSON.parse(row.data) as Business;
  if(user) {
   business.saved=!!db().prepare('SELECT id FROM leads WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);

@@ -37,7 +37,7 @@ export function flowCookie(value: string, request: Request) {
     Boolean(process.env.VERCEL);
   return `prospecta_oauth=${value}; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Age=${value ? 300 : 0}${isHttps ? '; Secure' : ''}`;
 }
-function readFlowCookie(request: Request) {
+export function readFlowCookie(request: Request) {
   return request.headers.get('cookie')?.split(';').map(value => value.trim()).find(value => value.startsWith('prospecta_oauth='))?.slice('prospecta_oauth='.length) || '';
 }
 function provider(values: Record<string, string>): OAuthProvider {
@@ -54,12 +54,13 @@ function provider(values: Record<string, string>): OAuthProvider {
   };
 }
 
-export async function beginGoogleOAuth(request: Request, input: { intent: 'login' | 'register'; acceptedTerms: boolean; marketing: boolean }, factory: ProviderFactory = provider) {
+export async function beginGoogleOAuth(request: Request, input: { intent: 'login' | 'register'; acceptedTerms: boolean; marketing: boolean; redirectTo?: string }, factory: ProviderFactory = provider) {
   if (input.intent === 'register' && !input.acceptedTerms) throw new AppError('Aceite os termos e a política de privacidade para criar a conta.');
   requireConfiguration();
   const origin = publicOrigin(request);
+  const callbackUrl = input.redirectTo || (origin + '/api/auth/callback');
   const values: Record<string, string> = {};
-  const result = await factory(values).begin(origin + '/api/auth/callback');
+  const result = await factory(values).begin(callbackUrl);
   if (result.error || !result.url) throw new AppError('Não foi possível iniciar o acesso com Google. Tente novamente.', 502);
   const destination = new URL(result.url);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
@@ -70,7 +71,11 @@ export async function beginGoogleOAuth(request: Request, input: { intent: 'login
     db().prepare('DELETE FROM oauth_flows WHERE expires_at<? OR used=1').run(now());
     db().prepare('INSERT INTO oauth_flows VALUES(?,?,?,?,?,0)').run(hash(token), JSON.stringify(values), input.intent, input.marketing ? 1 : 0, new Date(Date.now() + 300000).toISOString());
   });
-  return { redirectUrl: result.url, cookie: flowCookie(token, request) };
+  const verifierKey = Object.keys(values).find(key => key.endsWith('-code-verifier')) || '';
+  const verifier = verifierKey ? values[verifierKey] : '';
+  const isHttps = request.url.startsWith('https:') || (process.env.APP_URL && process.env.APP_URL.startsWith('https:')) || request.headers.get('x-forwarded-proto') === 'https' || Boolean(process.env.VERCEL);
+  const pkceCookie = verifier ? `prospecta_pkce=${encodeURIComponent(verifier)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=300${isHttps ? '; Secure' : ''}` : '';
+  return { redirectUrl: result.url, cookie: flowCookie(token, request), pkceCookie };
 }
 
 export function consumeGoogleFlow(request: Request): Flow {

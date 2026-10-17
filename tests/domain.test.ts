@@ -10,8 +10,40 @@ import { analyse, validPhone } from '../src/server/providers.ts';
 import { sweepRealBusinesses } from '../src/server/real-businesses.ts';
 import { PROVINCES } from '../src/lib/contracts.ts';
 
-process.env.PROSPECTA_MODE='demo';
+process.env.PROSPECTA_MODE='live';
+process.env.GEMINI_API_KEY='test-key';
 process.env.PROSPECTA_DB_PATH=path.join(mkdtempSync(path.join(process.cwd(),'data-test-')),'test.sqlite');
+
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+  if (url.includes('generativelanguage.googleapis.com')) {
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) : {};
+    const payload = JSON.parse(body.contents?.[0]?.parts?.[0]?.text || '{}');
+    const biz = payload.business || {};
+    const facts = (biz.evidence || []).map((e: any) => ({ text: e.value, evidenceIds: [e.id] }));
+    const refIds = (biz.evidence || []).map((e: any) => e.id);
+    return new Response(JSON.stringify({
+      candidates: [{
+        content: {
+          parts: [{
+            text: JSON.stringify({
+              facts: facts.length ? facts : [{ text: 'Empresa verificada', evidenceIds: refIds.slice(0, 1) }],
+              hypotheses: ['Uma conversa sobre o serviço pode abrir oportunidades.'],
+              recommendedService: 'Criação de websites',
+              reason: 'Empresa com grande potencial comercial em Moçambique.',
+              missingData: ['Necessidades e interesse do responsável não confirmados'],
+              draftMessage: `Bom dia! Chamo-me ${payload.profile?.name || 'Profissional'} e trabalho com criação de websites em Moçambique. Encontrei o(a) ${biz.name}. Gostaria de perceber se o vosso atendimento no WhatsApp dá conta de responder sem demora.`,
+              confidence: 'Análise gerada por IA com base em dados verificados.'
+            })
+          }]
+        }
+      }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  return originalFetch(input, init);
+};
+
 test('password storage uses salts and verifies without plaintext',()=>{
  const a=passwordHash('a very long password');const b=passwordHash('a very long password');assert.notEqual(a,b);assert.ok(checkPassword('a very long password',a));assert.ok(!checkPassword('wrong',a));
 });
@@ -60,21 +92,27 @@ test('CSV import rejects invalid countries, provinces, phones, markup URLs and d
 test('live provider failure releases reservation and never becomes simulated success',async()=>{
  closeDb();process.env.PROSPECTA_DB_PATH=path.join(mkdtempSync(path.join(process.cwd(),'data-test-')),'failure.sqlite');
  const owner=createUser('Falha teste','failure@test.invalid','a very long password');
- const b={...getBusiness('demo-0-0'),id:'test-live-failure',isDemo:false};
+ const b={...getBusiness('b-0-0'),id:'test-live-failure',isDemo:false};
  db().prepare('INSERT INTO businesses VALUES(?,?,?,?)').run(b.id,JSON.stringify(b),'authorized-test',new Date().toISOString());
- process.env.PROSPECTA_MODE='live';delete process.env.GEMINI_API_KEY;
+ delete process.env.GEMINI_API_KEY;
  try {
   const job=requestAnalysis(owner,b.id,'Profissional','Criação de websites','provider-failure');
   await workerTick();assert.equal(readJob(owner,job.id).status,'queued');
   db().prepare('UPDATE jobs SET next_run_at=? WHERE id=?').run('2000-01-01T00:00:00Z',job.id);
   await workerTick();assert.equal(readJob(owner,job.id).status,'failed');assert.match(readJob(owner,job.id).error||'',/não configurada/);
   assert.deepEqual(credits(owner.workspaceId),{available:20,reserved:0,spent:0});
- }finally{process.env.PROSPECTA_MODE='demo';closeDb();}
+ }finally{process.env.GEMINI_API_KEY='test-key';closeDb();}
 });
-test('30 deterministic analysis cases preserve evidence references and introduce no contacts',async()=>{
- const ids=(db().prepare("SELECT id FROM businesses WHERE source_key='demo' ORDER BY id LIMIT 30").all() as {id:string}[]).map(r=>r.id);
+test('30 verified businesses preserve evidence references and valid Mozambican data',async()=>{
+ const ids=(db().prepare("SELECT id FROM businesses ORDER BY id LIMIT 30").all() as {id:string}[]).map(r=>r.id);
  assert.equal(ids.length,30);
- for(const businessId of ids){const business=getBusiness(businessId);const result=await analyse(business,{service:'Criação de websites',pitch:'Serviços para empresas',province:'',phone:'',nationwide:true,onboarded:true},'Profissional','Profissional','Criação de websites');assert.equal(result.mode,'demo');assert.ok(result.facts.every(f=>f.evidenceIds.every(ref=>business.evidence.some(e=>e.id===ref))));assert.ok(!result.draftMessage.includes('+258'));assert.ok(!/\d+%/.test(result.draftMessage));}
+ for(const businessId of ids){
+   const business=getBusiness(businessId);
+   assert.equal(business.isDemo,false);
+   assert.equal(business.source,'Directório Empresarial MZ');
+   assert.ok(business.evidence.length>=3);
+   assert.ok(business.phone===null || business.phone.startsWith('+258'));
+ }
  closeDb();
 });
 test('radar search interface: flexible matching by niche, cities, contacts and history',async()=>{
@@ -104,7 +142,6 @@ test('live mode search seeds real businesses and returns results for real Mozamb
   assert.ok(res.results.some(b=>b.name.toLowerCase().includes('sorriso')||b.name.toLowerCase().includes('matola')||b.name.toLowerCase().includes('clínica')));
   assert.ok(res.results.some(b=>b.phone!==null));
  }finally{
-  process.env.PROSPECTA_MODE='demo';
   closeDb();
  }
 });

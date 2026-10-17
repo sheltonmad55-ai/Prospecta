@@ -48,9 +48,9 @@ test('Google OAuth: PKCE, browser binding, single-use return, consent and safe a
     await t.test('missing setup and missing terms fail honestly', async () => {
       assert.equal(googleConfigured(), true);
       await assert.rejects(beginGoogleOAuth(request, { ...consent, acceptedTerms: false }, factory), /Aceite os termos/);
-      process.env.PROSPECTA_MODE = 'demo'; assert.equal(googleConfigured(), false);
+      delete process.env.SUPABASE_URL; delete process.env.NEXT_PUBLIC_SUPABASE_URL; assert.equal(googleConfigured(), false);
       await assert.rejects(beginGoogleOAuth(request, consent, factory), /ainda não está activado/);
-      process.env.PROSPECTA_MODE = 'live';
+      process.env.SUPABASE_URL = 'https://oauth-test.supabase.co';
     });
     await t.test('valid verified return creates one owner account and 20 credits', async () => {
       const start = await beginGoogleOAuth(request, consent, factory);

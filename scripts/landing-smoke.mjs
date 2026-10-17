@@ -60,8 +60,8 @@ try {
   const faq = document.querySelector('#lp-faq-question-1'); faq.click();
   await waitFor('FAQ opens accessibly', () => faq.getAttribute('aria-expanded') === 'true' && !document.querySelector('#lp-faq-answer-1').hidden);
   faq.click(); await waitFor('FAQ closes accessibly', () => faq.getAttribute('aria-expanded') === 'false' && document.querySelector('#lp-faq-answer-1').hidden);
-  button('Encontrar os meus clientes').click(); button('Entrar').click(); button('Explorar demonstração').click();
-  assert.deepEqual(calls, { register: 1, login: 1, demo: 1 }); checks.push('existing auth and demo actions wired');
+  button('Encontrar os meus clientes').click(); button('Entrar').click();
+  assert.equal(calls.register, 1); assert.equal(calls.login, 1); checks.push('existing auth actions wired');
   assert.ok(![...document.querySelectorAll('.lp-nav a,.lp-nav button')].some(node => /preços|planos/i.test(node.textContent))); checks.push('no pricing navigation');
   assert.ok(!document.querySelector('[id="precos"],[id="planos"]')); checks.push('no pricing section');
   const menu = document.querySelector('.lp-menu'); menu.click(); await waitFor('mobile menu expands', () => menu.getAttribute('aria-expanded') === 'true');
