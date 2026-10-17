@@ -16,3 +16,4 @@ export interface Lead { id: string; businessId: string; business: Business; stag
 export interface Activity { id: string; type: string; note: string; createdAt: string }
 export interface LedgerEntry { id: string; kind: string; units: number; createdAt: string; description: string }
 export interface Dashboard { leads: number; due: number; proposalsMinor: number; stages: {stage: Stage; count: number}[]; tasks: Lead[]; recent: Activity[]; credits: Credits }
+export interface VaultScript { id: string; category: 'primeiro-contato' | 'sem-site' | 'qualificacao' | 'oferta' | 'objecoes' | 'fechamento' | 'followup' | 'pos-venda'; categoryLabel: string; title: string; template: string; scenario: string; keyPhrases: string[] }

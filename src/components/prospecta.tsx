@@ -14,10 +14,11 @@ import AuthScreen, { type AuthMode } from './auth-screen';
 import {
   PROVINCES, SERVICES, STAGES,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
-  type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User
+  type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
+  type VaultScript
 } from '@/lib/contracts';
 
-type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'portfolio' | 'business' | 'outreach' | 'account' | 'admin';
+type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
 type AdminData = { workspaces: { id: string; name: string; email: string }[]; jobs: { id: string; status: string; attempts: number; error: string | null }[]; requests: PrivacyRequest[]; corrections: { id: string; note: string; status: string }[] };
 type PrivacyRequest = { id: string; type: string; status: string; created_at?: string };
 
@@ -107,6 +108,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [leadSearch, setLeadSearch] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [trialDay, setTrialDay] = useState(0);
+  const [vaultScripts, setVaultScripts] = useState<VaultScript[]>([]);
+  const [vaultCategory, setVaultCategory] = useState<string>('all');
+  const [vaultSearch, setVaultSearch] = useState<string>('');
   const activeBusiness = useRef<string | null>(null);
 
   useEffect(() => { activeBusiness.current = business?.id || null; }, [business?.id]);
@@ -115,6 +119,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     setDashboard(null); setSearchResult(null); setPastSearches([]); setBusiness(null);
     setAnalysis(null); setLeads([]); setSelectedLead(null); setDraft(''); setJob(null);
     setUsage([]); setRequests([]); setOutbox([]); setAdmin(null); setProfile(null);
+    setVaultScripts([]);
   }, []);
 
   const notify = useCallback((message: string, error = false) => setToast({ message, error }), []);
@@ -160,7 +165,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             : 'Não foi possível concluir o acesso com Google. Tente novamente.', true
       );
       const initial = query.get('view') as View | null;
-      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'account', 'admin', 'business', 'outreach'];
+      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
       if (initial && validViews.includes(initial)) setView(initial);
       if (result.user && query.get('business')) loadBusiness(query.get('business')!, initial === 'outreach' ? 'outreach' : 'business').catch(e => notify(e.message, true));
       if (query.get('reset') || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') setAuth('reset');
@@ -207,6 +212,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       if (view === 'today') { const r = await api<Dashboard>('dashboard'); if (active) setDashboard(r); }
       if (view === 'search' || view === 'saved-searches') { const r = await api<{ searches: SearchResult[] }>('searches'); if (active) setPastSearches(r.searches || []); }
       if (view === 'leads') { const r = await api<{ leads: Lead[] }>('leads'); if (active) setLeads(r.leads); }
+      if (view === 'vault' || view === 'outreach') { const r = await api<{ scripts: VaultScript[] }>('vault'); if (active) setVaultScripts(r.scripts || []); }
       if (view === 'account') {
         const [u, p, o] = await Promise.all([api<{ entries: LedgerEntry[] }>('usage'), api<{ requests: PrivacyRequest[] }>('privacy'), api<{ messages: typeof outbox }>('outbox')]);
         if (active) { setUsage(u.entries); setRequests(p.requests); setOutbox(o.messages); setProfile(user!.profile); }
@@ -365,6 +371,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     { view: 'saved-searches' as View, label: 'Buscas salvas', icon: Search },
     { view: 'leads' as View, label: 'Leads salvos', icon: Bookmark },
     { view: 'portfolio' as View, label: 'Portfólio', icon: FileText, beta: true },
+    { view: 'vault' as View, label: 'Cofre', icon: ShieldCheck },
   ];
 
   // ─── Render ──────────────────────────────────────────
@@ -884,6 +891,118 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             </>
           )}
 
+          {/* ══ VIEW: Cofre ══════════════════════════════ */}
+          {user.profile.onboarded && view === 'vault' && (
+            <>
+              <div className="page-heading">
+                <div>
+                  <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ShieldCheck size={14} /> SCRIPTS DE PROSPECÇÃO, NEGOCIAÇÃO E FECHAMENTO</div>
+                  <h1>Cofre de Scripts · Código Zero & Prospecta</h1>
+                  <p>Modelos comerciais de alta conversão testados em Moçambique para WhatsApp, abordagem fria, objeções e M-Pesa / e-Mola.</p>
+                </div>
+              </div>
+
+              {/* Filter bar */}
+              <div className="vault-filter-panel">
+                <div className="vault-search-row">
+                  <Search size={18} />
+                  <input
+                    value={vaultSearch}
+                    onChange={e => setVaultSearch(e.target.value)}
+                    placeholder="Pesquisar scripts (ex.: caro, sem site, m-pesa, objeção, follow-up)..."
+                  />
+                  {vaultSearch && <button type="button" className="text-button" onClick={() => setVaultSearch('')}>Limpar</button>}
+                </div>
+                <div className="vault-category-pills">
+                  {[
+                    { key: 'all', label: `Todos (${vaultScripts.length || 23})` },
+                    { key: 'primeiro-contato', label: 'Primeiro Contato (Frio)' },
+                    { key: 'sem-site', label: 'Empresas Sem Site' },
+                    { key: 'qualificacao', label: 'Qualificação & Diagnóstico' },
+                    { key: 'oferta', label: 'Apresentação da Oferta' },
+                    { key: 'objecoes', label: 'Quebra de Objeções' },
+                    { key: 'fechamento', label: 'Fechamento M-Pesa / e-Mola' },
+                    { key: 'followup', label: 'Follow-up e Retomada' },
+                    { key: 'pos-venda', label: 'Pós-venda e Depoimentos' },
+                  ].map(cat => (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      className={cls('vault-cat-pill', vaultCategory === cat.key && 'active')}
+                      onClick={() => setVaultCategory(cat.key)}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Script list */}
+              {vaultScripts.filter(s => {
+                const matchCat = vaultCategory === 'all' || s.category === vaultCategory;
+                const matchQ = !vaultSearch || s.title.toLowerCase().includes(vaultSearch.toLowerCase()) || s.template.toLowerCase().includes(vaultSearch.toLowerCase()) || s.scenario.toLowerCase().includes(vaultSearch.toLowerCase()) || s.keyPhrases.some(k => k.toLowerCase().includes(vaultSearch.toLowerCase()));
+                return matchCat && matchQ;
+              }).length > 0 ? (
+                <div className="vault-grid">
+                  {vaultScripts.filter(s => {
+                    const matchCat = vaultCategory === 'all' || s.category === vaultCategory;
+                    const matchQ = !vaultSearch || s.title.toLowerCase().includes(vaultSearch.toLowerCase()) || s.template.toLowerCase().includes(vaultSearch.toLowerCase()) || s.scenario.toLowerCase().includes(vaultSearch.toLowerCase()) || s.keyPhrases.some(k => k.toLowerCase().includes(vaultSearch.toLowerCase()));
+                    return matchCat && matchQ;
+                  }).map(script => (
+                    <article key={script.id} className="vault-card">
+                      <div className="vault-card-header">
+                        <span className="vault-badge">{script.categoryLabel}</span>
+                        <h3>{script.title}</h3>
+                        <p className="vault-scenario">{script.scenario}</p>
+                      </div>
+                      <div className="vault-template-box">
+                        <pre>{script.template}</pre>
+                      </div>
+                      <div className="vault-card-footer">
+                        <button
+                          type="button"
+                          className="button outline compact"
+                          onClick={() => {
+                            navigator.clipboard.writeText(script.template);
+                            notify('Script copiado para a área de transferência!');
+                          }}
+                        >
+                          <Copy size={14} /> Copiar script
+                        </button>
+                        {business && (
+                          <button
+                            type="button"
+                            className="button compact"
+                            onClick={() => {
+                              const filled = script.template
+                                .replace(/{{empresa}}/g, business.name)
+                                .replace(/{{nome}}/g, user.name)
+                                .replace(/{{localidade}}/g, business.locality)
+                                .replace(/{{categoria}}/g, business.category)
+                                .replace(/{{servico}}/g, service);
+                              setDraft(filled);
+                              navigate('outreach', business);
+                              notify('Script inserido na preparação da mensagem!');
+                            }}
+                          >
+                            <ArrowRight size={14} /> Usar com {business.name}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <section className="panel">
+                  <Empty icon={<Search size={28} />} title="Nenhum script encontrado." description="Experimente outro termo de pesquisa ou selecione outra categoria do Cofre.">
+                    <button type="button" className="button outline" onClick={() => { setVaultCategory('all'); setVaultSearch(''); }}>Ver todos os scripts</button>
+                  </Empty>
+                </section>
+              )}
+            </>
+          )}
+
+
           {/* ══ VIEW: Ficha + Abordagem ═══════════════════ */}
           {user.profile.onboarded && ['business', 'outreach'].includes(view) && business && (
             <>
@@ -972,6 +1091,30 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <div className="editor-heading">
                       <div className="step-label"><span>2</span><div><h2>Prepare uma boa conversa.</h2><p>{analysis ? 'Reveja, personalize e guarde a mensagem.' : 'Uma nova análise inclui a primeira mensagem.'}</p></div></div>
                       <button className="button outline compact" disabled={busy || business.suppressed} onClick={() => generate(!!analysis)}>{busy ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} {analysis ? 'Nova análise' : 'Gerar mensagem'} · 1 crédito</button>
+                    </div>
+                    <div className="vault-quick-bar">
+                      <span className="vault-quick-label"><ShieldCheck size={13} /> Modelos do Cofre:</span>
+                      <button type="button" className="vault-quick-pill" onClick={() => {
+                        setDraft(`Olá, equipa do(a) ${business.name}! Tudo bem?\n\nO meu nome é ${user.name} e ajudo empresas no vosso sector a modernizar o atendimento no WhatsApp para nunca mais perderem clientes por demora.\n\nNotei que têm presença relevante em ${business.locality}. Faz sentido conversarmos 5 minutinhos sobre como isto funciona para o vosso caso? Prometo ser breve!`);
+                        notify('Modelo de Primeiro Contato inserido!');
+                      }}>Primeiro Contato</button>
+                      <button type="button" className="vault-quick-pill" onClick={() => {
+                        setDraft(`Olá, pessoal do(a) ${business.name}! Como estão?\n\nEstava a pesquisar serviços de ${business.category} em ${business.locality} e encontrei-vos no Google Maps. Vi que o perfil está super bem avaliado, mas notei que ainda não têm um website próprio, o que faz muitas pessoas desistirem antes de entrar em contacto.\n\nEm menos de 48h consigo colocar uma Landing Page no ar para o(a) ${business.name} que vai duplicar as pessoas que clicam para o WhatsApp de vocês.\n\nGostariam de ver um rascunho sem compromisso?`);
+                        notify('Modelo para Empresa Sem Site inserido!');
+                      }}>Sem Website</button>
+                      <button type="button" className="vault-quick-pill" onClick={() => {
+                        setDraft(`Entendo perfeitamente, [Nome do Cliente]. O valor pode parecer um investimento considerável num primeiro momento.\n\nMas vamos pensar juntos: quanto custa hoje o(a) ${business.name} perder 1 ou 2 clientes por semana porque o WhatsApp demorou a responder ou faltou um site?\n\nSe a solução vos trouxer apenas 2 vendas a mais neste mês, ele já não se pagou e gerou lucro limpo?`);
+                        notify('Modelo de Quebra de Objeção ("Está Caro") inserido!');
+                      }}>Quebra "Está Caro"</button>
+                      <button type="button" className="vault-quick-pill" onClick={() => {
+                        setDraft(`Perfeito, [Nome]! Fico muito contente por darmos este passo juntos.\n\nPara darmos início imediato ao setup do(a) ${business.name}:\n\n📱 Pagamento via M-Pesa / e-Mola:\n• Número: [SEU NÚMERO M-PESA]\n• Nome: ${user.name}\n• Valor: [VALOR] MT\n• Referência: ${business.name}\n\nAssim que enviarem o comprovativo aqui, crio o grupo no WhatsApp com a equipa técnica para iniciarmos hoje mesmo!`);
+                        notify('Modelo de Fechamento via M-Pesa inserido!');
+                      }}>Fechamento M-Pesa</button>
+                      <button type="button" className="vault-quick-pill" onClick={() => {
+                        setDraft(`Olá, [Nome], bom dia! Tudo certo no(a) ${business.name}?\n\nConseguiu dar uma olhada na proposta que enviei ontem? Sei que a rotina com o negócio é sempre corrida!\n\nSe preferir, posso ligar-lhe por 5 minutinhos apenas para tirar dúvidas rápidas. Como está a sua agenda para hoje à tarde?`);
+                        notify('Modelo de Follow-up inserido!');
+                      }}>Follow-up</button>
+                      <button type="button" className="text-button" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => navigate('vault')}>Ver todos no Cofre <ArrowRight size={12} /></button>
                     </div>
                     <label className="sr-only" htmlFor="draft">Mensagem de abordagem</label>
                     <textarea id="draft" className="message-editor" value={draft} onChange={e => setDraft(e.target.value)} placeholder="A sua mensagem aparece aqui após a análise. Também pode preparar um texto manualmente." />

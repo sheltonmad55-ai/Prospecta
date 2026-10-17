@@ -7,6 +7,7 @@ import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLe
 import { mode, validPhone } from '@/server/providers';
 import { parseCsv } from '@/server/import';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '@/server/google-oauth';
+import { getAllVaultScripts, getVaultScriptsByCategory, searchVaultScripts, VAULT_CATEGORIES } from '@/server/vault-scripts';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -38,6 +39,13 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(!['GET','HEAD'].includes(method)){const text=await request.text();if(text.length>500000)throw new AppError('Pedido demasiado grande.',413);try{input=text?JSON.parse(text):{};}catch{throw new AppError('Conteúdo do pedido inválido.');}}
   const current=getUser(request);
   if(route==='health' && method==='GET')return reply({status:'ok',mode:mode(),database:!!db().prepare('SELECT 1').get()});
+  if(route==='vault' && method==='GET') {
+   const query=new URL(request.url).searchParams;
+   const q=query.get('q')||'';
+   const category=query.get('category')||'';
+   const scripts=searchVaultScripts(q, category);
+   return reply({scripts,categories:VAULT_CATEGORIES,total:scripts.length});
+  }
   if(route==='me' && method==='GET') {
    const user=mode()==='live'&&current?await requireUser(request):current;
    return reply({user,mode:mode(),capabilities:{demo:mode()==='demo',google:googleConfigured(),ai:mode()==='demo'?'simulated':!!process.env.GEMINI_API_KEY,data:mode()==='demo'?'fixtures':process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:mode()==='live'?'supabase':'local-outbox'}});
