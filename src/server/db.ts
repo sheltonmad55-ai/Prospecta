@@ -9,7 +9,8 @@ export const id = () => randomUUID();
 export const now = () => new Date().toISOString();
 export function db() {
   if (database) return database;
-  const filename = process.env.PROSPECTA_DB_PATH || path.join(process.cwd(), 'data', 'prospecta.sqlite');
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || (process.env.NODE_ENV === 'production' && !process.env.PROSPECTA_DB_PATH));
+  const filename = process.env.PROSPECTA_DB_PATH || (isServerless ? path.join('/tmp', 'prospecta.sqlite') : path.join(process.cwd(), 'data', 'prospecta.sqlite'));
   mkdirSync(path.dirname(filename), { recursive: true });
   database = new DatabaseSync(filename);
   database.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;

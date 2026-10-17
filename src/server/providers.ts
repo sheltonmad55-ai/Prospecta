@@ -3,7 +3,12 @@ import type { Analysis, Business, Profile } from '../lib/contracts.ts';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { createHash } from 'node:crypto';
 
-export const mode = () => process.env.PROSPECTA_MODE === 'live' ? 'live' as const : 'demo' as const;
+export const mode = () => {
+  if (process.env.PROSPECTA_MODE === 'demo') return 'demo' as const;
+  if (process.env.PROSPECTA_MODE === 'live') return 'live' as const;
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) return 'live' as const;
+  return 'demo' as const;
+};
 export const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 export function validPhone(value:string) {const number=parsePhoneNumberFromString(value,'MZ');return number?.isValid() && number.country==='MZ' ? number.number : null;}
 const coerceStr=(max:number)=>z.union([z.string(),z.number(),z.boolean()]).transform(v=>String(v)).pipe(z.string().max(max));

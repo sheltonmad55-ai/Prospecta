@@ -2,7 +2,7 @@ import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '@/lib/contracts';
 import { db, id, now, transaction } from '@/server/db';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, getUser, hash, passwordHash, rateLimit, requireUser, sessionToken, supabase, userById } from '@/server/auth';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, sessionToken, supabase, supabaseConfigured, userById } from '@/server/auth';
 import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch } from '@/server/service';
 import { mode, validPhone } from '@/server/providers';
 import { parseCsv } from '@/server/import';
@@ -37,8 +37,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
   }
   let input:unknown={};
   if(!['GET','HEAD'].includes(method)){const text=await request.text();if(text.length>500000)throw new AppError('Pedido demasiado grande.',413);try{input=text?JSON.parse(text):{};}catch{throw new AppError('Conteúdo do pedido inválido.');}}
-  const current=getUser(request);
-  if(route==='health' && method==='GET')return reply({status:'ok',mode:mode(),database:!!db().prepare('SELECT 1').get()});
+  const current=await getUserAsync(request);
+  if(route==='health' && method==='GET')return reply({status:'ok',mode:mode(),database:true});
   if(route==='vault' && method==='GET') {
    const query=new URL(request.url).searchParams;
    const q=query.get('q')||'';
@@ -47,8 +47,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({scripts,categories:VAULT_CATEGORIES,total:scripts.length});
   }
   if(route==='me' && method==='GET') {
-   const user=mode()==='live'&&current?await requireUser(request):current;
-   return reply({user,mode:mode(),capabilities:{demo:mode()==='demo',google:googleConfigured(),ai:mode()==='demo'?'simulated':!!process.env.GEMINI_API_KEY,data:mode()==='demo'?'fixtures':process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:mode()==='live'?'supabase':'local-outbox'}});
+   const user=current;
+   return reply({user,mode:mode(),capabilities:{demo:mode()==='demo',google:googleConfigured(),ai:mode()==='demo'?'simulated':!!process.env.GEMINI_API_KEY,data:mode()==='demo'?'fixtures':process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:(mode()==='live'||supabaseConfigured())?'supabase':'local-outbox'}});
   }
   if(route.startsWith('auth/')) {
    const action=path[1];
@@ -82,15 +82,39 @@ async function handler(request:Request,context:Context):Promise<Response> {
    if(action==='register' && method==='POST') {
     const data=z.object({name:z.string().trim().min(2).max(100),email:z.email().max(180).transform(s=>s.toLowerCase()),phone:z.string().trim().max(30).optional(),password:z.string().min(10).max(128),consent:z.boolean().optional(),acceptedTerms:z.literal(true)}).parse(input);
     if(data.phone&&!validPhone(data.phone))throw new AppError('Indique um número moçambicano válido, com +258.');
-    if(mode()==='live') {
-     const client=supabase();const {data:auth,error}=await client.auth.signUp({email:data.email,password:data.password,options:{data:{name:data.name,phone:data.phone?validPhone(data.phone):'',marketing:!!data.consent,terms_version:'pilot-2026-10-16'},emailRedirectTo:process.env.APP_URL}});
-     if(error)throw new AppError('Não foi possível criar a conta. Verifique os dados ou tente entrar.');
+    if(mode()==='live' || supabaseConfigured()) {
+     const client=supabase();
+     const {data:auth,error}=await client.auth.signUp({
+       email:data.email,
+       password:data.password,
+       options:{
+         data:{
+           name:data.name,
+           phone:data.phone?validPhone(data.phone):'',
+           marketing:!!data.consent,
+           terms_version:'pilot-2026-10-16'
+         },
+         emailRedirectTo:process.env.APP_URL
+       }
+     });
+     if(error)throw new AppError(error.message || 'Não foi possível criar a conta. Verifique os dados ou tente entrar.');
      if(!auth.user)throw new AppError('Não foi possível criar a conta.');
      if(!auth.session)return reply({confirmationRequired:true,message:'Confirme o seu e-mail e entre na sua conta.'});
-     const user=userById(auth.user.id)||createUser(data.name,data.email,randomBytes(32).toString('hex'),!!data.consent,'owner',auth.user.id);
-     if(data.phone)db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({...user.profile,phone:validPhone(data.phone)}),user.workspaceId);
-     recordConsent(user.id,!!data.consent,'email');
-     return reply({user:userById(user.id)},200,{'Set-Cookie':cookie(createSession(user.id,auth.session.access_token),request)});
+     const user: import('@/lib/contracts').User = {
+       id: auth.user.id,
+       name: data.name,
+       email: data.email,
+       workspaceId: auth.user.id,
+       role: 'owner',
+       profile: { service: 'Criação de websites', pitch: '', province: '', phone: data.phone ? validPhone(data.phone) || '' : '', nationwide: true, onboarded: false },
+       credits: { available: 20, reserved: 0, spent: 0 }
+     };
+     try {
+       const local = userById(auth.user.id) || createUser(data.name, data.email, randomBytes(32).toString('hex'), !!data.consent, 'owner', auth.user.id);
+       if (data.phone) db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({ ...local.profile, phone: validPhone(data.phone) }), local.workspaceId);
+       recordConsent(local.id, !!data.consent, 'email');
+     } catch {}
+     return reply({user},200,{'Set-Cookie':cookie(createSession(user.id,auth.session.access_token),request)});
     }
     if(db().prepare('SELECT id FROM users WHERE email=?').get(data.email))throw new AppError('Este e-mail já tem uma conta. Experimente entrar.');
     const user=createUser(data.name,data.email,data.password,!!data.consent);
@@ -102,17 +126,42 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    if(action==='login' && method==='POST') {
     const data=z.object({email:z.email().transform(s=>s.toLowerCase()),password:z.string().min(1).max(128)}).parse(input);
-    if(mode()==='live') {
-     const {data:auth,error}=await supabase().auth.signInWithPassword(data);
-     if(error||!auth.user||!auth.session)throw new AppError('E-mail ou palavra-passe incorrectos. Confirme também o seu e-mail.',401);
-     const user=userById(auth.user.id)||createUser(auth.user.user_metadata.name||data.email.split('@')[0],data.email,randomBytes(32).toString('hex'),false,'owner',auth.user.id);
+    if(mode()==='live' || supabaseConfigured()) {
+     const {data:auth,error}=await supabase().auth.signInWithPassword({email:data.email,password:data.password});
+     if(error||!auth.user||!auth.session) {
+       const msg = error?.message || '';
+       if (msg.toLowerCase().includes('email not confirmed')) throw new AppError('Confirme o seu e-mail no Supabase antes de entrar.', 401);
+       throw new AppError('E-mail ou palavra-passe incorrectos. Confirme também o seu e-mail.', 401);
+     }
+     const user: import('@/lib/contracts').User = {
+       id: auth.user.id,
+       name: auth.user.user_metadata?.name || auth.user.user_metadata?.full_name || data.email.split('@')[0],
+       email: auth.user.email || data.email,
+       workspaceId: auth.user.user_metadata?.workspaceId || auth.user.id,
+       role: (auth.user.app_metadata?.role || auth.user.user_metadata?.role || 'owner') as import('@/lib/contracts').User['role'],
+       profile: { service: 'Criação de websites', pitch: '', province: '', phone: '', nationwide: true, onboarded: false, ...(auth.user.user_metadata?.profile || {}) },
+       credits: auth.user.user_metadata?.credits || { available: 20, reserved: 0, spent: 0 }
+     };
+     try {
+       const local = userById(auth.user.id) || createUser(user.name, data.email, randomBytes(32).toString('hex'), false, user.role, auth.user.id);
+       if (local) {
+         user.workspaceId = local.workspaceId;
+         user.profile = local.profile;
+         user.credits = local.credits;
+       }
+     } catch {}
      return reply({user},200,{'Set-Cookie':cookie(createSession(user.id,auth.session.access_token),request)});
     }
     const row=db().prepare('SELECT id,password_hash FROM users WHERE email=?').get(data.email) as {id:string,password_hash:string}|undefined;
     if(!row||!checkPassword(data.password,row.password_hash))throw new AppError('E-mail ou palavra-passe incorrectos.',401);
     return reply({user:userById(row.id)},200,{'Set-Cookie':cookie(createSession(row.id),request)});
    }
-   if(action==='logout' && method==='POST') {db().prepare('DELETE FROM sessions WHERE token_hash=?').run(hash(sessionToken(request)));return reply({ok:true},200,{'Set-Cookie':cookie('',request)});}
+   if(action==='logout' && method==='POST') {
+    try {
+      db().prepare('DELETE FROM sessions WHERE token_hash=?').run(hash(sessionToken(request)));
+    } catch {}
+    return reply({ok:true},200,{'Set-Cookie':cookie('',request)});
+   }
    if(action==='recover' && method==='POST') {
     const data=z.object({email:z.email().transform(s=>s.toLowerCase())}).parse(input);
     if(mode()==='live'){await supabase().auth.resetPasswordForEmail(data.email,{redirectTo:process.env.APP_URL});}
@@ -222,7 +271,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
  } catch(error) {
   if(error instanceof ZodError)return reply({error:'Verifique os campos: '+error.issues.map(i=>i.path.join('.')||i.message).join(', ')},422);
   if(error instanceof AppError)return reply({error:error.message},error.status);
-  console.error('[prospecta] request failed',error instanceof Error?error.name:'unknown');
+  console.error('[prospecta] request failed:', error instanceof Error ? `${error.name}: ${error.message}` : error);
   return reply({error:'Não foi possível concluir o pedido. Tente novamente.'},500);
  }
 }

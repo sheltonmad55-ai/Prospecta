@@ -20,18 +20,28 @@ export function publicOrigin(request: Request) {
   if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) throw new AppError('Configure APP_URL com HTTPS antes de activar o Google.', 503);
   return url.origin;
 }
-export function googleConfigured() { return mode() === 'live' && !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY; }
+export function googleConfigured() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  return mode() === 'live' && !!url && !!key;
+}
 function requireConfiguration() {
   if (!googleConfigured()) throw new AppError('O acesso com Google ainda não está activado neste ambiente. Pode continuar com e-mail e palavra-passe.', 503);
 }
 export function flowCookie(value: string, request: Request) {
-  return `prospecta_oauth=${value}; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Age=${value ? 300 : 0}${new URL(process.env.APP_URL||request.url).protocol === 'https:' ? '; Secure' : ''}`;
+  const isHttps = request.url.startsWith('https:') ||
+    (process.env.APP_URL && process.env.APP_URL.startsWith('https:')) ||
+    request.headers.get('x-forwarded-proto') === 'https' ||
+    Boolean(process.env.VERCEL);
+  return `prospecta_oauth=${value}; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Age=${value ? 300 : 0}${isHttps ? '; Secure' : ''}`;
 }
 function readFlowCookie(request: Request) {
   return request.headers.get('cookie')?.split(';').map(value => value.trim()).find(value => value.startsWith('prospecta_oauth='))?.slice('prospecta_oauth='.length) || '';
 }
 function provider(values: Record<string, string>): OAuthProvider {
-  const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, { auth: {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!;
+  const client = createClient(url, key, { auth: {
     flowType: 'pkce', storageKey: 'prospecta-oauth', persistSession: true, autoRefreshToken: false, detectSessionInUrl: false,
     storage: { getItem: key => values[key] ?? null, setItem: (key, value) => { values[key] = value; }, removeItem: key => { delete values[key]; } },
   } });
@@ -50,7 +60,8 @@ export async function beginGoogleOAuth(request: Request, input: { intent: 'login
   const result = await factory(values).begin(origin + '/api/auth/callback');
   if (result.error || !result.url) throw new AppError('Não foi possível iniciar o acesso com Google. Tente novamente.', 502);
   const destination = new URL(result.url);
-  if (destination.origin !== new URL(process.env.SUPABASE_URL!).origin || !destination.pathname.endsWith('/auth/v1/authorize')) throw new AppError('O fornecedor devolveu uma ligação inválida.', 502);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
+  if (destination.origin !== new URL(supabaseUrl).origin || !destination.pathname.endsWith('/auth/v1/authorize')) throw new AppError('O fornecedor devolveu uma ligação inválida.', 502);
   if (!Object.keys(values).some(key => key.endsWith('-code-verifier'))) throw new AppError('Não foi possível preparar a autenticação segura com Google.', 502);
   const token = randomBytes(32).toString('hex');
   transaction(() => {
