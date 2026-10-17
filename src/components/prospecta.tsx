@@ -58,25 +58,25 @@ function Brand({ light = false }: { light?: boolean }) {
   );
 }
 
-function CircleScore({ value, max = 100, size = 68, color = '#7c5ff5' }: { value: number; max?: number; size?: number; color?: string }) {
+function CircleScore({ value, max = 100, size = 68, color = '#145dbf' }: { value: number; max?: number; size?: number; color?: string }) {
   const r = (size / 2) - 6;
   const circ = 2 * Math.PI * r;
   const offset = circ - (value / max) * circ;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={5} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E2E8F0" strokeWidth={5} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={5}
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
         transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x={size / 2} y={size / 2 + 5} textAnchor="middle" fill={color} fontSize="14" fontWeight="700">{value}</text>
+      <text x={size / 2} y={size / 2 + 5} textAnchor="middle" fill="#142638" fontSize="14" fontWeight="700">{value}</text>
     </svg>
   );
 }
 
 const DEMO_OPP = [
-  { id: 'o1', name: 'Clínica Dental Maputo', category: 'Saúde', initial: 'C', color: '#7c5ff5', stars: 4, phone: '258841234567', locality: 'Maputo' },
-  { id: 'o2', name: 'Restaurante Baía Azul', category: 'Restauração', initial: 'R', color: '#10b981', stars: 5, phone: '258829876543', locality: 'Matola' },
-  { id: 'o3', name: 'Salão Beleza Nobre', category: 'Beleza', initial: 'S', color: '#e9b458', stars: 3, phone: '258864567890', locality: 'Beira' },
+  { id: 'o1', name: 'Clínica Dental Maputo', category: 'Saúde', initial: 'C', color: '#145dbf', stars: 4, phone: '258841234567', locality: 'Maputo' },
+  { id: 'o2', name: 'Restaurante Baía Azul', category: 'Restauração', initial: 'R', color: '#137958', stars: 5, phone: '258829876543', locality: 'Matola' },
+  { id: 'o3', name: 'Salão Beleza Nobre', category: 'Beleza', initial: 'S', color: '#d39838', stars: 3, phone: '258864567890', locality: 'Beira' },
 ];
 
 export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMode | null } = {}) {
@@ -511,14 +511,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 {DEMO_OPP.map(opp => (
                   <article key={opp.id} className="opp-card">
                     <div className="opp-card-top">
-                      <span className="opp-initial" style={{ background: opp.color + '22', color: opp.color, borderColor: opp.color + '55' }}>{opp.initial}</span>
+                      <span className="opp-initial" style={{ background: '#EAF2FF', color: opp.color, borderColor: '#C7DEFA' }}>{opp.initial}</span>
                       <div className="opp-meta">
                         <h3>{opp.name}</h3>
                         <span>{opp.category} · {opp.locality}</span>
                       </div>
                       <div className="opp-stars">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={13} fill={i < opp.stars ? '#e9b458' : 'none'} stroke={i < opp.stars ? '#e9b458' : '#4d4772'} />
+                          <Star key={i} size={13} fill={i < opp.stars ? '#e9b458' : 'none'} stroke={i < opp.stars ? '#e9b458' : '#CBD5E1'} />
                         ))}
                       </div>
                     </div>
@@ -553,7 +553,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 {[
                   { label: 'Leads salvos', value: dashboard?.leads ?? 0, icon: Bookmark, color: 'blue', detail: 'Empresas no seu acompanhamento' },
                   { label: 'Seguimentos hoje', value: dashboard?.due ?? 0, icon: CalendarDays, color: 'amber', detail: 'Até ao final de hoje' },
-                  { label: 'Créditos', value: user.credits.available, icon: Sparkles, color: 'purple', detail: 'Para preparar abordagens' },
+                  { label: 'Créditos', value: user.credits.available, icon: Sparkles, color: 'blue', detail: 'Para preparar abordagens' },
                   { label: 'Em negociação', value: money(dashboard?.proposalsMinor ?? 0), icon: TrendingUp, color: 'green', detail: 'Soma das oportunidades em Proposta' },
                 ].map(s => (
                   <article className="stat-card" key={s.label}>
@@ -593,7 +593,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <Target size={19} />
                   </div>
                   <div className="meta-circle-wrap">
-                    <CircleScore value={0} max={5} size={80} color="#7c5ff5" />
+                    <CircleScore value={0} max={5} size={80} color="#145dbf" />
                     <div><strong>0 / 5</strong><small>contactos hoje</small></div>
                   </div>
                   <div className="meta-progress"><span style={{ width: '0%' }} /></div>
@@ -719,7 +719,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <div className="analysis-deep-card">
                     <div className="adc-header"><span className="eyebrow"><Sparkles size={13} /> ANÁLISE PROFUNDA</span></div>
                     <div className="adc-score-row">
-                      <CircleScore value={87} max={100} size={72} color="#10b981" />
+                      <CircleScore value={87} max={100} size={72} color="#145dbf" />
                       <div>
                         <strong className="adc-score-label">Score de oportunidade</strong>
                         <p>Alta probabilidade de interesse</p>

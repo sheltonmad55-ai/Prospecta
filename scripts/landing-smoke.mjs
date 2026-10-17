@@ -46,7 +46,7 @@ try {
   assert.equal(document.querySelector('.lp-rotator-visual').getAttribute('aria-hidden'), 'true'); checks.push('rotating copy does not flood screen readers');
   await waitFor('counter observer ready', () => observer?.target);
   assert.ok(document.querySelector('.lp-goal-value').textContent.includes('+0')); checks.push('counter waits for viewport entry');
-  assert.ok(document.querySelector('#goal-heading').textContent.includes('A NOSSA META')); checks.push('amount clearly labeled as a target');
+  assert.ok(document.querySelector('#goal-heading').textContent.includes('IMPACTO GERADO')); checks.push('amount clearly labeled as impact generated');
   observer.enter();
   await waitFor('counter reaches 100000 MT', () => document.querySelector('.lp-goal-value').textContent.includes('+100.000'));
   assert.ok(observer.disconnected); checks.push('counter observer disconnects after starting');

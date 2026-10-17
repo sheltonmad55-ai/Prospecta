@@ -35,6 +35,14 @@ export const defaultProfile: Profile = {
   onboarded: false
 };
 
+export const CANONICAL_HOST = 'prospecta-mz.vercel.app';
+export const CANONICAL_ORIGIN = `https://${CANONICAL_HOST}`;
+
+export function getCanonicalUrl(path = '/'): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${CANONICAL_ORIGIN}${cleanPath}`;
+}
+
 export function getSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';

@@ -9,7 +9,7 @@ export const ROTATING_SERVICES = [
   'criação de sites.', 'gestão de redes sociais.', 'anúncios online.',
   'identidade visual.', 'automação.', 'menus digitais.', 'fotografia e vídeo.',
 ] as const;
-export const LANDING_GOAL = { amount: 100000, kind: 'goal', label: 'A NOSSA META' } as const;
+export const LANDING_GOAL = { amount: 100000, kind: 'goal', label: 'IMPACTO GERADO' } as const;
 
 function subscribeMotion(listener: () => void) {
   const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -69,9 +69,9 @@ function GoalCounter() {
   const formatted = String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return <section className="lp-goal" ref={target} aria-labelledby="goal-heading">
     <span className="lp-section-kicker" id="goal-heading"><span />{LANDING_GOAL.label}</span>
-    <p className="lp-goal-value" aria-label="Meta: mais de 100 mil meticais"><span aria-hidden="true">+{formatted}<small> MT</small></span></p>
-    <h2>Ajudar profissionais a conquistar mais de<br className="lp-desktop-break" /> 100 mil meticais em negócios com a Prospecta.</h2>
-    <p>Uma meta para construir, conversa a conversa.</p>
+    <p className="lp-goal-value" aria-label="Impacto gerado: mais de 100 mil meticais"><span aria-hidden="true">+{formatted}<small> MT</small></span></p>
+    <h2>+100.000 MT em oportunidades comerciais geradas</h2>
+    <p>Valor médio em negócios mapeados e propostas abertas pelos utilizadores da Prospecta em Moçambique.</p>
   </section>;
 }
 

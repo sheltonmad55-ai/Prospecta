@@ -15,7 +15,9 @@ export type OAuthProvider = {
 export type ProviderFactory = (values: Record<string, string>) => OAuthProvider;
 
 export function publicOrigin(request: Request) {
-  const url = new URL(process.env.APP_URL || new URL(request.url).origin);
+  const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+  const defaultProd = isProd ? 'https://prospecta-mz.vercel.app' : undefined;
+  const url = new URL(process.env.APP_URL || defaultProd || new URL(request.url).origin);
   const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
   if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) throw new AppError('Configure APP_URL com HTTPS antes de activar o Google.', 503);
   return url.origin;
