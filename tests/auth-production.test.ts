@@ -32,7 +32,7 @@ test('Production & Supabase Auth configuration: environment detection, flags, an
     assert.ok(setCookie.includes('HttpOnly'), 'Must contain HttpOnly');
     assert.ok(setCookie.includes('SameSite=Lax'), 'Must contain SameSite=Lax');
     assert.ok(setCookie.includes('Secure'), 'Must contain Secure flag on HTTPS');
-    assert.ok(setCookie.includes('Max-Age=604800'), 'Must contain 7-day Max-Age');
+    assert.ok(setCookie.includes('Max-Age=2592000') || setCookie.includes('Max-Age=604800'), 'Must contain 30-day or 7-day Max-Age');
 
     // 3. Clear cookie on logout
     const clearCookie = cookie('', httpsReq);

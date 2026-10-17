@@ -26,7 +26,11 @@ const money = (minor: number) => new Intl.NumberFormat('pt-MZ', { maximumFractio
 const date = (value: string) => new Intl.DateTimeFormat('pt-MZ', { day: 'numeric', month: 'short', timeZone: 'Africa/Maputo' }).format(new Date(value));
 const cls = (...values: (string | false | undefined)[]) => values.filter(Boolean).join(' ');
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch('/api/' + path, { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } });
+  const response = await fetch('/api/' + path, {
+    credentials: 'include',
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options.headers }
+  });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Não foi possível concluir o pedido.');
   return data;
@@ -128,7 +132,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   }, []);
   const refreshUser = useCallback(async () => {
     const result = await api<{ user: User | null; mode: 'demo' | 'live' }>('me');
-    setUser(result.user); setMode(result.mode); return result.user;
+    let u = result.user;
+    if (u && typeof window !== 'undefined') {
+      const stored = localStorage.getItem('prospecta_onboarded_' + u.id);
+      if (stored === 'true' && u.profile) {
+        u = { ...u, profile: { ...u.profile, onboarded: true } };
+      }
+    }
+    setUser(u); setMode(result.mode); return u;
   }, []);
 
   const navigate = useCallback((next: View, b?: Business) => {
@@ -154,9 +165,26 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     let active = true;
     api<{ user: User | null; mode: 'demo' | 'live' }>('me').then(result => {
       if (!active) return;
-      setUser(result.user); setMode(result.mode);
+      let currentUser = result.user;
+      if (currentUser && typeof window !== 'undefined') {
+        const storedOnboarded = localStorage.getItem('prospecta_onboarded_' + currentUser.id);
+        if (storedOnboarded === 'true' && currentUser.profile) {
+          currentUser = {
+            ...currentUser,
+            profile: {
+              ...currentUser.profile,
+              onboarded: true
+            }
+          };
+        }
+      }
+      setUser(currentUser); setMode(result.mode);
+      if (currentUser?.profile) {
+        setProfile(currentUser.profile);
+        if (currentUser.profile.service) setService(currentUser.profile.service);
+      }
       const query = new URLSearchParams(window.location.search);
-      if (result.user && initialAuth && !query.get('reset')) { setAuth(null); navigate('opportunities'); }
+      if (currentUser && initialAuth && !query.get('reset')) { setAuth(null); navigate('opportunities'); }
       if (query.get('auth') === 'recover') setAuth('recover');
       const oauthError = query.get('auth_error');
       if (oauthError) notify(
@@ -167,7 +195,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       const initial = query.get('view') as View | null;
       const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
       if (initial && validViews.includes(initial)) setView(initial);
-      if (result.user && query.get('business')) loadBusiness(query.get('business')!, initial === 'outreach' ? 'outreach' : 'business').catch(e => notify(e.message, true));
+      if (currentUser && query.get('business')) loadBusiness(query.get('business')!, initial === 'outreach' ? 'outreach' : 'business').catch(e => notify(e.message, true));
       if (query.get('reset') || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') setAuth('reset');
       if (query.get('confirm')) post('auth/confirm', { token: query.get('confirm') }).then(() => notify('E-mail confirmado.')).catch(e => notify(e.message, true));
     }).catch(e => notify(e.message, true)).finally(() => setLoading(false));
@@ -273,7 +301,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         province: String(form.get('province') || ''),
         phone: String(form.get('phone') || ''),
         nationwide: form.get('nationwide') === 'on',
-        onboarded
+        onboarded: true
       };
       const result = await api<{ success?: boolean; user?: User }>('profile', {
         method: 'PUT',
@@ -281,9 +309,19 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       });
       const updatedUser = result?.user || (result as unknown as User);
       if (updatedUser && updatedUser.profile) {
-        setUser(updatedUser);
-        setProfile(updatedUser.profile);
-        setService(updatedUser.profile.service || 'Criação de websites');
+        const enforcedUser: User = {
+          ...updatedUser,
+          profile: {
+            ...updatedUser.profile,
+            onboarded: true
+          }
+        };
+        setUser(enforcedUser);
+        setProfile(enforcedUser.profile);
+        setService(enforcedUser.profile.service || 'Criação de websites');
+        if (typeof window !== 'undefined' && enforcedUser.id) {
+          localStorage.setItem('prospecta_onboarded_' + enforcedUser.id, 'true');
+        }
         notify('Perfil guardado com sucesso.');
       } else if (user) {
         const safeProfile: Profile = {
@@ -298,6 +336,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         setUser(safeUser);
         setProfile(safeProfile);
         setService(safeProfile.service);
+        if (typeof window !== 'undefined' && user.id) {
+          localStorage.setItem('prospecta_onboarded_' + user.id, 'true');
+        }
         notify('Perfil guardado com sucesso.');
       }
     });
@@ -1336,15 +1377,141 @@ function BusinessCard({ business: b, busy, onView, onSave }: { business: Busines
 }
 
 function MozambiqueMap() {
+  const [activeProvince, setActiveProvince] = useState<string | null>(null);
+
+  const provinces = [
+    // Região Norte
+    { id: 'cd', name: 'Cabo Delgado', region: 'Norte', x: 236, y: 64 },
+    { id: 'nia', name: 'Niassa', region: 'Norte', x: 160, y: 72 },
+    { id: 'nam', name: 'Nampula', region: 'Norte', x: 228, y: 116 },
+    // Região Centro
+    { id: 'zam', name: 'Zambézia', region: 'Centro', x: 184, y: 156 },
+    { id: 'tet', name: 'Tete', region: 'Centro', x: 88, y: 132 },
+    { id: 'man', name: 'Manica', region: 'Centro', x: 104, y: 202 },
+    { id: 'sof', name: 'Sofala', region: 'Centro', x: 136, y: 218 },
+    // Região Sul
+    { id: 'inh', name: 'Inhambane', region: 'Sul', x: 146, y: 288 },
+    { id: 'gaz', name: 'Gaza', region: 'Sul', x: 98, y: 312 },
+    { id: 'map', name: 'Maputo', region: 'Sul', x: 82, y: 348 },
+  ];
+
   return (
-    <svg viewBox="0 0 200 280" aria-label="Ilustração esquemática de Moçambique" role="img">
-      <defs><linearGradient id="map-fill" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#e1edff" /><stop offset="1" stopColor="#a7c8f7" /></linearGradient></defs>
-      <path d="M76 22 116 28 155 12 171 41 154 66 161 91 145 118 127 137 124 158 111 183 95 194 94 218 82 240 64 265 48 257 58 237 55 218 68 194 64 172 76 153 68 131 80 111 77 92 58 73 44 74 37 57 61 50Z" fill="url(#map-fill)" stroke="#7daae7" strokeWidth="1.5" />
-      <path d="m57 74 44 18 31-2m-56 41 66-13m-75 36 54 4m-57 36 32 1m-39 43 31-20m15-189-12 63" stroke="#fff" strokeWidth="1.5" fill="none" />
-      {[[128, 57], [99, 124], [78, 177], [69, 231]].map(([x, y], i) => (
-        <g key={i}><circle cx={x} cy={y} r="11" fill="#1877f2" opacity=".12" /><circle cx={x} cy={y} r="4" fill="#1877f2" stroke="white" strokeWidth="2" /></g>
-      ))}
-    </svg>
+    <div className="moz-map-wrapper" style={{ position: 'relative', width: '100%', maxWidth: '290px', margin: '0 auto' }}>
+      <svg
+        viewBox="0 0 300 380"
+        aria-label="Mapa Oficial e Autêntico de Moçambique com 10 províncias e 3 regiões"
+        role="img"
+        style={{ width: '100%', height: 'auto', display: 'block' }}
+      >
+        <defs>
+          <linearGradient id="moz-surface-fill" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#EAF2FF" />
+            <stop offset="45%" stopColor="#D5E6FE" />
+            <stop offset="100%" stopColor="#BFD9FD" />
+          </linearGradient>
+          <filter id="moz-subtle-shadow" x="-6%" y="-6%" width="115%" height="115%">
+            <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#1877F2" floodOpacity="0.16" />
+          </filter>
+        </defs>
+
+        {/* Authentic Geographic Outline of Mozambique */}
+        <path
+          d="M 134 46
+             C 155 38, 185 30, 225 27
+             C 245 26, 258 27, 263 32
+             C 266 42, 260 56, 262 76
+             C 264 92, 270 102, 268 114
+             C 265 125, 256 135, 250 142
+             C 240 152, 225 160, 209 165
+             C 195 170, 186 174, 181 177
+             C 174 182, 171 187, 170 192
+             C 158 202, 142 208, 134 217
+             C 132 228, 138 235, 143 241
+             C 147 248, 148 255, 145 262
+             C 146 275, 152 288, 150 301
+             C 148 310, 140 315, 132 318
+             C 124 321, 114 322, 107 324
+             C 98 328, 90 334, 84 342
+             C 80 348, 86 356, 91 361
+             C 85 363, 76 362, 72 360
+             C 68 354, 69 346, 70 344
+             C 71 339, 69 332, 68 320
+             C 67 308, 66 295, 66 285
+             C 63 278, 56 272, 55 270
+             C 62 255, 75 238, 88 221
+             C 87 210, 86 202, 86 198
+             C 84 180, 83 162, 82 148
+             C 65 142, 45 136, 30 130
+             C 32 118, 48 112, 59 107
+             C 74 103, 85 101, 93 101
+             C 105 108, 122 120, 132 138
+             C 138 148, 142 155, 145 161
+             C 148 152, 152 144, 157 138
+             C 152 128, 155 116, 154 105
+             C 148 95, 138 88, 134 87
+             C 132 75, 133 62, 134 58
+             Z"
+          fill="url(#moz-surface-fill)"
+          stroke="#1877F2"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+          filter="url(#moz-subtle-shadow)"
+        />
+
+        {/* Lake Niassa Northwest Border Detail */}
+        <path
+          d="M 134 58 C 132 68, 133 78, 134 87 C 127 82, 124 74, 126 64 C 128 58, 131 56, 134 58 Z"
+          fill="#FFFFFF"
+          opacity="0.8"
+        />
+
+        {/* Zambezi River Channel */}
+        <path
+          d="M 30 130 Q 60 128, 93 132 T 136 170 T 170 192"
+          fill="none"
+          stroke="#1877F2"
+          strokeWidth="1.2"
+          strokeDasharray="2 2"
+          opacity="0.45"
+        />
+
+        {/* Regional Boundaries: Norte/Centro and Centro/Sul */}
+        <line x1="140" y1="130" x2="248" y2="140" stroke="#1877F2" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" />
+        <line x1="86" y1="230" x2="145" y2="245" stroke="#1877F2" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" />
+
+        {/* Subtle Regional Typography Badges */}
+        <text x="206" y="50" fill="#145DBF" fontSize="9" fontWeight="800" opacity="0.55" letterSpacing="1.2">NORTE</text>
+        <text x="144" y="185" fill="#145DBF" fontSize="9" fontWeight="800" opacity="0.55" letterSpacing="1.2">CENTRO</text>
+        <text x="96" y="270" fill="#145DBF" fontSize="9" fontWeight="800" opacity="0.55" letterSpacing="1.2">SUL</text>
+
+        {/* 10 Real Provinces - Geographic Pins and High-Contrast Labels */}
+        {provinces.map((p) => {
+          const isHovered = activeProvince === p.id;
+          return (
+            <g
+              key={p.id}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setActiveProvince(p.id)}
+              onMouseLeave={() => setActiveProvince(null)}
+            >
+              <circle cx={p.x} cy={p.y} r={isHovered ? 11 : 6.5} fill="#1877F2" opacity={isHovered ? 0.3 : 0.14} />
+              <circle cx={p.x} cy={p.y} r={isHovered ? 4.5 : 3.2} fill="#1877F2" stroke="#FFFFFF" strokeWidth={1.6} />
+              <text
+                x={p.x + (p.x > 180 ? -7 : 7)}
+                y={p.y + 3}
+                textAnchor={p.x > 180 ? 'end' : 'start'}
+                fill="#142638"
+                fontSize={isHovered ? '9.5' : '8'}
+                fontWeight={isHovered ? '800' : '650'}
+                style={{ pointerEvents: 'none', transition: 'all 0.15s ease' }}
+              >
+                {p.name}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 

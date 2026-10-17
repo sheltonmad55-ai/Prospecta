@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { db, id, now, transaction } from './db.ts';
 import { mode } from './providers.ts';
@@ -61,6 +61,42 @@ export function supabase() {
   }
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
+
+export function supabaseAdmin() {
+  const { url } = getSupabaseEnv();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  if (!url || !serviceKey) return null;
+  return createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'prospecta-stateless-session-key-v1';
+
+export function encodeSignedSession(userId: string): string {
+  const expiresAt = Date.now() + 30 * 86400 * 1000;
+  const payload = `${userId}.${expiresAt}`;
+  const sig = createHmac('sha256', AUTH_SECRET).update(payload).digest('hex');
+  return `ps_${Buffer.from(`${payload}.${sig}`).toString('base64url')}`;
+}
+
+export function verifySignedSession(token: string): string | null {
+  if (!token || !token.startsWith('ps_')) return null;
+  try {
+    const raw = Buffer.from(token.slice(3), 'base64url').toString('utf-8');
+    const parts = raw.split('.');
+    if (parts.length !== 3) return null;
+    const [userId, expiresAtStr, sig] = parts;
+    const expiresAt = Number(expiresAtStr);
+    if (!userId || !expiresAt || isNaN(expiresAt) || expiresAt < Date.now()) return null;
+    const expectedSig = createHmac('sha256', AUTH_SECRET).update(`${userId}.${expiresAtStr}`).digest('hex');
+    const sigBuf = Buffer.from(sig, 'hex');
+    const expBuf = Buffer.from(expectedSig, 'hex');
+    if (sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf)) {
+      return userId;
+    }
+  } catch {}
+  return null;
+}
+
 
 export function credits(workspaceId: string): Credits {
   try {
@@ -206,22 +242,46 @@ export async function saveUserProfile(userId: string, data: { name?: string; ser
     console.warn('[saveUserProfile DB warning]:', err);
   }
 
-  // Update Supabase metadata if available
+  // Update Supabase metadata directly using admin client
   if (supabaseConfigured()) {
     try {
-      const client = supabase();
-      await client.auth.updateUser({
-        data: {
-          name: newName,
-          workspaceId,
-          profile: updatedProfile
+      const client = supabaseAdmin();
+      if (client?.auth?.admin) {
+        await client.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            name: newName,
+            workspaceId,
+            profile: updatedProfile,
+            onboarded: true
+          }
+        }).catch(err => console.warn('[Supabase admin.updateUserById error]:', err));
+      }
+
+      // Upsert workspaces in Supabase database if table exists
+      if (client) {
+        try {
+          await client.from('workspaces').upsert({
+            id: workspaceId,
+            user_id: userId,
+            profile: JSON.stringify(updatedProfile),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        } catch (wsErr) {
+          console.warn('[Supabase workspaces upsert warning]:', wsErr);
         }
-      }).catch(() => {});
-    } catch {}
+      }
+    } catch (err) {
+      console.warn('[Supabase saveUserProfile error]:', err);
+    }
   }
 
   const refreshed = userById(userId);
-  if (refreshed) return refreshed;
+  if (refreshed) {
+    return {
+      ...refreshed,
+      profile: updatedProfile
+    };
+  }
 
   return {
     id: userId,
@@ -258,8 +318,8 @@ export function createUser(name: string, email: string, password: string, market
 }
 
 export function createSession(userId: string, providerToken?: string): string {
-  const token = providerToken || randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 7 * 86400 * 1000).toISOString();
+  const token = providerToken || encodeSignedSession(userId);
+  const expires = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
   try {
     db().exec('CREATE TABLE IF NOT EXISTS provider_sessions(token_hash TEXT PRIMARY KEY REFERENCES sessions(token_hash) ON DELETE CASCADE,access_token TEXT NOT NULL)');
     db().prepare('INSERT INTO sessions VALUES(?,?,?)').run(hash(token), userId, expires);
@@ -271,7 +331,17 @@ export function createSession(userId: string, providerToken?: string): string {
 }
 
 export function sessionToken(request: Request): string {
-  return request.headers.get('cookie')?.split(';').map(c => c.trim()).find(c => c.startsWith('prospecta_session='))?.split('=')[1] || '';
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookieMatch = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('prospecta_session='));
+  if (cookieMatch) {
+    const val = cookieMatch.split('=')[1];
+    if (val) return val;
+  }
+  const authHeader = request.headers.get('authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  return '';
 }
 
 export async function userFromSupabaseToken(token: string): Promise<User | null> {
@@ -285,10 +355,13 @@ export async function userFromSupabaseToken(token: string): Promise<User | null>
     const email = su.email || '';
     const name = su.user_metadata?.name || su.user_metadata?.full_name || email.split('@')[0] || 'Utilizador';
     const role = (su.app_metadata?.role || su.user_metadata?.role || 'owner') as User['role'];
+    const profileData = su.user_metadata?.profile || {};
+    const isOnboarded = su.user_metadata?.onboarded === true || profileData.onboarded === true;
     const profile: Profile = {
       ...defaultProfile,
-      ...(su.user_metadata?.profile || {}),
-      phone: su.user_metadata?.phone || defaultProfile.phone
+      ...profileData,
+      phone: su.user_metadata?.phone || profileData.phone || defaultProfile.phone,
+      onboarded: isOnboarded
     };
 
     // Ensure synchronized locally
@@ -308,18 +381,65 @@ export async function userFromSupabaseToken(token: string): Promise<User | null>
 export function getUser(request: Request): User | null {
   const token = sessionToken(request);
   if (!token) return null;
+
+  // 1. Signed stateless session (handles serverless across instances)
+  const signedUserId = verifySignedSession(token);
+  if (signedUserId) {
+    const local = userById(signedUserId);
+    if (local) return local;
+    return ensureUserAndWorkspace({ id: signedUserId });
+  }
+
+  // 2. Local SQLite session table
   try {
     const session = db().prepare('SELECT user_id FROM sessions WHERE token_hash=? AND expires_at>?').get(hash(token), now()) as { user_id: string } | undefined;
-    return session ? userById(session.user_id) : null;
-  } catch {
-    return null;
-  }
+    if (session) return userById(session.user_id) || ensureUserAndWorkspace({ id: session.user_id });
+  } catch {}
+
+  return null;
 }
 
 export async function getUserAsync(request: Request): Promise<User | null> {
   const token = sessionToken(request);
   if (!token) return null;
 
+  // 1. Signed stateless session token
+  const signedUserId = verifySignedSession(token);
+  if (signedUserId) {
+    const local = userById(signedUserId);
+    if (local && local.profile?.onboarded) return local;
+
+    // If local workspace is not onboarded, check Supabase user_metadata if available
+    if (supabaseConfigured()) {
+      try {
+        const client = supabaseAdmin();
+        if (client?.auth?.admin) {
+          const { data } = await client.auth.admin.getUserById(signedUserId);
+          if (data?.user) {
+            const su = data.user;
+            const profileData = su.user_metadata?.profile || {};
+            const isOnboarded = su.user_metadata?.onboarded === true || profileData.onboarded === true;
+            return ensureUserAndWorkspace({
+              id: su.id,
+              name: su.user_metadata?.name || su.user_metadata?.full_name || su.email?.split('@')[0],
+              email: su.email || '',
+              workspaceId: su.user_metadata?.workspaceId || su.id,
+              role: (su.app_metadata?.role || su.user_metadata?.role || 'owner') as User['role'],
+              profile: {
+                ...defaultProfile,
+                ...profileData,
+                onboarded: isOnboarded
+              }
+            });
+          }
+        }
+      } catch {}
+    }
+
+    return local || ensureUserAndWorkspace({ id: signedUserId });
+  }
+
+  // 2. Supabase JWT access token
   if (supabaseConfigured() || mode() === 'live') {
     const sbUser = await userFromSupabaseToken(token);
     if (sbUser) return sbUser;
@@ -329,17 +449,8 @@ export async function getUserAsync(request: Request): Promise<User | null> {
 }
 
 export async function requireUser(request: Request): Promise<User> {
-  const token = sessionToken(request);
-  if (!token) throw new AppError('Entre na sua conta para continuar.', 401);
-
-  if (supabaseConfigured() || mode() === 'live') {
-    const sbUser = await userFromSupabaseToken(token);
-    if (sbUser) return sbUser;
-  }
-
-  const localUser = getUser(request);
-  if (localUser) return localUser;
-
+  const user = await getUserAsync(request);
+  if (user) return user;
   throw new AppError('Entre na sua conta para continuar.', 401);
 }
 
@@ -355,7 +466,7 @@ export function cookie(token: string, request?: Request): string {
     )) ||
     Boolean(process.env.APP_URL && process.env.APP_URL.startsWith('https:'));
 
-  const maxAge = token ? (60 * 60 * 24 * 7) : 0; // 7 days
+  const maxAge = token ? (60 * 60 * 24 * 30) : 0; // 30 dias
 
   return `prospecta_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isHttps ? '; Secure' : ''}`;
 }

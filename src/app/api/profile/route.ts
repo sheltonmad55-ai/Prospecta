@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireUser, saveUserProfile, ensureUserAndWorkspace, cookie, sessionToken } from '@/server/auth';
+import { requireUser, saveUserProfile, ensureUserAndWorkspace, cookie, sessionToken, encodeSignedSession } from '@/server/auth';
 import { PROVINCES } from '@/lib/contracts';
 import { validPhone } from '@/server/providers';
 
@@ -59,11 +59,18 @@ async function handleSaveProfile(request: Request) {
       headers: { 'Cache-Control': 'no-store' }
     });
 
-    // Refresh and keep session cookies alive
-    const token = sessionToken(request);
-    if (token) {
-      response.headers.append('Set-Cookie', cookie(token, request));
-    }
+    // Refresh and keep session cookies alive for 30 days
+    const token = sessionToken(request) || encodeSignedSession(user.id);
+    const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+    const isHttps = isProd || request.url.startsWith('https:') || request.headers.get('x-forwarded-proto') === 'https';
+    response.cookies.set('prospecta_session', token, {
+      path: '/',
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30
+    });
+    response.headers.append('Set-Cookie', cookie(token, request));
 
     return response;
   } catch (error) {
