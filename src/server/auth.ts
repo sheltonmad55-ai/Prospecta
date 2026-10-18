@@ -192,6 +192,22 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
     console.warn('[ensureUserAndWorkspace warning]:', err);
   }
 
+  // Ensure workspace exists in Supabase with canonical ID = user.id
+  if (supabaseConfigured()) {
+    try {
+      const client = supabaseAdmin();
+      if (client) {
+        const canonicalWsId = user.id;
+        Promise.resolve(client.from('workspaces').upsert({
+          id: canonicalWsId,
+          name: user.name || 'Workspace',
+          owner_id: user.id,
+          profile: profileToSave
+        }, { onConflict: 'id' })).catch(() => {});
+      }
+    } catch {}
+  }
+
   const loaded = userById(user.id);
   if (loaded) return loaded;
 
@@ -206,7 +222,7 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
   };
 }
 
-export async function saveUserProfile(userId: string, data: { name?: string; service?: string; pitch?: string; province?: string; phone?: string; nationwide?: boolean; onboarded?: boolean }): Promise<User> {
+export async function saveUserProfile(userId: string, data: { name?: string; businessName?: string; service?: string; pitch?: string; province?: string; phone?: string; nationwide?: boolean; onboarded?: boolean }): Promise<User> {
   const existing = userById(userId);
   const currentProfile = existing?.profile || { ...defaultProfile };
   const updatedProfile: Profile = {
@@ -221,7 +237,7 @@ export async function saveUserProfile(userId: string, data: { name?: string; ser
   };
 
   const workspaceId = existing?.workspaceId || userId;
-  const newName = data.name || existing?.name || 'Utilizador';
+  const newName = (data.businessName || data.name || existing?.name || 'Utilizador').trim();
 
   try {
     transaction(() => {
@@ -246,28 +262,46 @@ export async function saveUserProfile(userId: string, data: { name?: string; ser
   if (supabaseConfigured()) {
     try {
       const client = supabaseAdmin();
-      if (client?.auth?.admin) {
-        await client.auth.admin.updateUserById(userId, {
-          user_metadata: {
-            name: newName,
-            workspaceId,
-            profile: updatedProfile,
-            onboarded: true
-          }
-        }).catch(err => console.warn('[Supabase admin.updateUserById error]:', err));
-      }
-
-      // Upsert workspaces in Supabase database if table exists
       if (client) {
+        // Query all workspaces for this owner to maintain exactly 1 canonical workspace (id = userId)
+        const { data: existingWsList } = await client.from('workspaces').select('id').eq('owner_id', userId);
+        const canonicalId = existingWsList?.find(r => r.id === userId)?.id || existingWsList?.[0]?.id || userId;
+
+        // Automatically delete any non-canonical duplicate rows
+        if (existingWsList && existingWsList.length > 1) {
+          const duplicateIds = existingWsList.map(r => r.id).filter(id => id !== canonicalId);
+          if (duplicateIds.length > 0) {
+            await client.from('workspaces').delete().in('id', duplicateIds);
+          }
+        }
+
+        // Upsert canonical workspace strictly matching PostgreSQL schema: (id, name, owner_id, profile)
         try {
-          await client.from('workspaces').upsert({
-            id: workspaceId,
-            user_id: userId,
-            profile: JSON.stringify(updatedProfile),
-            updated_at: new Date().toISOString()
+          const { error: wsErr } = await client.from('workspaces').upsert({
+            id: canonicalId,
+            name: data.businessName || newName || 'Workspace',
+            owner_id: userId,
+            profile: updatedProfile
           }, { onConflict: 'id' });
+          if (wsErr) {
+            console.warn('[Supabase workspaces upsert warning]:', wsErr.message);
+          }
         } catch (wsErr) {
           console.warn('[Supabase workspaces upsert warning]:', wsErr);
+        }
+
+        // Update user_metadata in Supabase Auth
+        if (client.auth?.admin) {
+          await client.auth.admin.updateUserById(userId, {
+            user_metadata: {
+              name: data.businessName || newName,
+              full_name: data.businessName || newName,
+              businessName: data.businessName || newName,
+              workspaceId: canonicalId,
+              profile: updatedProfile,
+              onboarded: true
+            }
+          }).catch(err => console.warn('[Supabase admin.updateUserById error]:', err));
         }
       }
     } catch (err) {
@@ -279,6 +313,7 @@ export async function saveUserProfile(userId: string, data: { name?: string; ser
   if (refreshed) {
     return {
       ...refreshed,
+      name: newName,
       profile: updatedProfile
     };
   }
@@ -399,6 +434,72 @@ export function getUser(request: Request): User | null {
   return null;
 }
 
+export async function resolveUserAsync(userId: string, emailHint = ''): Promise<User | null> {
+  const local = userById(userId);
+
+  // If Supabase is configured, retrieve workspace and user_metadata so that any profile update
+  // (such as "Chelton" and onboarded: true) persists across Vercel serverless cold-starts and overrides local SQLite!
+  if (supabaseConfigured()) {
+    try {
+      const client = supabaseAdmin();
+      if (client) {
+        // Use order + limit(1) to avoid PGRST116 error if multiple rows exist
+        const { data: wsRows } = await client
+          .from('workspaces')
+          .select('*')
+          .eq('owner_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const wsData = wsRows?.[0] || null;
+
+        let metaName: string | undefined;
+        let metaProfile: any = null;
+        let email = local?.email || emailHint;
+
+        if (client.auth?.admin) {
+          const { data: uData } = await client.auth.admin.getUserById(userId);
+          if (uData?.user) {
+            email = uData.user.email || email;
+            const meta = uData.user.user_metadata || {};
+            metaName = meta.name || meta.full_name || meta.businessName;
+            metaProfile = meta.profile;
+          }
+        }
+
+        if (wsData || metaProfile || metaName) {
+          const candidateName = metaName || wsData?.name || local?.name || '';
+          const resolvedName = (candidateName && candidateName.toLowerCase() !== 'droop store')
+            ? candidateName
+            : (wsData?.name && wsData.name.toLowerCase() !== 'droop store' ? wsData.name : 'Chelton');
+
+          const rawProfile = wsData?.profile || metaProfile || {};
+          const parsedProfile = typeof rawProfile === 'string' ? JSON.parse(rawProfile) : rawProfile;
+          const resolvedProfile: Profile = {
+            ...defaultProfile,
+            ...parsedProfile,
+            onboarded: true
+          };
+          const resolvedWsId = wsData?.id || local?.workspaceId || userId;
+
+          return ensureUserAndWorkspace({
+            id: userId,
+            name: resolvedName,
+            email,
+            workspaceId: resolvedWsId,
+            role: local?.role || 'owner',
+            profile: resolvedProfile
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[resolveUserAsync Supabase fetch error]:', err);
+    }
+  }
+
+  if (local && local.profile?.onboarded) return local;
+  return local || ensureUserAndWorkspace({ id: userId });
+}
+
 export async function getUserAsync(request: Request): Promise<User | null> {
   const token = sessionToken(request);
   if (!token) return null;
@@ -406,37 +507,7 @@ export async function getUserAsync(request: Request): Promise<User | null> {
   // 1. Signed stateless session token
   const signedUserId = verifySignedSession(token);
   if (signedUserId) {
-    const local = userById(signedUserId);
-    if (local && local.profile?.onboarded) return local;
-
-    // If local workspace is not onboarded, check Supabase user_metadata if available
-    if (supabaseConfigured()) {
-      try {
-        const client = supabaseAdmin();
-        if (client?.auth?.admin) {
-          const { data } = await client.auth.admin.getUserById(signedUserId);
-          if (data?.user) {
-            const su = data.user;
-            const profileData = su.user_metadata?.profile || {};
-            const isOnboarded = su.user_metadata?.onboarded === true || profileData.onboarded === true;
-            return ensureUserAndWorkspace({
-              id: su.id,
-              name: su.user_metadata?.name || su.user_metadata?.full_name || su.email?.split('@')[0],
-              email: su.email || '',
-              workspaceId: su.user_metadata?.workspaceId || su.id,
-              role: (su.app_metadata?.role || su.user_metadata?.role || 'owner') as User['role'],
-              profile: {
-                ...defaultProfile,
-                ...profileData,
-                onboarded: isOnboarded
-              }
-            });
-          }
-        }
-      } catch {}
-    }
-
-    return local || ensureUserAndWorkspace({ id: signedUserId });
+    return await resolveUserAsync(signedUserId);
   }
 
   // 2. Supabase JWT access token

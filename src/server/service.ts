@@ -3,7 +3,7 @@ import type { Activity, Analysis, Business, Evidence, Job, Lead, SearchFilters, 
 import { PROVINCES, STAGES } from '../lib/contracts.ts';
 import { db, id, now, transaction } from './db.ts';
 import { analyse, fetchDataset, mode, normalize, validPhone } from './providers.ts';
-import { AppError, audit, credits, hash } from './auth.ts';
+import { AppError, audit, credits, hash, supabaseConfigured, supabaseAdmin } from './auth.ts';
 import { CURATED_BUSINESSES, dynamicGatherBusinesses, ensureRealBusinessesSeeded, sweepRealBusinesses } from './real-businesses.ts';
 
 type Row=Record<string,string|number|null>;
@@ -111,13 +111,71 @@ export function listLeads(user:User):Lead[] {
  const rows=db().prepare('SELECT * FROM leads WHERE workspace_id=? ORDER BY created_at DESC').all(user.workspaceId) as Row[];
  return rows.map(row=>({id:String(row.id),businessId:String(row.business_id),business:getBusiness(String(row.business_id),user),stage:row.stage as Lead['stage'],note:String(row.note),nextAction:String(row.next_action),nextActionAt:row.next_action_at as string|null,amountMinor:row.amount_minor as number|null,createdAt:String(row.created_at),activities:db().prepare('SELECT id,type,note,created_at as createdAt FROM activities WHERE workspace_id=? AND lead_id=? ORDER BY created_at DESC').all(user.workspaceId,row.id) as unknown as Activity[]}));
 }
+export async function syncLeadsFromSupabase(user: User): Promise<void> {
+  if (!supabaseConfigured()) return;
+  try {
+    const localCount = db().prepare('SELECT count(*) as c FROM leads WHERE workspace_id=?').get(user.workspaceId) as { c: number } | undefined;
+    if (localCount && localCount.c > 0) return;
+
+    const client = supabaseAdmin();
+    if (!client) return;
+    const { data, error } = await client.from('leads').select('*, businesses(*)').eq('workspace_id', user.workspaceId);
+    if (error || !data || !Array.isArray(data)) return;
+
+    for (const item of data) {
+      if (item.businesses && item.businesses.data) {
+        const bizData = item.businesses.data;
+        const bizId = item.businesses.source_id || item.businesses.id;
+        db().prepare('INSERT OR IGNORE INTO businesses VALUES(?,?,?,?)').run(bizId, JSON.stringify(bizData), 'live', now());
+        db().prepare('INSERT OR IGNORE INTO leads(id,workspace_id,business_id,stage,note,next_action,next_action_at,amount_minor,created_at) VALUES(?,?,?,?,?,?,?,?,?)')
+          .run(item.id, user.workspaceId, bizId, item.stage || 'Novo', item.note || '', item.next_action || '', item.next_action_at || null, item.amount_minor || null, item.created_at || now());
+      }
+    }
+  } catch (err) {
+    console.warn('[syncLeadsFromSupabase error]:', err);
+  }
+}
+
 export function saveLead(user:User,businessId:string) {
- getBusiness(businessId,user);
- return transaction(()=>{
-  const existing=db().prepare('SELECT id FROM leads WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);
-  if(!existing){const leadId=id();db().prepare('INSERT INTO leads(id,workspace_id,business_id,created_at) VALUES(?,?,?,?)').run(leadId,user.workspaceId,businessId,now());activity(user,leadId,'saved','Empresa guardada nas oportunidades.');}
-  return listLeads(user).find(l=>l.businessId===businessId)!;
- });
+  const biz = getBusiness(businessId,user);
+  const saved = transaction(()=>{
+    const existing=db().prepare('SELECT id FROM leads WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);
+    if(!existing){const leadId=id();db().prepare('INSERT INTO leads(id,workspace_id,business_id,created_at) VALUES(?,?,?,?)').run(leadId,user.workspaceId,businessId,now());activity(user,leadId,'saved','Empresa guardada nas oportunidades.');}
+    return listLeads(user).find(l=>l.businessId===businessId)!;
+  });
+
+  // Sync to Supabase in background
+  if (supabaseConfigured()) {
+    try {
+      const client = supabaseAdmin();
+      if (client) {
+        const bHash = createHash('md5').update(businessId).digest('hex');
+        const bUuid = `${bHash.slice(0,8)}-${bHash.slice(8,12)}-4${bHash.slice(13,16)}-a${bHash.slice(17,20)}-${bHash.slice(20,32)}`;
+        const lHash = createHash('md5').update(saved.id).digest('hex');
+        const lUuid = `${lHash.slice(0,8)}-${lHash.slice(8,12)}-4${lHash.slice(13,16)}-a${lHash.slice(17,20)}-${lHash.slice(20,32)}`;
+
+        Promise.resolve(client.from('businesses').upsert({
+          id: bUuid,
+          source_key: biz.source || 'prospecta',
+          source_id: businessId,
+          data: biz,
+          observed_at: biz.observedAt || new Date().toISOString()
+        }, { onConflict: 'id' })).then(() => {
+          return Promise.resolve(client.from('leads').upsert({
+            id: lUuid,
+            workspace_id: user.workspaceId,
+            business_id: bUuid,
+            stage: saved.stage || 'Novo',
+            note: saved.note || '',
+            next_action: saved.nextAction || '',
+            currency: 'MZN'
+          }, { onConflict: 'id' }));
+        }).catch((err: unknown) => console.warn('[Supabase lead sync warning]:', err));
+      }
+    } catch {}
+  }
+
+  return saved;
 }
 export function startSearch(user:User,filters:SearchFilters):SearchResult {
  const tasks:SearchTask[]=(filters.province? [filters.province]:[...PROVINCES]).map(province=>({province,status:'queued',count:0}));

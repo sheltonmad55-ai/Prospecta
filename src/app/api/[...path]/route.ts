@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
 import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync } from '../../../server/service.ts';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '../../../server/google-oauth.ts';
@@ -270,7 +270,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    if(getBusiness(row.business_id,user).suppressed)throw new AppError('Este contacto está marcado para não contactar.',409);
    db().prepare('UPDATE analyses SET draft=? WHERE id=? AND workspace_id=?').run(body,path[1],user.workspaceId);return reply({analysis:getAnalysis(user,row.business_id)});
   }
-  if(route==='leads' && method==='GET')return reply({leads:listLeads(user)});
+  if(route==='leads' && method==='GET') { await syncLeadsFromSupabase(user); return reply({leads:listLeads(user)}); }
   if(route==='leads' && method==='POST'){const {businessId}=z.object({businessId:z.string()}).parse(input);return reply({lead:saveLead(user,businessId)});}
   if(path[0]==='leads' && path[1]) {
    const lead=listLeads(user).find(l=>l.id===path[1]);if(!lead)throw new AppError('Oportunidade não encontrada.',404);

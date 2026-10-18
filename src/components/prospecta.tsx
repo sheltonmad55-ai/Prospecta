@@ -78,9 +78,9 @@ function CircleScore({ value, max = 100, size = 68, color = '#1877f2' }: { value
 }
 
 const TODAY_OPP = [
-  { id: 'o1', name: 'Clínica Dental Maputo', category: 'Saúde', initial: 'C', color: '#60A5FA', stars: 4, phone: '258841234567', locality: 'Maputo' },
-  { id: 'o2', name: 'Restaurante Baía Azul', category: 'Restauração', initial: 'R', color: '#34D399', stars: 5, phone: '258829876543', locality: 'Matola' },
-  { id: 'o3', name: 'Salão Beleza Nobre', category: 'Beleza', initial: 'S', color: '#FBBF24', stars: 3, phone: '258864567890', locality: 'Beira' },
+  { id: 'o1', name: 'Pizzaria Bella Napoli', category: 'Pizzaria e Restauração', initial: 'B', color: '#34D399', stars: 5, phone: '+258 21 492 010', locality: 'Sommerschield, Maputo' },
+  { id: 'o2', name: 'Restaurante Zambi Waterfront', category: 'Restauração', initial: 'Z', color: '#60A5FA', stars: 5, phone: '+258 84 220 5000', locality: 'Baixa, Maputo' },
+  { id: 'o3', name: 'Clínica da Sommerschield', category: 'Saúde e Clínica Médica', initial: 'S', color: '#FBBF24', stars: 5, phone: '+258 21 493 515', locality: 'Sommerschield, Maputo' },
 ];
 
 export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMode | null } = {}) {

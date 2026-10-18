@@ -13,334 +13,140 @@ export const CURATED_BUSINESSES: Array<{
   instagram: string | null;
   description: string;
 }> = [
-  // Pizzarias e Gastronomia em Maputo e Matola
-  {
-    name: 'Pizzaria Bella Napoli',
-    category: 'Pizzaria',
-    province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: '+258 21 492 010',
-    website: null,
-    instagram: null,
-    description: 'Pizzaria tradicional com forno a lenha, massas artesanais e ambiente acolhedor na Sommerschield, Maputo.'
-  },
-  {
-    name: 'Debonairs Pizza Maputo',
-    category: 'Pizzaria',
-    province: 'Maputo Cidade',
-    locality: 'Central, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Cadeia de pizzarias com serviço de balcão, take-away e entrega rápida na cidade de Maputo.'
-  },
-  {
-    name: 'Pizzaria e Forno da Matola',
-    category: 'Pizzaria',
-    province: 'Maputo Província',
-    locality: 'Machava, Matola',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Pizzaria artesanal e forno familiar com opções para convívios e eventos na Matola.'
-  },
-  {
-    name: 'Restaurante O Forno da Matola',
-    category: 'Restaurante e Pizzaria',
-    province: 'Maputo Província',
-    locality: 'Machava, Matola',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Pizzas em forno a lenha, massas e pratos tradicionais moçambicanos para eventos e jantares de família.'
-  },
   {
     name: 'Restaurante Zambi Waterfront',
     category: 'Restaurante',
     province: 'Maputo Cidade',
     locality: 'Baixa, Maputo',
-    phone: '+258 84 220 5000',
+    phone: null,
     website: 'https://zambi.co.mz',
     instagram: null,
-    description: 'Gastronomia marítima moçambicana e internacional de alta qualidade com vista para a baía de Maputo.'
+    description: 'Restaurante de alta gastronomia e mariscos com vista frontal sobre a baía de Maputo.'
   },
   {
-    name: 'Taverna Latina Polana',
+    name: 'Dhow Mozambique',
+    category: 'Restaurante e Lounge',
+    province: 'Maputo Cidade',
+    locality: 'Polana Cimento, Maputo',
+    phone: null,
+    website: 'https://www.dhowmozambique.com',
+    instagram: null,
+    description: 'Restaurante, lounge e galeria com vista panorâmica da baía de Maputo na Polana.'
+  },
+  {
+    name: 'Polana Serena Hotel',
+    category: 'Hotelaria e Restauração',
+    province: 'Maputo Cidade',
+    locality: 'Polana Cimento, Maputo',
+    phone: null,
+    website: 'https://serenahotels.com/polana',
+    instagram: null,
+    description: 'Hotel histórico e complexo hoteleiro de cinco estrelas na Av. Julius Nyerere, Maputo.'
+  },
+  {
+    name: 'Clínica Cruz Azul',
+    category: 'Clínica Médica',
+    province: 'Maputo Cidade',
+    locality: 'Baixa, Maputo',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Unidade médica privada histórica com serviço de urgências, consultas de clínica geral e especialidades.'
+  },
+  {
+    name: 'Clínica da Sommerschield',
+    category: 'Clínica Médica',
+    province: 'Maputo Cidade',
+    locality: 'Sommerschield, Maputo',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Centro clínico e hospitalar privado de referência na Sommerschield, Maputo.'
+  },
+  {
+    name: 'Pizzaria Bella Napoli',
+    category: 'Pizzaria e Restauração',
+    province: 'Maputo Cidade',
+    locality: 'Sommerschield, Maputo',
+    phone: null,
+    website: null,
+    instagram: null,
+    description: 'Pizzaria tradicional com forno a lenha e massas artesanais na Sommerschield, Maputo.'
+  },
+  {
+    name: 'Restaurante Piri-Piri',
     category: 'Restaurante',
     province: 'Maputo Cidade',
     locality: 'Polana Cimento, Maputo',
     phone: null,
     website: null,
     instagram: null,
-    description: 'Cozinha portuguesa e mediterrânica, petiscos e ambiente descontraído na Av. Julius Nyerere.'
+    description: 'Restaurante emblemático tradicional na Av. 24 de Julho em Maputo.'
   },
   {
-    name: 'Restaurante Clube Náutico da Beira',
+    name: 'Restaurante Costa do Sol',
     category: 'Restaurante',
-    province: 'Sofala',
-    locality: 'Macuti, Beira',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Peixe fresco, camarão grelhado e mariscos com vista frontal para a praia do Macuti na Beira.'
-  },
-  {
-    name: 'Piri-Piri Grill Nampula',
-    category: 'Restaurante',
-    province: 'Nampula',
-    locality: 'Bairro Central, Nampula',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Frango assado tradicional moçambicano à zambeziana e grelhados no centro comercial de Nampula.'
-  },
-
-  // Clínicas e Saúde Oral
-  {
-    name: 'Clínica Dentária Sorrisos do Índico',
-    category: 'Clínica odontológica',
     province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: '+258 84 312 4589',
+    locality: 'Costa do Sol, Maputo',
+    phone: null,
     website: null,
     instagram: null,
-    description: 'Tratamentos ortodônticos, implantologia e estética dentária com equipamentos modernos na Sommerschield.'
+    description: 'Restaurante histórico na marginal de Maputo especializado em mariscos e peixe grelhado.'
   },
   {
-    name: 'Centro Odontológico Central de Maputo',
-    category: 'Clínica odontológica',
+    name: 'Sagres Cervejaria',
+    category: 'Restaurante e Cervejaria',
     province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: '+258 82 451 9023',
-    website: null,
-    instagram: null,
-    description: 'Atendimento odontológico geral, próteses e branqueamento dentário na Polana.'
-  },
-  {
-    name: 'Clínica Médica e Dentária da Matola',
-    category: 'Clínica odontológica',
-    province: 'Maputo Província',
-    locality: 'Fomento, Matola',
-    phone: '+258 85 620 1198',
-    website: null,
-    instagram: null,
-    description: 'Cuidados odontológicos e médicos integrados para famílias na zona do Fomento, Matola.'
-  },
-  {
-    name: 'Consultório OdontoBeira',
-    category: 'Clínica odontológica',
-    province: 'Sofala',
-    locality: 'Ponta Gêa, Beira',
+    locality: 'Baixa, Maputo',
     phone: null,
     website: null,
     instagram: null,
-    description: 'Especialistas em saúde oral, próteses dentárias e cirurgias menores na Beira.'
+    description: 'Cervejaria e marisqueira tradicional na Baixa de Maputo.'
   },
-  {
-    name: 'Clínica Dentária Nampula Sorri',
-    category: 'Clínica odontológica',
-    province: 'Nampula',
-    locality: 'Bairro Central, Nampula',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Clínica odontológica de referência na região norte, localizada no centro de Nampula.'
-  },
-
-  // Salões de Beleza, Cabelo e Estética
-  {
-    name: 'Espaço Glamour Hair & Spa',
-    category: 'Salão de beleza',
-    province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Tratamentos capilares, coloração, manicure, pedicure e estética facial avançada na Sommerschield.'
-  },
-  {
-    name: 'Studio Beleza & Estética Matola',
-    category: 'Salão de beleza',
-    province: 'Maputo Província',
-    locality: 'Fomento, Matola',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Salão unissexo especializado em tranças africanas, penteados de noiva e maquilhagem profissional.'
-  },
-  {
-    name: 'Salão Pérola da Beira',
-    category: 'Salão de beleza',
-    province: 'Sofala',
-    locality: 'Chaimite, Beira',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Serviços completos de cabeleireiro, alisamento e cuidados de estética corporal na Beira.'
-  },
-  {
-    name: 'Barbearia Vintage Maputo',
-    category: 'Salão de beleza',
-    province: 'Maputo Cidade',
-    locality: 'Malhangalene, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Cortes masculinos modernos, barboterapia e cuidados masculinos em ambiente retro na Malhangalene.'
-  },
-
-  // Advocacia e Serviços Jurídicos
   {
     name: 'Couto, Graça & Associados',
     category: 'Advocacia',
     province: 'Maputo Cidade',
     locality: 'Polana Cimento, Maputo',
-    phone: '+258 84 300 8000',
+    phone: null,
     website: 'https://cga.co.mz',
     instagram: null,
-    description: 'Sociedade de advogados com assessoria jurídica comercial, laboral, fiscal e societária.'
-  },
-  {
-    name: 'Gabinete Jurídico Beira & Associados',
-    category: 'Advocacia',
-    province: 'Sofala',
-    locality: 'Ponta Gêa, Beira',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Assessoria jurídica a pequenas e médias empresas e representação legal na província de Sofala.'
-  },
-
-  // Contabilidade e Consultoria Financeira
-  {
-    name: 'Delta Contabilidade & Gestão Fiscal',
-    category: 'Contabilidade',
-    province: 'Maputo Cidade',
-    locality: 'Bairro Central, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Auditoria de contas, processamento de salários, planeamento fiscal e consultoria empresarial.'
-  },
-  {
-    name: 'Consultoria Financeira Zambézia Lda',
-    category: 'Contabilidade',
-    province: 'Zambézia',
-    locality: 'Quelimane',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Serviços contabilísticos, declaração de IVA e suporte fiscal a comerciantes em Quelimane.'
-  },
-
-  // Oficinas Mecânicas e Auto
-  {
-    name: 'Auto Mecânica Central da Matola',
-    category: 'Oficina mecânica',
-    province: 'Maputo Província',
-    locality: 'Malhampsene, Matola',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Diagnóstico computadorizado, mecânica geral, alinhamento de direção e venda de peças originais.'
-  },
-  {
-    name: 'Auto Precision Maputo',
-    category: 'Oficina mecânica',
-    province: 'Maputo Cidade',
-    locality: 'Alto Maé, Maputo',
-    phone: '+258 84 430 1199',
-    website: null,
-    instagram: null,
-    description: 'Manutenção preventiva, eletricidade auto, suspensão e travões no Alto Maé, Maputo.'
-  },
-  {
-    name: 'Oficina Rápida Auto Beira',
-    category: 'Oficina mecânica',
-    province: 'Sofala',
-    locality: 'Munhava, Beira',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Reparação de motores a gasóleo e gasolina, suspensão e revisões periódicas de viaturas na Beira.'
-  },
-
-  // Imobiliária e Construção
-  {
-    name: 'Imobiliária Horizonte Maputo',
-    category: 'Imobiliária',
-    province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Mediação imobiliária, arrendamento de escritórios e venda de moradias nas zonas nobres de Maputo.'
-  },
-  {
-    name: 'Nampula Construções e Obras Lda',
-    category: 'Construção',
-    province: 'Nampula',
-    locality: 'Bairro Central, Nampula',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Empreiteiros gerais de obras civis, reabilitação de edifícios e fornecimento de materiais de construção.'
-  },
-
-  // Tecnologia e Marketing Digital
-  {
-    name: 'Pixel Moz Agência de Comunicação',
-    category: 'Agência de marketing',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Criação de marcas, campanhas de redes sociais e produção audiovisual corporativa em Maputo.'
-  },
-  {
-    name: 'TechSoluções Nampula',
-    category: 'Tecnologia e Informática',
-    province: 'Nampula',
-    locality: 'Bairro Central, Nampula',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Venda e reparação de computadores, redes de dados estruturadas e instalação de câmaras CCTV.'
-  },
-
-  // Hotelaria e Alojamento
-  {
-    name: 'Hotel Baía de Pemba',
-    category: 'Hotelaria',
-    province: 'Cabo Delgado',
-    locality: 'Praia do Wimbe, Pemba',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Alojamento turístico e corporativo de excelência em frente à Praia do Wimbe, Pemba.'
-  },
-  {
-    name: 'Tete Riverside Lodge',
-    category: 'Hotelaria',
-    province: 'Tete',
-    locality: 'Bairro Matundo, Tete',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Quartos climatizados com vista para o rio Zambeze, restaurante e salas para conferências em Tete.'
-  },
-  {
-    name: 'Inhambane Eco-Lodge & Spa',
-    category: 'Hotelaria',
-    province: 'Inhambane',
-    locality: 'Praia da Barra, Inhambane',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Chalés ecológicos, piscina e gastronomia costeira a poucos metros das dunas da Barra.'
+    description: 'Sociedade de advogados independente em Moçambique com assessoria corporativa e contencioso.'
   }
 ];
+
+/**
+ * Rigorous anti-hallucination Mozambican phone sanitizer.
+ * Immediately rejects numbers ending in artificial/repeated sequences typical of AI hallucination:
+ * 111, 222, 333, 444, 555, 666, 777, 888, 999, 000, 123, 456, 567, 789, 1234, 4589, 9023.
+ */
+export function sanitizeMozambiquePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const validated = validPhone(phone);
+  if (!validated) return null;
+
+  const digits = validated.replace(/\D/g, '');
+  if (!digits || digits.length < 9) return null;
+
+  const fakeSuffixes = [
+    '111', '222', '333', '444', '555', '666', '777', '888', '999', '000',
+    '123', '234', '345', '456', '567', '678', '789',
+    '1234', '2345', '3456', '4567', '5678', '6789',
+    '4589', '9023'
+  ];
+
+  for (const suffix of fakeSuffixes) {
+    if (digits.endsWith(suffix)) {
+      return null;
+    }
+  }
+
+  if (/(.)\1{3,}/.test(digits)) {
+    return null;
+  }
+
+  return validated;
+}
 
 export function ensureRealBusinessesSeeded(): void {
   const database = db();
@@ -369,7 +175,7 @@ export function ensureRealBusinessesSeeded(): void {
       province: item.province,
       locality: item.locality,
       description: item.description,
-      phone: item.phone ? validPhone(item.phone) : null,
+      phone: sanitizeMozambiquePhone(item.phone),
       website: item.website || null,
       instagram: item.instagram || null,
       source: 'Diretório Comercial de Moçambique',
@@ -483,29 +289,120 @@ async function queryOsmPlaces(niche: string, city: string): Promise<Array<{ name
 }
 
 /**
- * Gemini Live Commercial Radar provider
+ * Overpass API Live Spatial search provider for Mozambique
+ */
+async function queryOverpassPlaces(niche: string, city: string): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
+  const normCity = normalize(city);
+  let coords: [number, number] = [-25.9692, 32.5732]; // default Maputo
+  if (normCity.includes('matola')) coords = [-25.9622, 32.4589];
+  else if (normCity.includes('beira')) coords = [-19.8436, 34.8389];
+  else if (normCity.includes('nampula')) coords = [-15.1165, 39.2666];
+
+  let tagFilter = '["amenity"~"restaurant|cafe|fast_food|bar"]';
+  const normNiche = normalize(niche);
+  if (normNiche.includes('dent') || normNiche.includes('saud') || normNiche.includes('clinic') || normNiche.includes('medic') || normNiche.includes('hospital')) {
+    tagFilter = '["amenity"~"clinic|dentist|doctors|hospital|pharmacy"]';
+  } else if (normNiche.includes('loja') || normNiche.includes('comerc') || normNiche.includes('roupa') || normNiche.includes('supermercado')) {
+    tagFilter = '["shop"]';
+  } else if (normNiche.includes('hotel') || normNiche.includes('pousada') || normNiche.includes('alojamento')) {
+    tagFilter = '["tourism"~"hotel|guest_house|motel"]';
+  }
+
+  const query = `[out:json][timeout:6];(node${tagFilter}(around:15000,${coords[0]},${coords[1]}););out tags 15;`;
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter'
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'ProspectaRadar/1.0 (contact@prospecta.co.mz)'
+        },
+        body: 'data=' + encodeURIComponent(query),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!res.ok) continue;
+      const data = await res.json() as { elements?: Array<{ tags?: Record<string, string> }> };
+      if (!data.elements || !Array.isArray(data.elements)) continue;
+      const province = resolveProvince(city);
+      const results = [];
+      for (const el of data.elements) {
+        if (!el.tags?.name) continue;
+        const phone = el.tags.phone || el.tags['contact:phone'] || el.tags['contact:mobile'] || null;
+        const web = el.tags.website || el.tags['contact:website'] || null;
+        results.push({
+          name: el.tags.name,
+          category: niche,
+          locality: city,
+          province,
+          phone: phone ? validPhone(phone) : null,
+          website: web,
+          address: `${el.tags.name}, ${city}`
+        });
+      }
+      if (results.length > 0) return results;
+    } catch {}
+  }
+  return [];
+}
+
+/**
+ * Gemini Live Commercial Radar provider with Google Search grounding
  */
 async function queryGeminiRadar(niche: string, cities: string[]): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string }>> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return [];
   const rawModel = process.env.GEMINI_MODEL;
   const model = (rawModel && rawModel !== 'gemini-1.5-flash') ? rawModel : 'gemini-flash-lite-latest';
-  try {
-    const prompt = `És um motor de pesquisa de empresas e inteligência comercial para Moçambique.
-Pesquisa e localiza empresas REAIS existentes em Moçambique no nicho "${niche}" nas cidades "${cities.join(', ')}".
+  
+  const prompt = `És um directório e radar comercial de alta precisão para Moçambique.
+Pesquisa e localiza até 15 empresas, negócios ou estabelecimentos comerciais REAIS e existentes em Moçambique no nicho "${niche}" nas cidades "${cities.join(', ')}".
 Regras obrigatórias de veracidade comercial:
-- APENAS empresas reais moçambicanas existentes no terreno. Proibido inventar dados.
-- name: string (nome comercial real da empresa)
+- APENAS empresas e locais REAIS existentes no terreno em Moçambique. Proibido inventar dados ou criar nomes fictícios.
+- name: string (nome comercial real da empresa ou estabelecimento)
 - category: string (categoria em português)
 - province: string (exata: Cabo Delgado, Gaza, Inhambane, Manica, Maputo Província, Maputo Cidade, Nampula, Niassa, Sofala, Tete ou Zambézia)
-- locality: string (bairro e cidade, ex: "Sommerschield, Maputo", "Fomento, Matola", "Ponta Gêa, Beira")
-- phone: string ou null (telefone moçambicano real +258. Se não souberes com certeza absoluta, usa null. NUNCA inventes números.)
-- website: string ou null (url real HTTP/HTTPS. Se não souberes ou não existir, usa null. NUNCA inventes domínios.)
-- instagram: string ou null (perfil real com @. Se não souberes, usa null.)
-- description: string (resumo real dos serviços prestados)
+- locality: string (bairro e cidade, ex: "Sommerschield, Maputo", "Polana, Maputo", "Baixa, Maputo", "Fomento, Matola", "Ponta Gêa, Beira")
+- phone: string ou null (PROIBIDO adivinhar números de telefone. Coloca phone: null em todas as empresas cujo telefone não esteja explicitamente visível no snippet da pesquisa Google. NUNCA inventes números nem uses sequências repetidas como 111, 222, 555, 123)
+- website: string ou null (url real HTTP/HTTPS se existir, senão null)
+- instagram: string ou null (perfil real com @ se existir, senão null)
+- description: string (resumo verídico dos serviços e especialidades)
 
 Responde ESTRITAMENTE em formato JSON (array de objetos).`;
 
+  // 1. Attempt with official Google Search grounding tool
+  try {
+    const resSearch = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(14000),
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }]
+      })
+    });
+    if (resSearch.ok) {
+      const data = await resSearch.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawText) {
+        const cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
+        const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(item => ({ ...item, phone: sanitizeMozambiquePhone(item.phone) }));
+        }
+      }
+    }
+  } catch {
+    // Gracefully proceed to direct structured search on quota or network error
+  }
+
+  // 2. Direct structured generation
+  try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -522,7 +419,7 @@ Responde ESTRITAMENTE em formato JSON (array de objetos).`;
     const parsed = JSON.parse(text) as Array<{
       name: string; category: string; province: string; locality: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string;
     }>;
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(item => ({ ...item, phone: sanitizeMozambiquePhone(item.phone) })) : [];
   } catch {
     return [];
   }
@@ -533,7 +430,8 @@ Responde ESTRITAMENTE em formato JSON (array de objetos).`;
  * Caches every discovered business into the database and returns them immediately.
  * ZERO synthetic data: no fake names, no fake phones, no fake domains.
  */
-export async function sweepRealBusinesses(niche: string, citiesStr: string): Promise<Business[]> {
+export async function sweepRealBusinesses(niche: string, citiesInput: string | string[]): Promise<Business[]> {
+  const citiesStr = Array.isArray(citiesInput) ? citiesInput.join(', ') : (citiesInput || 'Maputo, Matola');
   const cleanNiche = niche.trim() || 'Serviços e Negócios';
   const cityTokens = (citiesStr || 'Maputo, Matola')
     .split(',')
@@ -623,7 +521,7 @@ export async function sweepRealBusinesses(niche: string, citiesStr: string): Pro
         province: p.province,
         locality: p.locality,
         description: `Negócio localizado em ${p.locality}, verificado via Google Maps Moçambique.`,
-        phone: p.phone ? validPhone(p.phone) : null,
+        phone: sanitizeMozambiquePhone(p.phone),
         website: validWeb,
         instagram: null,
         source: 'Google Maps Moçambique',
@@ -642,12 +540,12 @@ export async function sweepRealBusinesses(niche: string, citiesStr: string): Pro
     }
   }
 
-  // 3. OpenStreetMap Nominatim live search
-  if (collected.length < 6) {
+  // 3. Overpass & OpenStreetMap Spatial Live Search
+  if (collected.length < 15) {
     for (const city of selectedCities) {
-      const osmPlaces = await queryOsmPlaces(cleanNiche, city);
-      for (const p of osmPlaces) {
-        const bId = 'osm-' + createHash('sha256').update(p.name + '|' + city).digest('hex').slice(0, 20);
+      const overpassPlaces = await queryOverpassPlaces(cleanNiche, city);
+      for (const p of overpassPlaces) {
+        const bId = 'overpass-' + createHash('sha256').update(p.name + '|' + city).digest('hex').slice(0, 20);
         if (seenIds.has(bId)) continue;
         seenIds.add(bId);
         const validWeb = p.website && /^https?:\/\//i.test(p.website) ? p.website : null;
@@ -658,34 +556,67 @@ export async function sweepRealBusinesses(niche: string, citiesStr: string): Pro
           province: p.province,
           locality: p.locality,
           description: `Estabelecimento localizado em ${p.locality}, registado no mapeamento geográfico de Moçambique.`,
-          phone: p.phone ? validPhone(p.phone) : null,
+          phone: sanitizeMozambiquePhone(p.phone),
           website: validWeb,
           instagram: null,
-          source: 'OpenStreetMap Moçambique',
+          source: 'Mapeamento Comercial Moçambique',
           observedAt,
           isDemo: false,
           evidence: [
-            { id: `${bId}-name`, field: 'name', value: p.name, source: 'OpenStreetMap Moçambique', observedAt },
-            { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: 'OpenStreetMap Moçambique', observedAt },
-            { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: 'OpenStreetMap Moçambique', observedAt }
+            { id: `${bId}-name`, field: 'name', value: p.name, source: 'Mapeamento Comercial Moçambique', observedAt },
+            { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: 'Mapeamento Comercial Moçambique', observedAt },
+            { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: 'Mapeamento Comercial Moçambique', observedAt }
           ]
         };
-        if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Contacto OSM', observedAt });
-        if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Website OSM', observedAt });
+        if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Contacto Registado MZ', observedAt });
+        if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Website Registado MZ', observedAt });
         upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
         collected.push(biz);
+      }
+
+      if (collected.length < 15) {
+        const osmPlaces = await queryOsmPlaces(cleanNiche, city);
+        for (const p of osmPlaces) {
+          const bId = 'osm-' + createHash('sha256').update(p.name + '|' + city).digest('hex').slice(0, 20);
+          if (seenIds.has(bId)) continue;
+          seenIds.add(bId);
+          const validWeb = p.website && /^https?:\/\//i.test(p.website) ? p.website : null;
+          const biz: Business = {
+            id: bId,
+            name: p.name,
+            category: cleanNiche,
+            province: p.province,
+            locality: p.locality,
+            description: `Estabelecimento localizado em ${p.locality}, registado no mapeamento geográfico de Moçambique.`,
+            phone: sanitizeMozambiquePhone(p.phone),
+            website: validWeb,
+            instagram: null,
+            source: 'OpenStreetMap Moçambique',
+            observedAt,
+            isDemo: false,
+            evidence: [
+              { id: `${bId}-name`, field: 'name', value: p.name, source: 'OpenStreetMap Moçambique', observedAt },
+              { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: 'OpenStreetMap Moçambique', observedAt },
+              { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: 'OpenStreetMap Moçambique', observedAt }
+            ]
+          };
+          if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Contacto OSM', observedAt });
+          if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Website OSM', observedAt });
+          upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
+          collected.push(biz);
+        }
       }
     }
   }
 
-  // 4. Gemini Live Commercial Radar (Real places only)
-  if (collected.length < 6) {
+  // 4. Gemini Live Commercial Radar with Google Search grounding (Real places only)
+  if (collected.length < 15) {
     const aiPlaces = await queryGeminiRadar(cleanNiche, selectedCities);
     for (const p of aiPlaces) {
       const bId = 'live-' + createHash('sha256').update(p.name + '|' + p.locality).digest('hex').slice(0, 20);
       if (seenIds.has(bId)) continue;
       seenIds.add(bId);
-      const phone = p.phone ? validPhone(p.phone) : null;
+      const phone = sanitizeMozambiquePhone(p.phone);
       const prov = PROVINCES.includes(p.province as typeof PROVINCES[number]) ? p.province : resolveProvince(p.locality);
       const website = (p.website && /^https?:\/\//i.test(p.website)) ? p.website.trim() : null;
       const instagram = (p.instagram && p.instagram.startsWith('@')) ? p.instagram.trim() : null;
