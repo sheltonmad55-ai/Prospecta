@@ -97,6 +97,9 @@ export function getBusiness(businessId:string,user?:User):Business {
  }
  if(!row) throw new AppError('Empresa não encontrada.',404);
  const business=JSON.parse(row.data) as Business;
+ if(business.id?.startsWith('b-') || business.source?.includes('Directório Empresarial MZ') || business.source?.includes('Directorio Empresarial MZ')) {
+  throw new AppError('Empresa não encontrada.',404);
+ }
  if(user) {
   business.saved=!!db().prepare('SELECT id FROM leads WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);
   business.suppressed=!!db().prepare('SELECT business_id FROM suppressions WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);
@@ -211,14 +214,20 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
  const row=db().prepare('SELECT * FROM searches WHERE workspace_id=? AND id=?').get(user.workspaceId,searchId) as Row|undefined;
  if(!row) throw new AppError('Pesquisa não encontrada.',404);
  const ids=JSON.parse(String(row.results)) as string[];
- const pages=Math.max(1,Math.ceil(ids.length/8));
- const safePage=Math.min(Math.max(1,page),pages);
  const allBiz: Business[] = [];
+ const seenBizNames = new Set<string>();
  for (const b of ids) {
   try {
-   allBiz.push(getBusiness(b, user));
+   const biz = getBusiness(b, user);
+   if (!biz || !biz.name || biz.id?.startsWith('b-') || biz.source?.includes('Directório Empresarial MZ')) continue;
+   const key = normalize(biz.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+   if (seenBizNames.has(key)) continue;
+   seenBizNames.add(key);
+   allBiz.push(biz);
   } catch {}
  }
+ const pages=Math.max(1,Math.ceil(allBiz.length/8));
+ const safePage=Math.min(Math.max(1,page),pages);
  const results = allBiz.slice((safePage-1)*8, safePage*8);
  return {
   id:searchId,
@@ -227,7 +236,7 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
   tasks:JSON.parse(String(row.tasks)),
   results,
   allResults: allBiz,
-  total:ids.length,
+  total:allBiz.length,
   page:safePage,
   pages,
   createdAt:String(row.created_at),
@@ -236,7 +245,7 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
 }
 export function listSearches(user:User):SearchResult[] {
  const rows=db().prepare('SELECT * FROM searches WHERE workspace_id=? ORDER BY created_at DESC LIMIT 8').all(user.workspaceId) as Row[];
- return rows.map(row=>{
+ return rows.filter(r => !String(r.filters || '').includes('Directório') && !String(r.tasks || '').includes('Central') && !String(r.results || '').includes('b-')).map(row=>{
   const ids=JSON.parse(String(row.results||'[]')) as string[];
   const pages=Math.max(1,Math.ceil(ids.length/8));
   return {
@@ -312,15 +321,28 @@ async function processSearch(row:Row) {
    const imported=await fetchDataset();
    transaction(()=>{for(const b of imported){if(!PROVINCES.includes(b.province as typeof PROVINCES[number]))continue;db().prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(b.id,JSON.stringify(b),'authorized-dataset',now());}});
   }
-  let sourceRows=db().prepare(row.mode==='live'?"SELECT data FROM businesses WHERE source_key<>'demo'":"SELECT data FROM businesses WHERE source_key='demo'").all() as {data:string}[];
-  businesses=sourceRows.map(b=>JSON.parse(b.data));
+  const deduplicateBiz = (list: Business[]): Business[] => {
+    const seen = new Set<string>();
+    const out: Business[] = [];
+    for (const b of list) {
+      if (!b || !b.name || b.id?.startsWith('b-') || b.source?.includes('Directório Empresarial MZ')) continue;
+      const k = normalize(b.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(b);
+    }
+    return out;
+  };
+
+  let sourceRows=db().prepare(row.mode==='live'?"SELECT data FROM businesses WHERE source_key<>'demo' AND id NOT LIKE 'b-%'":"SELECT data FROM businesses WHERE source_key='demo' AND id NOT LIKE 'b-%'").all() as {data:string}[];
+  businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
 
   if(row.mode==='live') {
    if(filters.niche || filters.cities) {
     try {
      await sweepRealBusinesses(filters.niche || '', filters.cities || '');
-     sourceRows=db().prepare("SELECT data FROM businesses WHERE source_key<>'demo'").all() as {data:string}[];
-     businesses=sourceRows.map(b=>JSON.parse(b.data));
+     sourceRows=db().prepare("SELECT data FROM businesses WHERE source_key<>'demo' AND id NOT LIKE 'b-%'").all() as {data:string}[];
+     businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
     } catch {
      // Gracefully keep existing businesses
     }
@@ -331,8 +353,8 @@ async function processSearch(row:Row) {
     if(matches.length<2) {
      try {
       await sweepRealBusinesses(filters.niche || '', filters.cities || '');
-      sourceRows=db().prepare("SELECT data FROM businesses").all() as {data:string}[];
-      businesses=sourceRows.map(b=>JSON.parse(b.data));
+      sourceRows=db().prepare("SELECT data FROM businesses WHERE id NOT LIKE 'b-%'").all() as {data:string}[];
+      businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
      } catch {}
     }
    }
@@ -347,7 +369,20 @@ async function processSearch(row:Row) {
   const results=businesses.filter(b=>b.province===task.province && businessMatchesFilter(b,filters));
   task.status='succeeded';task.count=results.length;matched.push(results.map(b=>b.id));
  }
- const ordered:string[]=[];for(let i=0;i<Math.max(0,...matched.map(g=>g.length));i++)for(const group of matched)if(group[i])ordered.push(group[i]);
+ const seenOrderNames = new Set<string>();
+ const ordered:string[]=[];
+ for(let i=0;i<Math.max(0,...matched.map(g=>g.length));i++) {
+   for(const group of matched) {
+     const id = group[i];
+     if (!id) continue;
+     const b = businesses.find(x => x.id === id);
+     if (!b) continue;
+     const k = normalize(b.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+     if (seenOrderNames.has(k)) continue;
+     seenOrderNames.add(k);
+     ordered.push(id);
+   }
+ }
  const status=tasks.some(t=>t.status==='limited' || t.status==='failed')?'partial':'succeeded';
  db().prepare('UPDATE searches SET results=?,tasks=?,status=?,updated_at=? WHERE id=?').run(JSON.stringify([...new Set(ordered)]),JSON.stringify(tasks),status,now(),row.id);
 }

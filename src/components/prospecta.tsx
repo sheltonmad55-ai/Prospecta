@@ -28,6 +28,7 @@ const cls = (...values: (string | false | undefined)[]) => values.filter(Boolean
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch('/api/' + path, {
     credentials: 'include',
+    cache: 'no-store',
     ...options,
     headers: { 'Content-Type': 'application/json', ...options.headers }
   });
@@ -133,6 +134,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const refreshUser = useCallback(async () => {
     const result = await api<{ user: User | null; mode: 'demo' | 'live' }>('me');
     let u = result.user;
+    if (u && (!u.name || u.name.toLowerCase() === 'droop store')) {
+      u = { ...u, name: 'Chelton Madime' };
+    }
     if (u && typeof window !== 'undefined') {
       const stored = localStorage.getItem('prospecta_onboarded_' + u.id);
       if (stored === 'true' && u.profile) {
@@ -182,6 +186,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     api<{ user: User | null; mode: 'demo' | 'live' }>('me').then(result => {
       if (!active) return;
       let currentUser = result.user;
+      if (currentUser && (!currentUser.name || currentUser.name.toLowerCase() === 'droop store')) {
+        currentUser = { ...currentUser, name: 'Chelton Madime' };
+      }
       if (currentUser && typeof window !== 'undefined') {
         const storedOnboarded = localStorage.getItem('prospecta_onboarded_' + currentUser.id);
         if (storedOnboarded === 'true' && currentUser.profile) {
@@ -548,8 +555,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
           {/* User card */}
           <button className="user-card" onClick={() => navigate('account')}>
-            <span className="avatar">{user.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</span>
-            <span><strong>{user.name}</strong><small>{user.profile.province || 'Moçambique'}</small></span>
+            <span className="avatar">{((user.name && user.name.toLowerCase() !== 'droop store') ? user.name : 'Chelton Madime').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('')}</span>
+            <span><strong>{(user.name && user.name.toLowerCase() !== 'droop store') ? user.name : 'Chelton Madime'}</strong><small>{user.profile.province || 'Moçambique'}</small></span>
             <Settings2 size={17} />
           </button>
 
@@ -862,10 +869,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       </span>
                     ))}
                   </div>
-                  {searchResult.results.length
-                    ? <div className="business-grid">{searchResult.results.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id, 'business', b))} onSave={() => saveBusiness(b)} />)}</div>
-                    : <section className="panel"><Empty icon={<Search size={30} />} title={searchResult.status === 'failed' ? 'Não foi possível consultar a fonte.' : 'Não encontrámos resultados nesta consulta.'} description={searchResult.tasks.find(t => t.error)?.error || 'Experimente outro nicho ou cidade.'}><button className="button outline" onClick={() => doSearch()}>Tentar novamente</button></Empty></section>
-                  }
+                  {(() => {
+                    const seenNames = new Set<string>();
+                    const uniqueResults = searchResult.results.filter(b => {
+                      const k = (b.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                      if (seenNames.has(k)) return false;
+                      seenNames.add(k);
+                      return true;
+                    });
+                    return uniqueResults.length
+                      ? <div className="business-grid">{uniqueResults.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id, 'business', b))} onSave={() => saveBusiness(b)} />)}</div>
+                      : <section className="panel"><Empty icon={<Search size={30} />} title={searchResult.status === 'failed' ? 'Não foi possível consultar a fonte.' : 'Não encontrámos resultados nesta consulta.'} description={searchResult.tasks.find(t => t.error)?.error || 'Experimente outro nicho ou cidade.'}><button className="button outline" onClick={() => doSearch()}>Tentar novamente</button></Empty></section>;
+                  })()}
                   <div className="pagination">
                     <span>{searchResult.total} resultados nesta fonte · Não é um inventário completo</span>
                     <div>

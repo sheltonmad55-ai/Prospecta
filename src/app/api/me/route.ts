@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getUserAsync, ensureUserAndWorkspace, supabaseConfigured, sessionToken, encodeSignedSession, cookie } from '@/server/auth';
 import { googleConfigured } from '@/server/google-oauth';

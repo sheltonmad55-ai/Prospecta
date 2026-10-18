@@ -137,9 +137,11 @@ export function userById(userId: string): User | null {
 
     const workspaceId = row.workspace_id || row.id;
 
+    const rawName = row.name;
+    const safeName = (rawName && rawName.toLowerCase() !== 'droop store') ? rawName : 'Chelton Madime';
     return {
       id: row.id,
-      name: row.name,
+      name: safeName,
       email: row.email,
       workspaceId,
       role: (row.role || 'owner') as User['role'],
@@ -163,11 +165,12 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
   try {
     transaction(() => {
       // Upsert user in local SQLite
+      const safeName = (user.name && user.name.toLowerCase() !== 'droop store') ? user.name : 'Chelton Madime';
       db().prepare(`
         INSERT INTO users (id, name, email, password_hash, role, marketing, created_at)
         VALUES (?, ?, ?, '', ?, 0, ?)
         ON CONFLICT(id) DO UPDATE SET
-          name = CASE WHEN excluded.name != '' THEN excluded.name ELSE users.name END,
+          name = CASE WHEN excluded.name != '' AND excluded.name != 'droop store' THEN excluded.name ELSE users.name END,
           email = CASE WHEN excluded.email != '' THEN excluded.email ELSE users.email END
       `).run(user.id, user.name || 'Utilizador', (user.email || '').toLowerCase(), role, timestamp);
 
@@ -386,28 +389,7 @@ export async function userFromSupabaseToken(token: string): Promise<User | null>
     const { data, error } = await client.auth.getUser(token);
     if (error || !data.user) return null;
     const su = data.user;
-
-    const email = su.email || '';
-    const name = su.user_metadata?.name || su.user_metadata?.full_name || email.split('@')[0] || 'Utilizador';
-    const role = (su.app_metadata?.role || su.user_metadata?.role || 'owner') as User['role'];
-    const profileData = su.user_metadata?.profile || {};
-    const isOnboarded = su.user_metadata?.onboarded === true || profileData.onboarded === true;
-    const profile: Profile = {
-      ...defaultProfile,
-      ...profileData,
-      phone: su.user_metadata?.phone || profileData.phone || defaultProfile.phone,
-      onboarded: isOnboarded
-    };
-
-    // Ensure synchronized locally
-    return ensureUserAndWorkspace({
-      id: su.id,
-      name,
-      email,
-      workspaceId: su.user_metadata?.workspaceId || su.id,
-      role,
-      profile
-    });
+    return await resolveUserAsync(su.id, su.email || '');
   } catch {
     return null;
   }
@@ -454,6 +436,7 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
 
         let metaName: string | undefined;
         let metaProfile: any = null;
+        let metaBusinessName: string | undefined;
         let email = local?.email || emailHint;
 
         if (client.auth?.admin) {
@@ -461,16 +444,21 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
           if (uData?.user) {
             email = uData.user.email || email;
             const meta = uData.user.user_metadata || {};
-            metaName = meta.name || meta.full_name || meta.businessName;
+            metaBusinessName = meta.businessName;
+            metaName = meta.businessName || meta.name || meta.full_name;
             metaProfile = meta.profile;
           }
         }
 
         if (wsData || metaProfile || metaName) {
-          const candidateName = metaName || wsData?.name || local?.name || '';
+          const candidateName = metaBusinessName || 
+            (metaName && metaName.toLowerCase() !== 'droop store' ? metaName : '') || 
+            (wsData?.name && wsData.name.toLowerCase() !== 'droop store' ? wsData.name : '') || 
+            (local?.name && local.name.toLowerCase() !== 'droop store' ? local.name : '') || 
+            'Chelton Madime';
           const resolvedName = (candidateName && candidateName.toLowerCase() !== 'droop store')
             ? candidateName
-            : (wsData?.name && wsData.name.toLowerCase() !== 'droop store' ? wsData.name : 'Chelton');
+            : 'Chelton Madime';
 
           const rawProfile = wsData?.profile || metaProfile || {};
           const parsedProfile = typeof rawProfile === 'string' ? JSON.parse(rawProfile) : rawProfile;

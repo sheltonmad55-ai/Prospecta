@@ -41,8 +41,32 @@ export function db() {
     INSERT OR IGNORE INTO migrations VALUES(1,datetime('now'));
     INSERT OR IGNORE INTO migrations VALUES(2,datetime('now'));
   `);
-  // Clean up any legacy synthetic businesses from previous seeds
-  database.exec("DELETE FROM businesses WHERE data LIKE '%Directório Empresarial MZ%' OR data LIKE '%Direct%rio Empresarial MZ%' OR data LIKE '%Central%';");
+  // Clean up any legacy synthetic businesses, searches, and demo/duplicate entries
+  try {
+    database.exec("PRAGMA foreign_keys=OFF;");
+    database.exec("DELETE FROM businesses WHERE data LIKE '%Directório Empresarial MZ%' OR data LIKE '%Direct%rio Empresarial MZ%' OR data LIKE '%Central%' OR id LIKE 'b-%' OR id LIKE 'demo-%';");
+    database.exec("DELETE FROM searches WHERE filters LIKE '%Central%' OR results LIKE '%b-%' OR results LIKE '%demo-%' OR tasks LIKE '%Central%' OR filters LIKE '%Directório%';");
+    
+    // Deduplicate any existing businesses in SQLite table by normalized name
+    const allBiz = database.prepare("SELECT id, data FROM businesses").all() as { id: string; data: string }[];
+    const seenNames = new Set<string>();
+    for (const bRow of allBiz) {
+      try {
+        const obj = JSON.parse(bRow.data);
+        const nameKey = (obj.name || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+        if (!nameKey || seenNames.has(nameKey) || (obj.source && obj.source.includes('Directório Empresarial MZ'))) {
+          database.prepare("DELETE FROM businesses WHERE id = ?").run(bRow.id);
+        } else {
+          seenNames.add(nameKey);
+        }
+      } catch {
+        database.prepare("DELETE FROM businesses WHERE id = ?").run(bRow.id);
+      }
+    }
+    database.exec("PRAGMA foreign_keys=ON;");
+  } catch (cleanErr) {
+    console.error('[db init cleanup error]:', cleanErr);
+  }
   seed(database);
   return database;
 }

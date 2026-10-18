@@ -157,8 +157,7 @@ export function ensureRealBusinessesSeeded(): void {
   const observedAt = now();
 
   for (const item of CURATED_BUSINESSES) {
-    const hash = createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
-    const businessId = 'curated-' + hash;
+    const businessId = canonicalBizId(item.name, item.province);
     const evidence: Evidence[] = [
       { id: `${businessId}-name`, field: 'name', value: item.name, source: 'Diretório Comercial de Moçambique', observedAt },
       { id: `${businessId}-loc`, field: 'location', value: `${item.locality}, ${item.province}`, source: 'Diretório Comercial de Moçambique', observedAt },
@@ -185,14 +184,19 @@ export function ensureRealBusinessesSeeded(): void {
     };
 
     insert.run(businessId, JSON.stringify(business), 'live', observedAt);
-    const liveId = 'live-' + hash;
-    insert.run(liveId, JSON.stringify({ ...business, id: liveId }), 'live', observedAt);
   }
 }
 
 /**
  * Resolve Mozambican province based on city / neighborhood name
  */
+export function canonicalBizId(name: string, provinceOrLocality: string): string {
+  const normName = normalize(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const prov = resolveProvince(provinceOrLocality || '');
+  const normProv = normalize(prov).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return 'biz-' + createHash('sha256').update(normName + '|' + normProv).digest('hex').slice(0, 16);
+}
+
 export function resolveProvince(cityName: string): string {
   const norm = normalize(cityName);
   if (norm.includes('maputo cidade') || norm === 'maputo' || norm.includes('polana') || norm.includes('sommerschield') || norm.includes('malhangalene') || norm.includes('kamubukwana') || norm.includes('katembe') || norm.includes('maxaquene') || norm.includes('costa do sol')) return 'Maputo Cidade';
@@ -445,6 +449,7 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
 
   const collected: Business[] = [];
   const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
 
   // 1. Curated real Mozambican businesses check
   const matchNiche = (target: string, query: string): boolean => {
@@ -475,9 +480,11 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
     });
     if (!matchesCity) continue;
 
-    const bId = 'curated-' + createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
-    if (seenIds.has(bId)) continue;
+    const bId = canonicalBizId(item.name, item.province);
+    const normKey = normalize(item.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seenIds.has(bId) || seenNames.has(normKey)) continue;
     seenIds.add(bId);
+    seenNames.add(normKey);
 
     const biz: Business = {
       id: bId,
@@ -501,8 +508,6 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
     if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Registo Telefónico MZ', observedAt });
     if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Registo Digital MZ', observedAt });
     upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
-    const liveId = 'live-' + createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
-    upsert.run(liveId, JSON.stringify({ ...biz, id: liveId }), 'live', observedAt);
     collected.push(biz);
   }
 
@@ -510,9 +515,11 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
   for (const city of selectedCities) {
     const serperPlaces = await querySerperPlaces(cleanNiche, city);
     for (const p of serperPlaces) {
-      const bId = 'serper-' + createHash('sha256').update(p.name + '|' + city).digest('hex').slice(0, 20);
-      if (seenIds.has(bId)) continue;
+      const bId = canonicalBizId(p.name, p.province || city);
+      const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenIds.has(bId) || seenNames.has(normKey)) continue;
       seenIds.add(bId);
+      seenNames.add(normKey);
       const validWeb = p.website && /^https?:\/\//i.test(p.website) ? p.website : null;
       const biz: Business = {
         id: bId,
@@ -545,9 +552,11 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
     for (const city of selectedCities) {
       const overpassPlaces = await queryOverpassPlaces(cleanNiche, city);
       for (const p of overpassPlaces) {
-        const bId = 'overpass-' + createHash('sha256').update(p.name + '|' + city).digest('hex').slice(0, 20);
-        if (seenIds.has(bId)) continue;
+        const bId = canonicalBizId(p.name, p.province || city);
+        const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (seenIds.has(bId) || seenNames.has(normKey)) continue;
         seenIds.add(bId);
+        seenNames.add(normKey);
         const validWeb = p.website && /^https?:\/\//i.test(p.website) ? p.website : null;
         const biz: Business = {
           id: bId,
@@ -577,9 +586,11 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
       if (collected.length < 15) {
         const osmPlaces = await queryOsmPlaces(cleanNiche, city);
         for (const p of osmPlaces) {
-          const bId = 'osm-' + createHash('sha256').update(p.name + '|' + city).digest('hex').slice(0, 20);
-          if (seenIds.has(bId)) continue;
+          const bId = canonicalBizId(p.name, p.province || city);
+          const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (seenIds.has(bId) || seenNames.has(normKey)) continue;
           seenIds.add(bId);
+          seenNames.add(normKey);
           const validWeb = p.website && /^https?:\/\//i.test(p.website) ? p.website : null;
           const biz: Business = {
             id: bId,
@@ -613,11 +624,13 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
   if (collected.length < 15) {
     const aiPlaces = await queryGeminiRadar(cleanNiche, selectedCities);
     for (const p of aiPlaces) {
-      const bId = 'live-' + createHash('sha256').update(p.name + '|' + p.locality).digest('hex').slice(0, 20);
-      if (seenIds.has(bId)) continue;
-      seenIds.add(bId);
-      const phone = sanitizeMozambiquePhone(p.phone);
       const prov = PROVINCES.includes(p.province as typeof PROVINCES[number]) ? p.province : resolveProvince(p.locality);
+      const bId = canonicalBizId(p.name, prov || p.locality);
+      const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenIds.has(bId) || seenNames.has(normKey)) continue;
+      seenIds.add(bId);
+      seenNames.add(normKey);
+      const phone = sanitizeMozambiquePhone(p.phone);
       const website = (p.website && /^https?:\/\//i.test(p.website)) ? p.website.trim() : null;
       const instagram = (p.instagram && p.instagram.startsWith('@')) ? p.instagram.trim() : null;
       const biz: Business = {
