@@ -42,15 +42,16 @@
 
 /* ==========================================================================
    CLIVRA-STYLE FLOATING NAVBAR, HERO PILL BUTTONS & 3-STEP ILLUSTRATED CARDS
+   (RESTORED EXACT PROSPECTA BRAND BLUE IDENTITY #1877f2)
    ========================================================================== */
 
-/* Dark Opening with Purple Nebula */
+/* Dark Opening with Prospecta Royal Blue Nebula */
 .lp-dark-opening {
-  background: #080912;
+  background: #070b14;
 }
 .lp-dark-opening:before {
-  background: radial-gradient(ellipse 65% 55% at 50% 34%, rgba(124, 58, 237, 0.22), transparent 72%),
-              radial-gradient(ellipse 35% 35% at 50% 38%, rgba(139, 92, 246, 0.14), transparent 85%);
+  background: radial-gradient(ellipse 65% 55% at 50% 34%, rgba(24, 119, 242, 0.22), transparent 72%),
+              radial-gradient(ellipse 35% 35% at 50% 38%, rgba(20, 93, 191, 0.14), transparent 85%);
 }
 
 /* Floating Pill Navbar */
@@ -80,11 +81,11 @@
   letter-spacing: -0.8px;
 }
 .lp-brand > span:first-child {
-  color: #7c3aed !important;
+  color: #1877f2 !important;
 }
 .lp-brand-country {
-  border-color: #ddd6fe !important;
-  color: #7c3aed !important;
+  border-color: #c5d7f0 !important;
+  color: #1877f2 !important;
 }
 .lp-nav-links {
   display: flex;
@@ -101,7 +102,7 @@
   transition: color 0.15s ease;
 }
 .lp-nav-links a:hover {
-  color: #7c3aed !important;
+  color: #1877f2 !important;
 }
 .lp-nav-actions {
   display: flex;
@@ -119,10 +120,10 @@
   transition: color 0.15s ease;
 }
 .lp-login:hover {
-  color: #7c3aed !important;
+  color: #1877f2 !important;
 }
 .lp-nav-cta {
-  background: #7c3aed !important;
+  background: #1877f2 !important;
   color: #ffffff !important;
   font-size: 13px !important;
   font-weight: 650 !important;
@@ -130,13 +131,13 @@
   min-height: 44px !important;
   border-radius: 9999px !important;
   border: 0 !important;
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35) !important;
+  box-shadow: 0 4px 16px rgba(24, 119, 242, 0.35) !important;
   transition: all 0.2s ease !important;
 }
 .lp-nav-cta:hover:not(:disabled) {
-  background: #6d28d9 !important;
+  background: #145dbf !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45) !important;
+  box-shadow: 0 6px 20px rgba(24, 119, 242, 0.45) !important;
 }
 .lp-mobile-nav {
   position: absolute;
@@ -162,8 +163,8 @@
   border-radius: 10px;
 }
 .lp-mobile-nav a:hover {
-  background: #f5f3ff;
-  color: #7c3aed;
+  background: #eaf2ff;
+  color: #1877f2;
 }
 .lp-mobile-login {
   background: #f8fafc !important;
@@ -177,7 +178,7 @@
   cursor: pointer;
 }
 .lp-mobile-cta {
-  background: #7c3aed !important;
+  background: #1877f2 !important;
   color: #ffffff !important;
   font-weight: 650;
   font-size: 13px;
@@ -189,7 +190,7 @@
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 4px 14px rgba(24, 119, 242, 0.35);
 }
 
 /* Hero Section */
@@ -237,7 +238,7 @@
   position: relative;
   height: 1.25em;
   margin-top: 6px;
-  color: #c4b5fd !important;
+  color: #9fc5ff !important;
   letter-spacing: -2px;
 }
 .lp-hero-description {
@@ -256,7 +257,7 @@
   margin-top: 34px;
 }
 .lp-primary {
-  background: #7c3aed !important;
+  background: #1877f2 !important;
   color: #ffffff !important;
   font-size: 15px !important;
   font-weight: 650 !important;
@@ -264,13 +265,13 @@
   padding: 14px 30px !important;
   border-radius: 9999px !important;
   border: 0 !important;
-  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4) !important;
+  box-shadow: 0 8px 25px rgba(24, 119, 242, 0.4) !important;
   transition: all 0.2s ease !important;
 }
 .lp-primary:hover:not(:disabled) {
-  background: #6d28d9 !important;
+  background: #145dbf !important;
   transform: translateY(-2px) !important;
-  box-shadow: 0 10px 32px rgba(124, 58, 237, 0.5) !important;
+  box-shadow: 0 10px 32px rgba(24, 119, 242, 0.5) !important;
 }
 .lp-secondary {
   background: #ffffff !important;
@@ -287,7 +288,7 @@
 }
 .lp-secondary:hover:not(:disabled) {
   background: #f8fafc !important;
-  color: #7c3aed !important;
+  color: #1877f2 !important;
   border-color: #cbd5e1 !important;
   transform: translateY(-2px) !important;
 }
@@ -351,7 +352,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #7c3aed !important;
+  background: #1877f2 !important;
   color: #ffffff;
   font-size: 14px;
   font-weight: 700;
@@ -403,7 +404,7 @@
   z-index: 2;
 }
 .lp-pill-service {
-  background: #7c3aed;
+  background: #1877f2 !important;
   color: #ffffff;
   font-size: 11px;
   font-weight: 650;
@@ -424,7 +425,7 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 .lp-pill-location svg {
-  color: #7c3aed;
+  color: #1877f2 !important;
 }
 .lp-map-canvas {
   flex: 1;
@@ -445,7 +446,7 @@
   height: 22px;
   border-radius: 50%;
   background: #ffffff;
-  color: #a78bfa;
+  color: #6da2e7 !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -503,7 +504,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: rgba(124, 58, 237, 0.28);
+  background: rgba(24, 119, 242, 0.28) !important;
   animation: lp-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 .lp-beacon-dot {
@@ -511,13 +512,13 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #7c3aed;
+  background: #1877f2 !important;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 4px 14px rgba(24, 119, 242, 0.45) !important;
 }
 @keyframes lp-pulse {
   0% { transform: scale(0.9); opacity: 0.85; }
@@ -611,9 +612,9 @@
   color: #ffffff;
 }
 .lp-diagnosis-suggestion {
-  background: #241a45;
-  border: 1px solid #432b7a;
-  color: #c4b5fd;
+  background: #13243d !important;
+  border: 1px solid #234b82 !important;
+  color: #9fc5ff !important;
   border-radius: 9999px;
   padding: 7px 14px;
   font-size: 11px;
@@ -624,7 +625,7 @@
   width: max-content;
 }
 .lp-diagnosis-suggestion svg {
-  color: #a78bfa;
+  color: #60a5fa !important;
 }
 .lp-diagnosis-value {
   margin-top: 10px;
