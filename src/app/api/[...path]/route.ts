@@ -2,7 +2,7 @@ import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
 import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
@@ -48,7 +48,9 @@ async function handler(request:Request,context:Context):Promise<Response> {
   }
   if(route==='me' && method==='GET') {
     const user=current ? ensureUserAndWorkspace(current) : null;
-    return reply({user,mode:mode(),capabilities:{demo:false,google:googleConfigured(),ai:!!process.env.GEMINI_API_KEY,data:process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:supabaseConfigured()?'supabase':'local-outbox'}});
+    const token = user ? ((sessionToken(request).startsWith('ps_') ? sessionToken(request) : null) || encodeSignedSession(user.id)) : null;
+    const headers: Record<string, string> = token ? { 'Set-Cookie': cookie(token, request) } : {};
+    return reply({user,token,mode:mode(),capabilities:{demo:false,google:googleConfigured(),ai:!!process.env.GEMINI_API_KEY,data:process.env.APIFY_TOKEN?'authorized-dataset':'authorized-csv',payments:false,email:supabaseConfigured()?'supabase':'local-outbox'}}, 200, headers);
   }
   if(route.startsWith('auth/')) {
    const action=path[1];
@@ -109,7 +111,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
        if (data.phone) db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({ ...local.profile, phone: validPhone(data.phone) }), local.workspaceId);
        recordConsent(local.id, !!data.consent, 'email');
      } catch {}
-     return reply({user},200,{'Set-Cookie':cookie(createSession(user.id,auth.session.access_token),request)});
+     const session = createSession(user.id, auth.session.access_token);
+     return reply({user, token: session},200,{'Set-Cookie':cookie(session,request)});
     }
     if(db().prepare('SELECT id FROM users WHERE email=?').get(data.email))throw new AppError('Este e-mail já tem uma conta. Experimente entrar.');
     const user=createUser(data.name,data.email,data.password,!!data.consent);
@@ -117,7 +120,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
     recordConsent(user.id,!!data.consent,'email');
     const token=randomBytes(32).toString('hex');db().prepare('INSERT INTO auth_tokens VALUES(?,?,?,?,0)').run(hash(token),user.id,'confirm',new Date(Date.now()+86400000).toISOString());
     db().prepare('INSERT INTO outbox VALUES(?,?,?,?,?)').run(id(),user.id,'confirm',`/?confirm=${token}`,now());
-    return reply({user:userById(user.id),localConfirmation:true},200,{'Set-Cookie':cookie(createSession(user.id),request)});
+    const session = createSession(user.id);
+    return reply({user:userById(user.id),token:session,localConfirmation:true},200,{'Set-Cookie':cookie(session,request)});
    }
    if(action==='login' && method==='POST') {
     const data=z.object({email:z.email().transform(s=>s.toLowerCase()),password:z.string().min(1).max(128)}).parse(input);
@@ -145,11 +149,13 @@ async function handler(request:Request,context:Context):Promise<Response> {
          user.credits = local.credits;
        }
      } catch {}
-     return reply({user},200,{'Set-Cookie':cookie(createSession(user.id,auth.session.access_token),request)});
+     const session = createSession(user.id, auth.session.access_token);
+     return reply({user, token: session},200,{'Set-Cookie':cookie(session,request)});
     }
     const row=db().prepare('SELECT id,password_hash FROM users WHERE email=?').get(data.email) as {id:string,password_hash:string}|undefined;
     if(!row||!checkPassword(data.password,row.password_hash))throw new AppError('E-mail ou palavra-passe incorrectos.',401);
-    return reply({user:userById(row.id)},200,{'Set-Cookie':cookie(createSession(row.id),request)});
+    const session = createSession(row.id);
+    return reply({user:userById(row.id),token:session},200,{'Set-Cookie':cookie(session,request)});
    }
    if(action==='logout' && method==='POST') {
     try {

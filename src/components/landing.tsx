@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ArrowRight, ArrowUpRight, Bookmark, Building2, CalendarDays, Check, ChevronDown, Compass, Copy, Database, FileText, Globe2, LoaderCircle, MapPin, Menu, MessageCircle, Radar, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, AtSign, Bookmark, Building2, CalendarDays, Check, ChevronDown, Compass, Copy, Database, FileText, Globe2, LoaderCircle, MapPin, Menu, MessageCircle, Radar, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { PROVINCES } from '@/lib/contracts';
 import './landing.css';
 
 export const ROTATING_SERVICES = [
-  'criação de sites.', 'gestão de redes sociais.', 'anúncios online.',
-  'identidade visual.', 'automação.', 'menus digitais.', 'fotografia e vídeo.',
+  'tráfego pago.',
+  'criação de sites.',
+  'gestão de redes sociais.',
+  'anúncios online.',
+  'identidade visual.',
+  'automação no WhatsApp.',
 ] as const;
 export const LANDING_GOAL = { amount: 100000, kind: 'goal', label: 'IMPACTO GERADO' } as const;
 
@@ -54,7 +58,7 @@ function RotatingServices() {
     return () => window.clearInterval(interval);
   }, [reduced]);
   return <span className="lp-rotator">
-    <span className="sr-only">criação de sites, gestão de redes sociais, anúncios online, identidade visual, automação, menus digitais e fotografia e vídeo.</span>
+    <span className="sr-only">tráfego pago, criação de sites, gestão de redes sociais, anúncios online, identidade visual e automação no WhatsApp.</span>
     <span className="lp-rotator-visual" aria-hidden="true" data-service-index={rotation.index}>
       {!reduced && rotation.cycle > 0 && <span key={`out-${rotation.cycle}`} className="lp-word lp-word-out">{ROTATING_SERVICES[(rotation.index + ROTATING_SERVICES.length - 1) % ROTATING_SERVICES.length]}</span>}
       <span key={`in-${rotation.cycle}`} className={reduced ? 'lp-word' : 'lp-word lp-word-in'}>{ROTATING_SERVICES[reduced ? 0 : rotation.index]}</span>
@@ -135,16 +139,16 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
       <header className="lp-header"><nav className="lp-nav" aria-label="Navegação da página inicial">
         <LandingBrand />
         <div className="lp-nav-links"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#perguntas">Perguntas frequentes</a></div>
-        <div className="lp-nav-actions"><button className="lp-login" onClick={onLogin}>Entrar</button><button className="lp-button lp-nav-cta" onClick={onRegister}>Criar conta <ArrowUpRight size={14} /></button><button className="lp-menu" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="lp-mobile-nav" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}>{menuOpen ? <X size={22} /> : <Menu size={22} />}</button></div>
-        {menuOpen && <div className="lp-mobile-nav" id="lp-mobile-nav"><a href="#como-funciona" onClick={closeMenu}>Como funciona</a><a href="#recursos" onClick={closeMenu}>Recursos</a><a href="#perguntas" onClick={closeMenu}>Perguntas frequentes</a><button onClick={() => { closeMenu(); onRegister(); }}>Criar conta <ArrowRight size={16} /></button></div>}
+        <div className="lp-nav-actions"><button className="lp-login" onClick={onLogin}>Entrar</button><button className="lp-button lp-nav-cta" onClick={onRegister}>Ir para o Prospecta</button><button className="lp-menu" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="lp-mobile-nav" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}>{menuOpen ? <X size={22} /> : <Menu size={22} />}</button></div>
+        {menuOpen && <div className="lp-mobile-nav" id="lp-mobile-nav"><a href="#como-funciona" onClick={closeMenu}>Como funciona</a><a href="#recursos" onClick={closeMenu}>Recursos</a><a href="#perguntas" onClick={closeMenu}>Perguntas frequentes</a><button className="lp-mobile-login" onClick={() => { closeMenu(); onLogin(); }}>Entrar</button><button className="lp-mobile-cta" onClick={() => { closeMenu(); onRegister(); }}>Ir para o Prospecta <ArrowRight size={16} /></button></div>}
       </nav></header>
 
       <section className="lp-hero" aria-labelledby="lp-title">
-        <span className="lp-hero-badge"><span />O SEU TALENTO. AS EMPRESAS CERTAS.</span>
+        <div className="lp-hero-badge"><span className="lp-badge-dot" />+100 mil MT em oportunidades geradas para clientes</div>
         <h1 id="lp-title">Encontre empresas<br />que precisam de<RotatingServices /></h1>
-        <p className="lp-hero-description">A Prospecta ajuda-o a encontrar empresas em todo Moçambique, identificar possíveis oportunidades e preparar a mensagem certa para apresentar os seus serviços.</p>
-        <div className="lp-hero-actions"><button className="lp-button lp-primary" onClick={onRegister}>Encontrar os meus clientes <ArrowRight size={19} /></button><a href="#como-funciona" className="lp-button lp-secondary">Ver como funciona <ChevronDown size={17} /></a></div>
-        <div className="lp-benefits"><span><Check size={16} />Todo Moçambique</span><span><Check size={16} />Mensagens personalizadas</span><span><Check size={16} />Contacto decidido por si</span></div>
+        <p className="lp-hero-description">O Prospecta busca negócios reais na sua cidade, mostra o que falta em cada um e escreve a mensagem pra você mandar no WhatsApp.</p>
+        <div className="lp-hero-actions"><button className="lp-button lp-primary" onClick={onRegister}>Encontrar clientes <ArrowRight size={19} /></button><a href="#como-funciona" className="lp-button lp-secondary">Ver como funciona</a></div>
+        <div className="lp-benefits"><span><Check size={16} />20 créditos grátis</span><span><Check size={16} />Sem cartão de crédito</span><span><Check size={16} />Empresas reais de Moçambique</span></div>
         <a className="lp-scroll-hint" href="#lp-main" aria-label="Descobrir como a Prospecta funciona"><span />DESÇA PARA DESCOBRIR</a>
       </section>
     </div>
@@ -153,11 +157,129 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
       <GoalCounter />
 
       <section className="lp-section lp-how lp-reveal" id="como-funciona">
-        <div className="lp-section-heading"><span className="lp-section-kicker">DO PRIMEIRO PASSO À PRÓXIMA CONVERSA</span><h2>Comece a conversa<br />com mais contexto.</h2><p>Encontre empresas, consulte a informação disponível e prepare uma abordagem adequada ao serviço que oferece.</p></div>
-        <div className="lp-steps">
-          <article className="lp-reveal lp-reveal-delay-1"><div className="lp-step-label"><span>1</span><div><h3>Encontrar empresas</h3><p>Pesquise por província, localidade e tipo de negócio, em todo Moçambique.</p></div></div><div className="lp-product-preview lp-discovery-preview" aria-label="Exemplo demonstrativo de pesquisa"><div className="lp-preview-toolbar"><Search size={13} /><span>Restauração</span><i /><MapPin size={12} /><b>Sofala</b></div><div className="lp-map-lines"><i /><i /><i /><span className="lp-map-pin one"><MapPin size={18} /></span><span className="lp-map-pin two"><MapPin size={14} /></span><span className="lp-map-pin three"><MapPin size={14} /></span><div className="lp-map-result"><span className="lp-preview-business-icon"><Building2 size={21} /></span><div><b>Restaurante Horizonte</b><span>Beira, Sofala · Directório Nacional</span></div><ArrowUpRight size={15} /></div></div><span className="lp-demo-caption">PRÉ-VISUALIZAÇÃO · DADOS VERIFICADOS</span></div></article>
-          <article className="lp-reveal lp-reveal-delay-2"><div className="lp-step-label"><span>2</span><div><h3>Compreender a oportunidade</h3><p>Veja os dados disponíveis e descubra possíveis serviços a apresentar.</p></div></div><div className="lp-product-preview lp-analysis-preview"><div className="lp-preview-top"><span className="lp-preview-business-icon"><Building2 size={18} /></span><div><b>Restaurante Horizonte</b><span>Informação antes da abordagem</span></div></div><div className="lp-evidence-chips"><span><Check size={12} />Localização</span><span><Database size={12} />Origem</span><span><Globe2 size={12} />Website</span></div><div className="lp-mini-opportunity"><span><Sparkles size={12} />HIPÓTESE COMERCIAL</span><b>Um menu digital pode fazer sentido.</b><p>Confirme as necessidades antes de propor.</p></div><span className="lp-demo-caption">PRÉ-VISUALIZAÇÃO · ANÁLISE COMERCIAL INTELIGENTE</span></div></article>
-          <article className="lp-reveal lp-reveal-delay-3"><div className="lp-step-label"><span>3</span><div><h3>Preparar a abordagem</h3><p>Personalize a mensagem e acompanhe o próximo passo da conversa.</p></div></div><div className="lp-product-preview lp-chat-preview"><div className="lp-chat-contact"><span>RH</span><div><b>Restaurante Horizonte</b><small>Pré-visualização · Rascunho</small></div><MessageCircle size={17} /></div><div className="lp-chat-canvas"><span className="lp-chat-date">MENSAGEM NÃO ENVIADA</span><p>Bom dia! Trabalho com menus digitais. Posso partilhar uma ideia para o vosso negócio?<small>Reveja antes de enviar</small></p></div><div className="lp-chat-bottom"><Copy size={12} />Copiar e personalizar <ArrowRight size={13} /></div></div></article>
+        <div className="lp-section-heading lp-how-heading">
+          <span className="lp-section-kicker">O QUE A EMPRESA PRECISA</span>
+          <h2>Como funciona o Prospecta</h2>
+          <p>Encontre negócios na sua cidade, entenda o que falta e aborde com uma mensagem pronta no WhatsApp.</p>
+        </div>
+        <div className="lp-steps lp-clivra-steps">
+          {/* Step 1 */}
+          <article className="lp-clivra-step lp-reveal lp-reveal-delay-1">
+            <div className="lp-step-label">
+              <span>1</span>
+              <div>
+                <h3>Encontre empresas</h3>
+                <p>Por nicho e região, perto de você.</p>
+              </div>
+            </div>
+            <div className="lp-step-card lp-card-map" aria-label="Mapa demonstrativo de empresas locais">
+              <div className="lp-card-map-pills">
+                <span className="lp-pill-service">Sites</span>
+                <span className="lp-pill-location"><MapPin size={11} /> Maputo, MZ</span>
+              </div>
+              <div className="lp-map-canvas">
+                <svg className="lp-map-roads" viewBox="0 0 320 200" fill="none" preserveAspectRatio="none">
+                  <path d="M-10 60 C80 60, 130 40, 330 40" stroke="#ffffff" strokeWidth="18" strokeLinecap="round" />
+                  <path d="M85 -10 C90 70, 110 135, 130 210" stroke="#ffffff" strokeWidth="16" strokeLinecap="round" />
+                  <path d="M225 -10 C215 80, 235 145, 250 210" stroke="#ffffff" strokeWidth="14" strokeLinecap="round" />
+                  <path d="M-10 150 C100 150, 180 160, 330 170" stroke="#ffffff" strokeWidth="14" strokeLinecap="round" />
+                  <rect x="235" y="130" width="70" height="65" rx="10" fill="#dcfce7" />
+                </svg>
+                <span className="lp-map-bubble-pin p1"><MapPin size={12} /></span>
+                <span className="lp-map-bubble-pin p2"><MapPin size={12} /></span>
+                <span className="lp-map-bubble-pin p3"><MapPin size={12} /></span>
+                <span className="lp-map-bubble-pin p4"><MapPin size={12} /></span>
+                <div className="lp-map-center-target">
+                  <div className="lp-target-card">
+                    <span className="lp-target-name">Barbearia Central</span>
+                    <span className="lp-target-tag">Sem site</span>
+                  </div>
+                  <div className="lp-target-beacon">
+                    <span className="lp-beacon-pulse" />
+                    <span className="lp-beacon-dot"><MapPin size={16} /></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* Step 2 */}
+          <article className="lp-clivra-step lp-reveal lp-reveal-delay-2">
+            <div className="lp-step-label">
+              <span>2</span>
+              <div>
+                <h3>Entenda cada empresa</h3>
+                <p>O que falta e o que oferecer.</p>
+              </div>
+            </div>
+            <div className="lp-step-card lp-card-diagnosis" aria-label="Diagnóstico da oportunidade comercial">
+              <div className="lp-diagnosis-top">
+                <h4>Barbearia Central</h4>
+                <span className="lp-badge-opportunity">Forte oportunidade</span>
+              </div>
+              <div className="lp-diagnosis-grid">
+                <div className="lp-diag-tile is-missing">
+                  <div className="lp-diag-icon-wrap">
+                    <Globe2 size={20} />
+                    <span className="lp-diag-badge-missing"><X size={10} strokeWidth={3} /></span>
+                  </div>
+                  <span>Site</span>
+                </div>
+                <div className="lp-diag-tile is-active">
+                  <div className="lp-diag-icon-wrap">
+                    <MapPin size={20} />
+                    <span className="lp-diag-badge-active"><Check size={10} strokeWidth={3} /></span>
+                  </div>
+                  <span>Maps</span>
+                </div>
+                <div className="lp-diag-tile is-active">
+                  <div className="lp-diag-icon-wrap">
+                    <AtSign size={20} />
+                    <span className="lp-diag-badge-active"><Check size={10} strokeWidth={3} /></span>
+                  </div>
+                  <span>Instagram</span>
+                </div>
+              </div>
+              <div className="lp-diagnosis-suggestion">
+                <Sparkles size={13} />
+                <span>Site com agendamento</span>
+              </div>
+              <div className="lp-diagnosis-value">
+                <small>Valor sugerido</small>
+                <strong>15.000 – 30.000 MT</strong>
+              </div>
+            </div>
+          </article>
+
+          {/* Step 3 */}
+          <article className="lp-clivra-step lp-reveal lp-reveal-delay-3">
+            <div className="lp-step-label">
+              <span>3</span>
+              <div>
+                <h3>Aborde e venda</h3>
+                <p>Mensagem pronta e ajuda até fechar.</p>
+              </div>
+            </div>
+            <div className="lp-step-card lp-card-whatsapp" aria-label="Conversa do WhatsApp com cliente">
+              <div className="lp-wa-header">
+                <div className="lp-wa-avatar">C</div>
+                <div className="lp-wa-contact">
+                  <strong>Carlos</strong>
+                  <span>Barbearia Central</span>
+                </div>
+              </div>
+              <div className="lp-wa-body">
+                <div className="lp-wa-msg is-out">
+                  <p>Oi, Carlos! Vi que a barbearia ainda não tem site. Posso te mostrar uma ideia?</p>
+                  <span className="lp-wa-meta">10:42 <span className="lp-wa-checks">✓✓</span></span>
+                </div>
+                <div className="lp-wa-msg is-in">
+                  <p>Pode sim! Me manda 😊</p>
+                  <span className="lp-wa-meta">10:42</span>
+                </div>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 

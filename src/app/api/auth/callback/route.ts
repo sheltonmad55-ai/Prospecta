@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server.js';
 import type { NextRequest } from 'next/server.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'node:crypto';
-import { getSupabaseEnv, userById, createUser } from '@/server/auth';
+import { getSupabaseEnv, userById, createUser, createSession, cookie } from '@/server/auth';
 import { readFlowCookie, consumeGoogleFlow, recordConsent } from '@/server/google-oauth';
 
 export const runtime = 'nodejs';
@@ -154,16 +154,19 @@ export async function GET(request: NextRequest) {
   const destination = new URL('/?view=radar', requestUrl.origin);
   const response = NextResponse.redirect(destination, { status: 303 });
 
+  // Cria sessão durável de 30 dias assinada por HMAC
+  const signedToken = createSession(user.id, session.access_token);
+  response.headers.set('Set-Cookie', cookie(signedToken, request));
+
   const cookieOptions = {
     path: '/',
     sameSite: 'lax' as const,
     secure: isProd,
     httpOnly: true,
-    maxAge: 60 * 60 * 24 * 7 // 7 dias
+    maxAge: 60 * 60 * 24 * 30 // 30 dias
   };
 
-  // Grava cookies de sessão
-  response.cookies.set('prospecta_session', session.access_token, cookieOptions);
+  // Grava cookies adicionais de suporte Supabase
   response.cookies.set('sb-access-token', session.access_token, cookieOptions);
   if (session.refresh_token) {
     response.cookies.set('sb-refresh-token', session.refresh_token, cookieOptions);

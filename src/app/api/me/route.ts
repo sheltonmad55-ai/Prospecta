@@ -10,8 +10,13 @@ export async function GET(request: Request) {
     const user = await getUserAsync(request);
     const validUser = user ? ensureUserAndWorkspace(user) : null;
 
+    const token = validUser ? (
+      (sessionToken(request).startsWith('ps_') ? sessionToken(request) : null) || encodeSignedSession(validUser.id)
+    ) : null;
+
     const response = NextResponse.json({
       user: validUser,
+      token,
       mode: mode(),
       capabilities: {
         demo: false,
@@ -27,17 +32,8 @@ export async function GET(request: Request) {
       }
     });
 
-    if (validUser) {
-      const token = sessionToken(request) || encodeSignedSession(validUser.id);
-      const isHttps = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || request.url.startsWith('https:') || request.headers.get('x-forwarded-proto') === 'https';
-      response.cookies.set('prospecta_session', token, {
-        path: '/',
-        httpOnly: true,
-        secure: isHttps,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30
-      });
-      response.headers.append('Set-Cookie', cookie(token, request));
+    if (validUser && token) {
+      response.headers.set('Set-Cookie', cookie(token, request));
     }
 
     return response;

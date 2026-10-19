@@ -82,9 +82,13 @@ export function verifySignedSession(token: string): string | null {
   if (!token || !token.startsWith('ps_')) return null;
   try {
     const raw = Buffer.from(token.slice(3), 'base64url').toString('utf-8');
-    const parts = raw.split('.');
-    if (parts.length !== 3) return null;
-    const [userId, expiresAtStr, sig] = parts;
+    const lastDot = raw.lastIndexOf('.');
+    if (lastDot === -1) return null;
+    const secondLastDot = raw.lastIndexOf('.', lastDot - 1);
+    if (secondLastDot === -1) return null;
+    const userId = raw.slice(0, secondLastDot);
+    const expiresAtStr = raw.slice(secondLastDot + 1, lastDot);
+    const sig = raw.slice(lastDot + 1);
     const expiresAt = Number(expiresAtStr);
     if (!userId || !expiresAt || isNaN(expiresAt) || expiresAt < Date.now()) return null;
     const expectedSig = createHmac('sha256', AUTH_SECRET).update(`${userId}.${expiresAtStr}`).digest('hex');
@@ -356,7 +360,7 @@ export function createUser(name: string, email: string, password: string, market
 }
 
 export function createSession(userId: string, providerToken?: string): string {
-  const token = providerToken || encodeSignedSession(userId);
+  const token = encodeSignedSession(userId);
   const expires = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
   try {
     db().exec('CREATE TABLE IF NOT EXISTS provider_sessions(token_hash TEXT PRIMARY KEY REFERENCES sessions(token_hash) ON DELETE CASCADE,access_token TEXT NOT NULL)');
@@ -372,8 +376,15 @@ export function sessionToken(request: Request): string {
   const cookieHeader = request.headers.get('cookie') || '';
   const cookieMatch = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('prospecta_session='));
   if (cookieMatch) {
-    const val = cookieMatch.split('=')[1];
-    if (val) return val;
+    const prefix = 'prospecta_session=';
+    const raw = cookieMatch.slice(prefix.length).trim();
+    if (raw) {
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
   }
   const authHeader = request.headers.get('authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
@@ -526,8 +537,11 @@ export function cookie(token: string, request?: Request): string {
     Boolean(process.env.APP_URL && process.env.APP_URL.startsWith('https:'));
 
   const maxAge = token ? (60 * 60 * 24 * 30) : 0; // 30 dias
+  const expires = token
+    ? new Date(Date.now() + 30 * 86400 * 1000).toUTCString()
+    : new Date(0).toUTCString();
 
-  return `prospecta_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isHttps ? '; Secure' : ''}`;
+  return `prospecta_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Expires=${expires}${isHttps ? '; Secure' : ''}`;
 }
 
 const memoryRateLimits = new Map<string, { count: number; resetAt: number }>();

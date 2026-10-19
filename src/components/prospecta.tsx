@@ -12,7 +12,7 @@ import {
 import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
 import {
-  PROVINCES, SERVICES, STAGES, isMozambiqueMobile,
+  PROVINCES, SERVICES, STAGES, isMozambiqueMobile, isMozambiqueLandline,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
   type VaultScript
@@ -31,11 +31,13 @@ const money = (minor: number) => new Intl.NumberFormat('pt-MZ', { maximumFractio
 const date = (value: string) => new Intl.DateTimeFormat('pt-MZ', { day: 'numeric', month: 'short', timeZone: 'Africa/Maputo' }).format(new Date(value));
 const cls = (...values: (string | false | undefined)[]) => values.filter(Boolean).join(' ');
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('prospecta_session_token') : null;
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await fetch('/api/' + path, {
     credentials: 'include',
     cache: 'no-store',
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers }
+    headers: { 'Content-Type': 'application/json', ...authHeaders, ...options.headers }
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Não foi possível concluir o pedido.');
@@ -188,8 +190,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
   useEffect(() => {
     let active = true;
-    api<{ user: User | null; mode: 'demo' | 'live' }>('me').then(result => {
+    api<{ user: User | null; mode: 'demo' | 'live'; token?: string }>('me').then(result => {
       if (!active) return;
+      if (typeof window !== 'undefined') {
+        if (result.token) {
+          localStorage.setItem('prospecta_session_token', result.token);
+        } else if (!result.user) {
+          localStorage.removeItem('prospecta_session_token');
+        }
+      }
       let currentUser = result.user;
       if (currentUser && (!currentUser.name || currentUser.name.toLowerCase() === 'droop store')) {
         currentUser = { ...currentUser, name: 'Chelton Madime' };
@@ -316,9 +325,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         await post('auth/reset', { token: new URLSearchParams(window.location.search).get('reset'), accessToken: recovery.get('access_token'), refreshToken: recovery.get('refresh_token'), password: form.get('password') });
         window.history.replaceState({}, '', window.location.pathname); resetWorkspace(); setUser(null); openAuth('login'); notify('Palavra-passe actualizada. Entre novamente.'); return;
       }
-      const result = await post<{ user?: User; confirmationRequired?: boolean; message?: string }>('auth/' + auth, { name: form.get('name'), email: form.get('email'), password: form.get('password'), phone: form.get('phone') || '', acceptedTerms: form.get('terms') === 'on', consent: form.get('marketing') === 'on' });
+      const result = await post<{ user?: User; token?: string; confirmationRequired?: boolean; message?: string }>('auth/' + auth, { name: form.get('name'), email: form.get('email'), password: form.get('password'), phone: form.get('phone') || '', acceptedTerms: form.get('terms') === 'on', consent: form.get('marketing') === 'on' });
       if (result.confirmationRequired) { notify(result.message || 'Confirme o seu e-mail.'); openAuth('login'); return; }
-      if (result.user) { resetWorkspace(); setUser(result.user); setProfile(result.user.profile); setAuth(null); navigate('opportunities'); }
+      if (result.user) {
+        if (result.token && typeof window !== 'undefined') {
+          localStorage.setItem('prospecta_session_token', result.token);
+        }
+        resetWorkspace(); setUser(result.user); setProfile(result.user.profile); setAuth(null); navigate('opportunities');
+      }
     });
   }
 
@@ -565,7 +579,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             <Settings2 size={17} />
           </button>
 
-          <button className="logout" disabled={busy} onClick={() => run(async () => { await post('auth/logout'); resetWorkspace(); setUser(null); setAuth(null); })}>
+          <button className="logout" disabled={busy} onClick={() => run(async () => {
+            if (typeof window !== 'undefined') localStorage.removeItem('prospecta_session_token');
+            await post('auth/logout'); resetWorkspace(); setUser(null); setAuth(null);
+          })}>
             <LogOut size={15} /> Terminar sessão
           </button>
         </div>
@@ -1271,14 +1288,25 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           </a>
                           <p className="micro">Abrir WhatsApp não confirma envio, entrega ou leitura da mensagem.</p>
                         </>
-                      ) : (
+                      ) : isMozambiqueLandline(business.phone) ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                           <a className="button full" href={`tel:${business.phone}`} style={{ background: '#0284c7', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                             <Phone size={18} /> Ligar Telefone Fixo ({formatPhone(business.phone)})
                           </a>
                           <p className="micro" style={{ color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '8px 12px', borderRadius: 8, margin: 0, lineHeight: 1.4 }}>
-                            ℹ️ <strong>Rede Fixa:</strong> Este contacto ({business.phone}) pertence à rede fixa e normalmente não possui WhatsApp. Ligue diretamente ou consulte as redes sociais da empresa.
+                            ℹ️ <strong>Rede Fixa:</strong> Este contacto ({formatPhone(business.phone)}) pertence à rede fixa e normalmente não possui WhatsApp. Ligue diretamente ou consulte as redes sociais da empresa.
                           </p>
+                          {business.instagram && (
+                            <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                              <Sparkles size={16} /> Abrir Instagram ({business.instagram})
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                          <a className="button full" href={`tel:${business.phone}`} style={{ background: '#0f172a', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <Phone size={18} /> Ligar ({formatPhone(business.phone)})
+                          </a>
                           {business.instagram && (
                             <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                               <Sparkles size={16} /> Abrir Instagram ({business.instagram})
@@ -1453,8 +1481,22 @@ function ProfileForm({ user, profile, busy, onSubmit }: { user: User; profile: P
 function formatPhone(p: string | null) {
   if (!p) return null;
   const digits = p.replace(/\D/g, '');
-  if (digits.startsWith('258') && digits.length >= 11) return `+258 ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+  if (digits.startsWith('258')) {
+    const local = digits.slice(3);
+    if (local.length >= 8) return `+258 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5)}`;
+  }
   return p;
+}
+
+function getPhoneBadgeLabel(phone: string): string {
+  const formatted = formatPhone(phone) || phone;
+  if (isMozambiqueLandline(phone)) {
+    return `${formatted} (Fixo)`;
+  }
+  if (isMozambiqueMobile(phone)) {
+    return `${formatted} (WhatsApp)`;
+  }
+  return formatted;
 }
 
 function BusinessCard({ business: b, busy, onView, onSave }: { business: Business; busy: boolean; onView: () => void; onSave: () => void }) {
@@ -1471,7 +1513,7 @@ function BusinessCard({ business: b, busy, onView, onSave }: { business: Busines
       <h3><button onClick={onView}>{b.name}</button></h3>
       <p className="location"><MapPin size={14} />{b.locality}, {b.province}</p>
       <div className="business-facts">
-        <span className={cls('fact-pill', b.phone ? 'fact-phone' : 'fact-phone-none')}><Phone size={13} />{b.phone ? <b>{formatPhone(b.phone)} {isMozambiqueMobile(b.phone) ? '(WhatsApp)' : '(Fixo)'}</b> : 'Sem telefone'}</span>
+        <span className={cls('fact-pill', b.phone ? 'fact-phone' : 'fact-phone-none')}><Phone size={13} />{b.phone ? <b>{getPhoneBadgeLabel(b.phone)}</b> : 'Sem telefone'}</span>
         <span className={cls('fact-pill', b.website ? 'fact-web' : 'fact-web-none')}><Globe2 size={13} />{b.website ? 'Com website' : 'Sem website'}</span>
         {b.instagram && <span className="fact-pill fact-ig"><Sparkles size={13} /><b>{b.instagram}</b></span>}
       </div>

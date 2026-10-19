@@ -51,26 +51,19 @@ async function handleSaveProfile(request: Request) {
       onboarded: data.onboarded
     });
 
+    // Refresh and keep session cookies alive for 30 days
+    const token = (sessionToken(request).startsWith('ps_') ? sessionToken(request) : null) || encodeSignedSession(user.id);
+
     const response = NextResponse.json({
       success: true,
-      user: updatedUser
+      user: updatedUser,
+      token
     }, {
       status: 200,
       headers: { 'Cache-Control': 'no-store' }
     });
 
-    // Refresh and keep session cookies alive for 30 days
-    const token = sessionToken(request) || encodeSignedSession(user.id);
-    const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
-    const isHttps = isProd || request.url.startsWith('https:') || request.headers.get('x-forwarded-proto') === 'https';
-    response.cookies.set('prospecta_session', token, {
-      path: '/',
-      httpOnly: true,
-      secure: isHttps,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30
-    });
-    response.headers.append('Set-Cookie', cookie(token, request));
+    response.headers.set('Set-Cookie', cookie(token, request));
 
     return response;
   } catch (error) {
