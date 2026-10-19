@@ -8,10 +8,12 @@ export interface User { id: string; name: string; email: string; workspaceId: st
 export interface Evidence { id: string; field: string; value: string; source: string; observedAt: string }
 export function isMozambiqueMobile(phone: string | null | undefined): boolean {
   if (!phone) return false;
-  const digits = phone.replace(/\\D/g, '');
-  if (digits.startsWith('258') && digits.length >= 12) return digits[3] === '8';
-  if (digits.length === 9) return digits[0] === '8';
-  return false;
+  const digits = phone.replace(/\D/g, '');
+  let local = digits;
+  if (local.startsWith('258')) {
+    local = local.slice(3);
+  }
+  return local.length >= 8 && local.startsWith('8');
 }
 
 export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean; phoneType?: 'mobile' | 'landline' | null; }
