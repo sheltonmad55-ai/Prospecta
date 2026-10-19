@@ -63,6 +63,15 @@ async function handleSaveProfile(request: Request) {
       headers: { 'Cache-Control': 'no-store' }
     });
 
+    const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+    const isHttps = isProd || request.url.startsWith('https:') || request.headers.get('x-forwarded-proto') === 'https';
+    response.cookies.set('prospecta_session', token, {
+      path: '/',
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30
+    });
     response.headers.set('Set-Cookie', cookie(token, request));
 
     return response;

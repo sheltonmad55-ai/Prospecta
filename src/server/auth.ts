@@ -374,10 +374,12 @@ export function createSession(userId: string, providerToken?: string): string {
 
 export function sessionToken(request: Request): string {
   const cookieHeader = request.headers.get('cookie') || '';
-  const cookieMatch = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('prospecta_session='));
-  if (cookieMatch) {
-    const prefix = 'prospecta_session=';
-    const raw = cookieMatch.slice(prefix.length).trim();
+  const cookies = cookieHeader.split(';').map(c => c.trim());
+
+  // 1. Prospecta primary session cookie
+  const prospectaMatch = cookies.find(c => c.startsWith('prospecta_session='));
+  if (prospectaMatch) {
+    const raw = prospectaMatch.slice('prospecta_session='.length).trim();
     if (raw) {
       try {
         return decodeURIComponent(raw);
@@ -386,10 +388,45 @@ export function sessionToken(request: Request): string {
       }
     }
   }
+
+  // 2. Authorization Bearer header (client localStorage fallback)
   const authHeader = request.headers.get('authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7).trim();
+    const raw = authHeader.slice(7).trim();
+    if (raw) return raw;
   }
+
+  // 3. Supabase direct access token cookie (sb-access-token)
+  const sbMatch = cookies.find(c => c.startsWith('sb-access-token='));
+  if (sbMatch) {
+    const raw = sbMatch.slice('sb-access-token='.length).trim();
+    if (raw) {
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
+  }
+
+  // 4. Supabase project ref auth token (e.g. sb-roqpmpbmlvknkmeidkjb-auth-token)
+  const sbProjectMatch = cookies.find(c => c.startsWith('sb-') && c.includes('-auth-token='));
+  if (sbProjectMatch) {
+    const raw = sbProjectMatch.split('=')[1]?.trim();
+    if (raw) {
+      try {
+        const decoded = decodeURIComponent(raw);
+        if (decoded.startsWith('[')) {
+          const parsed = JSON.parse(decoded);
+          if (Array.isArray(parsed) && parsed[0]) return parsed[0];
+        }
+        return decoded;
+      } catch {
+        return raw;
+      }
+    }
+  }
+
   return '';
 }
 
@@ -525,16 +562,21 @@ export async function requireUser(request: Request): Promise<User> {
 }
 
 export function cookie(token: string, request?: Request): string {
+  const isLocalhost = Boolean(request && (
+    request.url.includes('localhost') ||
+    request.url.includes('127.0.0.1')
+  ));
+
   const isProd = process.env.NODE_ENV === 'production' ||
     Boolean(process.env.VERCEL) ||
     mode() === 'live';
 
-  const isHttps = isProd ||
+  const isHttps = !isLocalhost && (isProd ||
     Boolean(request && (
       request.url.startsWith('https:') ||
       request.headers.get('x-forwarded-proto') === 'https'
     )) ||
-    Boolean(process.env.APP_URL && process.env.APP_URL.startsWith('https:'));
+    Boolean(process.env.APP_URL && process.env.APP_URL.startsWith('https:')));
 
   const maxAge = token ? (60 * 60 * 24 * 30) : 0; // 30 dias
   const expires = token

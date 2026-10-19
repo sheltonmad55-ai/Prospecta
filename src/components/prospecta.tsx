@@ -193,12 +193,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     let active = true;
     api<{ user: User | null; mode: 'demo' | 'live'; token?: string }>('me').then(result => {
       if (!active) return;
-      if (typeof window !== 'undefined') {
-        if (result.token) {
-          localStorage.setItem('prospecta_session_token', result.token);
-        } else if (!result.user) {
-          localStorage.removeItem('prospecta_session_token');
-        }
+      if (typeof window !== 'undefined' && result.token) {
+        localStorage.setItem('prospecta_session_token', result.token);
       }
       let currentUser = result.user;
       if (currentUser && (!currentUser.name || currentUser.name.toLowerCase() === 'droop store')) {
@@ -222,7 +218,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         if (currentUser.profile.service) setService(currentUser.profile.service);
       }
       const query = new URLSearchParams(window.location.search);
-      if (currentUser && initialAuth && !query.get('reset')) { setAuth(null); navigate('opportunities'); }
+      if (currentUser && !query.get('reset')) {
+        setAuth(null);
+        if (initialAuth) navigate('opportunities');
+      }
       if (query.get('auth') === 'recover') setAuth('recover');
       const oauthError = query.get('auth_error');
       if (oauthError && !currentUser) notify(
@@ -232,7 +231,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       );
       const initial = query.get('view') as View | null;
       const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
-      if (initial && validViews.includes(initial)) setView(initial);
+      if (initial && validViews.includes(initial)) {
+        setView(initial);
+      } else if (query.get('view') === 'radar') {
+        setView('search');
+      }
       if (currentUser && (query.get('error') || query.get('error_code') || query.get('error_description') || query.get('auth_error'))) {
         const targetView = (initial && validViews.includes(initial)) ? initial : 'opportunities';
         window.history.replaceState({}, '', window.location.pathname + '?view=' + targetView);

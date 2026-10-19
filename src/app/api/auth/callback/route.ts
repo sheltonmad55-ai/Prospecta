@@ -149,14 +149,13 @@ export async function GET(request: NextRequest) {
     console.warn('[Google OAuth Callback]: Registo local secundário:', localErr);
   }
 
-  // Redireciona com sucesso para /?view=radar com cookies gravados explicitamente
+  // Redireciona com sucesso para /?view=search com cookies gravados explicitamente
   const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
-  const destination = new URL('/?view=radar', requestUrl.origin);
+  const destination = new URL('/?view=search', requestUrl.origin);
   const response = NextResponse.redirect(destination, { status: 303 });
 
   // Cria sessão durável de 30 dias assinada por HMAC
   const signedToken = createSession(user.id, session.access_token);
-  response.headers.set('Set-Cookie', cookie(signedToken, request));
 
   const cookieOptions = {
     path: '/',
@@ -165,6 +164,9 @@ export async function GET(request: NextRequest) {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 30 // 30 dias
   };
+
+  // Grava explicitamente o cookie prospecta_session no response.cookies para garantir que o Next.js o emite
+  response.cookies.set('prospecta_session', signedToken, cookieOptions);
 
   // Grava cookies adicionais de suporte Supabase
   response.cookies.set('sb-access-token', session.access_token, cookieOptions);

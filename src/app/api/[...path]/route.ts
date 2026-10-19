@@ -65,7 +65,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    if(action==='callback' && method==='GET') {
     const query=new URL(request.url).searchParams;
-    let destination='/?view=radar';let session:string|undefined;
+    let destination='/?view=search';let session:string|undefined;
     try {
      if(query.has('error')){try{consumeGoogleFlow(request);}catch{}destination='/login?auth_error=google_cancelled';}
      else {const result=await completeGoogleOAuth(request,query.get('code')||'');session=result.token;}

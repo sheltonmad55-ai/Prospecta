@@ -31,6 +31,18 @@ test('Session persistence: 30-day signed tokens survive serverless cold starts',
   });
   assert.equal(sessionToken(mockReqWithBearer), token);
 
+  // Extractor from Supabase direct access token cookie (sb-access-token fallback)
+  const mockReqWithSbToken = new Request('https://prospecta-mz.vercel.app/api/me', {
+    headers: { cookie: `sb-access-token=sb-jwt-sample-token; other=1` }
+  });
+  assert.equal(sessionToken(mockReqWithSbToken), 'sb-jwt-sample-token');
+
+  // Extractor from Supabase project auth cookie
+  const mockReqWithSbProject = new Request('https://prospecta-mz.vercel.app/api/me', {
+    headers: { cookie: `sb-roqpmpbmlvknkmeidkjb-auth-token=["jwt-token-val","refresh-token-val"]` }
+  });
+  assert.equal(sessionToken(mockReqWithSbProject), 'jwt-token-val');
+
   // Cookie string must contain both Max-Age and Expires for 30-day persistence
   const cookieStr = cookie(token, mockReqWithCookie);
   assert.ok(cookieStr.includes('Max-Age=2592000'), 'Must contain 30-day Max-Age');
