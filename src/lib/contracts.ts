@@ -6,7 +6,15 @@ export interface Credits { available: number; reserved: number; spent: number }
 export interface Profile { service: string; pitch: string; province: string; phone: string; nationwide: boolean; onboarded: boolean }
 export interface User { id: string; name: string; email: string; workspaceId: string; role: 'owner' | 'admin'; profile: Profile; credits: Credits }
 export interface Evidence { id: string; field: string; value: string; source: string; observedAt: string }
-export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean }
+export function isMozambiqueMobile(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\\D/g, '');
+  if (digits.startsWith('258') && digits.length >= 12) return digits[3] === '8';
+  if (digits.length === 9) return digits[0] === '8';
+  return false;
+}
+
+export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean; phoneType?: 'mobile' | 'landline' | null; }
 export interface SearchFilters { province?: string; locality?: string; category?: string; service: string; budget?: number; niche?: string; cities?: string; phone?: string; website?: string; instagram?: string }
 export interface SearchTask { province: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'limited'; count: number; error?: string }
 export interface SearchResult { id: string; status: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed'; filters: SearchFilters; tasks: SearchTask[]; results: Business[]; allResults?: Business[]; total: number; page: number; pages: number; createdAt: string; mode: 'demo' | 'live' }

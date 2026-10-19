@@ -60,41 +60,6 @@ export function getBusiness(businessId:string,user?:User):Business {
   ensureRealBusinessesSeeded();
   row=db().prepare('SELECT data,source_key FROM businesses WHERE id=?').get(businessId) as {data:string;source_key:string}|undefined;
  }
- if(!row) {
-  for (const item of CURATED_BUSINESSES) {
-   const h = createHash('sha256').update(item.name + '|' + item.locality).digest('hex').slice(0, 20);
-   if (businessId === 'curated-' + h || businessId === 'live-' + h || businessId === h) {
-    const observedAt = now();
-    const evidence: Evidence[] = [
-     { id: `${businessId}-name`, field: 'name', value: item.name, source: 'Diretório Comercial de Moçambique', observedAt },
-     { id: `${businessId}-loc`, field: 'location', value: `${item.locality}, ${item.province}`, source: 'Diretório Comercial de Moçambique', observedAt },
-     { id: `${businessId}-cat`, field: 'category', value: item.category, source: 'Diretório Comercial de Moçambique', observedAt }
-    ];
-    if (item.phone) evidence.push({ id: `${businessId}-tel`, field: 'phone', value: item.phone, source: 'Registo Telefónico MZ', observedAt });
-    if (item.website) evidence.push({ id: `${businessId}-web`, field: 'website', value: item.website, source: 'Registo Digital MZ', observedAt });
-    if (item.instagram) evidence.push({ id: `${businessId}-ig`, field: 'instagram', value: item.instagram, source: 'Instagram Moçambique', observedAt });
-
-    const biz: Business = {
-     id: businessId,
-     name: item.name,
-     category: item.category,
-     province: item.province,
-     locality: item.locality,
-     description: item.description,
-     phone: item.phone ? validPhone(item.phone) : null,
-     website: item.website || null,
-     instagram: item.instagram || null,
-     source: 'Diretório Comercial de Moçambique',
-     observedAt,
-     isDemo: false,
-     evidence
-    };
-    db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(businessId, JSON.stringify(biz), 'live', observedAt);
-    row = { data: JSON.stringify(biz), source_key: 'live' };
-    break;
-   }
-  }
- }
  if(!row) throw new AppError('Empresa não encontrada.',404);
  const business=JSON.parse(row.data) as Business;
  if(business.id?.startsWith('b-') || business.source?.includes('Directório Empresarial MZ') || business.source?.includes('Directorio Empresarial MZ')) {

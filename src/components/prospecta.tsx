@@ -12,7 +12,7 @@ import {
 import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
 import {
-  PROVINCES, SERVICES, STAGES,
+  PROVINCES, SERVICES, STAGES, isMozambiqueMobile,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
   type VaultScript
@@ -21,6 +21,11 @@ import {
 type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
 type AdminData = { workspaces: { id: string; name: string; email: string }[]; jobs: { id: string; status: string; attempts: number; error: string | null }[]; requests: PrivacyRequest[]; corrections: { id: string; note: string; status: string }[] };
 type PrivacyRequest = { id: string; type: string; status: string; created_at?: string };
+
+function getGoogleMapsUrl(name: string, locality: string, province?: string): string {
+  const query = [name, locality, province, 'Moçambique'].filter(Boolean).join(', ');
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
+}
 
 const money = (minor: number) => new Intl.NumberFormat('pt-MZ', { maximumFractionDigits: 0 }).format(minor / 100) + ' MT';
 const date = (value: string) => new Intl.DateTimeFormat('pt-MZ', { day: 'numeric', month: 'short', timeZone: 'Africa/Maputo' }).format(new Date(value));
@@ -1136,7 +1141,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <div>
                     <div className="eyebrow">{business.category}</div>
                     <h1>{business.name}</h1>
-                    <p><MapPin size={15} />{business.locality}, {business.province}</p>
+                    <p>
+                    <MapPin size={15} />{business.locality}, {business.province}
+                    <a
+                      href={getGoogleMapsUrl(business.name, business.locality, business.province)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="heading-map-link"
+                      title="Pesquisar esta empresa no Google Maps"
+                    >
+                      · Ver no Google Maps <ExternalLink size={12} />
+                    </a>
+                  </p>
                   </div>
                 </div>
                 <button className="button outline" disabled={busy || business.saved} onClick={() => saveBusiness(business)}>
@@ -1190,6 +1206,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <p className="micro">Um telefone listado não confirma uma conta WhatsApp.</p>
                       <div className="contact-line"><Globe2 size={17} /><div><span>Website</span>{business.website ? <a href={business.website} target="_blank" rel="noreferrer">{business.website.replace('https://', '')} <ExternalLink size={12} /></a> : <b>Não identificado nesta fonte</b>}</div></div>
                       {business.instagram && <div className="contact-line"><Sparkles size={17} /><div><span>Instagram</span><b>{business.instagram}</b></div></div>}
+                      <div className="contact-line"><MapPin size={17} /><div><span>Localização</span><a href={getGoogleMapsUrl(business.name, business.locality, business.province)} target="_blank" rel="noreferrer">Ver no Google Maps <ExternalLink size={12} /></a></div></div>
                       <div className="alert"><ShieldCheck size={17} /><span>A ausência de informação não prova ausência de presença digital.</span></div>
                     </section>
                     <section className="blue-note">
@@ -1246,11 +1263,35 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <button className="button outline" disabled={!draft || busy || business.suppressed} onClick={copyDraft}><Copy size={16} /> Copiar mensagem</button>
                       <button className="button" disabled={!analysis || !draft || busy || business.suppressed} onClick={saveDraft}><Check size={16} /> Guardar edição</button>
                     </div>
-                    {business.phone && !business.suppressed
-                      ? <a className="button whatsapp full" href={`https://wa.me/${business.phone.replace(/\D/g, '')}?text=${encodeURIComponent(draft)}`} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Abrir WhatsApp <ExternalLink size={15} /></a>
-                      : <div className="alert"><MessageCircle size={18} /><span>{business.suppressed ? 'A abordagem está bloqueada por pedido de não contacto.' : 'Sem telefone disponível. Prepare o texto e confirme outro canal de contacto com a empresa.'}</span></div>
-                    }
-                    <p className="micro">Abrir WhatsApp não confirma envio, entrega ou leitura da mensagem.</p>
+                    {business.phone && !business.suppressed ? (
+                      isMozambiqueMobile(business.phone) ? (
+                        <>
+                          <a className="button whatsapp full" href={`https://wa.me/${business.phone.replace(/\D/g, '')}?text=${encodeURIComponent(draft)}`} target="_blank" rel="noreferrer">
+                            <MessageCircle size={18} /> Abrir WhatsApp ({formatPhone(business.phone)}) <ExternalLink size={15} />
+                          </a>
+                          <p className="micro">Abrir WhatsApp não confirma envio, entrega ou leitura da mensagem.</p>
+                        </>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                          <a className="button full" href={`tel:${business.phone}`} style={{ background: '#0284c7', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <Phone size={18} /> Ligar Telefone Fixo ({formatPhone(business.phone)})
+                          </a>
+                          <p className="micro" style={{ color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '8px 12px', borderRadius: 8, margin: 0, lineHeight: 1.4 }}>
+                            ℹ️ <strong>Rede Fixa:</strong> Este contacto ({business.phone}) pertence à rede fixa e normalmente não possui WhatsApp. Ligue diretamente ou consulte as redes sociais da empresa.
+                          </p>
+                          {business.instagram && (
+                            <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                              <Sparkles size={16} /> Abrir Instagram ({business.instagram})
+                            </a>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      <div className="alert">
+                        <MessageCircle size={18} />
+                        <span>{business.suppressed ? 'A abordagem está bloqueada por pedido de não contacto.' : 'Sem telefone disponível. Prepare o texto e confirme outro canal de contacto com a empresa.'}</span>
+                      </div>
+                    )}
                     {selectedLead && <button className="text-button" disabled={busy} onClick={() => run(async () => { await api('leads/' + selectedLead.id, { method: 'PATCH', body: JSON.stringify({ stage: 'Contactado' }) }); notify('Contacto confirmado por si. Etapa actualizada.'); })}><CheckCheck size={16} /> Já realizei o contacto · Marcar como Contactado</button>}
                   </section>
                   <aside className="message-preview">
@@ -1430,12 +1471,24 @@ function BusinessCard({ business: b, busy, onView, onSave }: { business: Busines
       <h3><button onClick={onView}>{b.name}</button></h3>
       <p className="location"><MapPin size={14} />{b.locality}, {b.province}</p>
       <div className="business-facts">
-        <span className={cls('fact-pill', b.phone ? 'fact-phone' : 'fact-phone-none')}><Phone size={13} />{b.phone ? <b>{formatPhone(b.phone)}</b> : 'Sem telefone'}</span>
+        <span className={cls('fact-pill', b.phone ? 'fact-phone' : 'fact-phone-none')}><Phone size={13} />{b.phone ? <b>{formatPhone(b.phone)} {isMozambiqueMobile(b.phone) ? '(WhatsApp)' : '(Fixo)'}</b> : 'Sem telefone'}</span>
         <span className={cls('fact-pill', b.website ? 'fact-web' : 'fact-web-none')}><Globe2 size={13} />{b.website ? 'Com website' : 'Sem website'}</span>
         {b.instagram && <span className="fact-pill fact-ig"><Sparkles size={13} /><b>{b.instagram}</b></span>}
       </div>
       <div className="business-source"><Database size={13} /><span>{b.source}<small>Actualizado a {date(b.observedAt)}</small></span></div>
-      <button className="card-action" onClick={onView} disabled={busy}>Ver empresa e possibilidades <ArrowUpRight size={17} /></button>
+      <div className="card-actions-wrapper">
+        <button className="card-action" onClick={onView} disabled={busy}>Ver empresa e possibilidades <ArrowUpRight size={17} /></button>
+        <a
+          href={getGoogleMapsUrl(b.name, b.locality, b.province)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card-map-action"
+          title="Pesquisar esta empresa no Google Maps"
+          onClick={e => e.stopPropagation()}
+        >
+          <MapPin size={14} /> Ver no Google Maps <ExternalLink size={12} />
+        </a>
+      </div>
     </article>
   );
 }

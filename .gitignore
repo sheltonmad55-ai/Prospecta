@@ -10,3 +10,4 @@ playwright-report/
 
 data-test-*/
 .playwright-mcp/
+.vercel

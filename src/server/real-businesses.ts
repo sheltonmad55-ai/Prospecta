@@ -12,174 +12,8 @@ export const CURATED_BUSINESSES: Array<{
   website: string | null;
   instagram: string | null;
   description: string;
-}> = [
-  {
-    name: 'Restaurante Zambi Waterfront',
-    category: 'Restaurante',
-    province: 'Maputo Cidade',
-    locality: 'Baixa, Maputo',
-    phone: null,
-    website: 'https://zambi.co.mz',
-    instagram: null,
-    description: 'Restaurante de alta gastronomia e mariscos com vista frontal sobre a baía de Maputo.'
-  },
-  {
-    name: 'Dhow Mozambique',
-    category: 'Restaurante e Lounge',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: null,
-    website: 'https://www.dhowmozambique.com',
-    instagram: null,
-    description: 'Restaurante, lounge e galeria com vista panorâmica da baía de Maputo na Polana.'
-  },
-  {
-    name: 'Polana Serena Hotel',
-    category: 'Hotelaria e Restauração',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: null,
-    website: 'https://serenahotels.com/polana',
-    instagram: null,
-    description: 'Hotel histórico e complexo hoteleiro de cinco estrelas na Av. Julius Nyerere, Maputo.'
-  },
-  {
-    name: 'Clínica Cruz Azul',
-    category: 'Clínica Médica',
-    province: 'Maputo Cidade',
-    locality: 'Baixa, Maputo',
-    phone: '+258843129840',
-    website: null,
-    instagram: null,
-    description: 'Unidade médica privada histórica com serviço de urgências, consultas de clínica geral e especialidades.'
-  },
-  {
-    name: 'Clínica da Sommerschield',
-    category: 'Clínica Médica e Especialidades',
-    province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: '+258824501823',
-    website: null,
-    instagram: null,
-    description: 'Centro clínico e hospitalar privado de referência na Sommerschield, Maputo.'
-  },
-  {
-    name: 'Clínica Dentária Sorrisos de Maputo',
-    category: 'Clínica Odontológica',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: '+258843928172',
-    website: 'https://sorrisos.co.mz',
-    instagram: '@sorrisos_maputo',
-    description: 'Centro odontológico especializado em implantes, ortodontia, próteses e estética dentária na Polana.'
-  },
-  {
-    name: 'Dental Care Moçambique',
-    category: 'Clínica Odontológica',
-    province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: '+258852918374',
-    website: null,
-    instagram: null,
-    description: 'Clínica dentária moderna com tratamentos odontológicos avançados e atendimento personalizado.'
-  },
-  {
-    name: 'Centro Odontológico da Matola',
-    category: 'Clínica Odontológica',
-    province: 'Maputo Província',
-    locality: 'Fomento, Matola',
-    phone: '+258863920194',
-    website: null,
-    instagram: null,
-    description: 'Consultas dentárias, ortodontia, branqueamento e saúde oral familiar na Matola.'
-  },
-  {
-    name: 'Clínica Dentária Bella Matola',
-    category: 'Clínica Odontológica',
-    province: 'Maputo Província',
-    locality: 'Machava, Matola',
-    phone: '+258873910283',
-    website: null,
-    instagram: null,
-    description: 'Consultório dentário e tratamentos de restauração, próteses e odontologia preventiva na Machava.'
-  },
-  {
-    name: 'OralMed Moçambique',
-    category: 'Clínica Odontológica',
-    province: 'Maputo Cidade',
-    locality: 'Malhangalene, Maputo',
-    phone: '+258849182736',
-    website: null,
-    instagram: null,
-    description: 'Clínica de estomatologia, cirurgia oral e reabilitação oral na Malhangalene.'
-  },
-  {
-    name: 'OdontoLife Maputo',
-    category: 'Clínica Odontológica',
-    province: 'Maputo Cidade',
-    locality: 'Baixa, Maputo',
-    phone: '+258823910294',
-    website: null,
-    instagram: null,
-    description: 'Tratamentos de cáries, canais, ortodontia e estética dentária na Baixa de Maputo.'
-  },
-  {
-    name: 'Pizzaria Bella Napoli',
-    category: 'Pizzaria e Restauração',
-    province: 'Maputo Cidade',
-    locality: 'Sommerschield, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Pizzaria tradicional com forno a lenha e massas artesanais na Sommerschield, Maputo.'
-  },
-  {
-    name: 'Restaurante Piri-Piri',
-    category: 'Restaurante',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Restaurante emblemático tradicional na Av. 24 de Julho em Maputo.'
-  },
-  {
-    name: 'Restaurante Costa do Sol',
-    category: 'Restaurante',
-    province: 'Maputo Cidade',
-    locality: 'Costa do Sol, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Restaurante histórico na marginal de Maputo especializado em mariscos e peixe grelhado.'
-  },
-  {
-    name: 'Sagres Cervejaria',
-    category: 'Restaurante e Cervejaria',
-    province: 'Maputo Cidade',
-    locality: 'Baixa, Maputo',
-    phone: null,
-    website: null,
-    instagram: null,
-    description: 'Cervejaria e marisqueira tradicional na Baixa de Maputo.'
-  },
-  {
-    name: 'Couto, Graça & Associados',
-    category: 'Advocacia',
-    province: 'Maputo Cidade',
-    locality: 'Polana Cimento, Maputo',
-    phone: null,
-    website: 'https://cga.co.mz',
-    instagram: null,
-    description: 'Sociedade de advogados independente em Moçambique com assessoria corporativa e contencioso.'
-  }
-];
+}> = [];
 
-/**
- * Rigorous anti-hallucination Mozambican phone sanitizer.
- * Immediately rejects numbers ending in artificial/repeated sequences typical of AI hallucination:
- * 111, 222, 333, 444, 555, 666, 777, 888, 999, 000, 123, 456, 567, 789, 1234, 4589, 9023.
- */
 export function sanitizeMozambiquePhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
   const validated = validPhone(phone);
@@ -210,41 +44,9 @@ export function sanitizeMozambiquePhone(phone: string | null | undefined): strin
 
 export function ensureRealBusinessesSeeded(): void {
   const database = db();
-  const countRow = database.prepare("SELECT COUNT(*) as total FROM businesses WHERE source_key='live'").get() as { total: number };
-  if (countRow.total >= CURATED_BUSINESSES.length) return;
-
-  const insert = database.prepare('INSERT OR IGNORE INTO businesses VALUES(?,?,?,?)');
-  const observedAt = now();
-
-  for (const item of CURATED_BUSINESSES) {
-    const businessId = canonicalBizId(item.name, item.province);
-    const evidence: Evidence[] = [
-      { id: `${businessId}-name`, field: 'name', value: item.name, source: 'Diretório Comercial de Moçambique', observedAt },
-      { id: `${businessId}-loc`, field: 'location', value: `${item.locality}, ${item.province}`, source: 'Diretório Comercial de Moçambique', observedAt },
-      { id: `${businessId}-cat`, field: 'category', value: item.category, source: 'Diretório Comercial de Moçambique', observedAt }
-    ];
-    if (item.phone) evidence.push({ id: `${businessId}-tel`, field: 'phone', value: item.phone, source: 'Registo Telefónico MZ', observedAt });
-    if (item.website) evidence.push({ id: `${businessId}-web`, field: 'website', value: item.website, source: 'Registo Digital MZ', observedAt });
-    if (item.instagram) evidence.push({ id: `${businessId}-ig`, field: 'instagram', value: item.instagram, source: 'Instagram Moçambique', observedAt });
-
-    const business: Business = {
-      id: businessId,
-      name: item.name,
-      category: item.category,
-      province: item.province,
-      locality: item.locality,
-      description: item.description,
-      phone: sanitizeMozambiquePhone(item.phone),
-      website: item.website || null,
-      instagram: item.instagram || null,
-      source: 'Diretório Comercial de Moçambique',
-      observedAt,
-      isDemo: false,
-      evidence
-    };
-
-    insert.run(businessId, JSON.stringify(business), 'live', observedAt);
-  }
+  try {
+    database.prepare("DELETE FROM businesses WHERE source = 'Diretório Comercial de Moçambique'").run();
+  } catch (_) {}
 }
 
 /**
@@ -459,7 +261,7 @@ Regras obrigatórias de veracidade comercial:
 - province: string (exata: Cabo Delgado, Gaza, Inhambane, Manica, Maputo Província, Maputo Cidade, Nampula, Niassa, Sofala, Tete ou Zambézia)
 - locality: string (bairro e cidade, ex: "Sommerschield, Maputo", "Polana, Maputo", "Baixa, Maputo", "Fomento, Matola", "Ponta Gêa, Beira")
 - phone: string ou null (PROIBIDO adivinhar números de telefone. Coloca phone: null em todas as empresas cujo telefone não esteja explicitamente visível no snippet da pesquisa Google. NUNCA inventes números nem uses sequências repetidas como 111, 222, 555, 123)
-- website: string ou null (url real HTTP/HTTPS se existir, senão null)
+- website: string ou null (ATENÇÃO: A grande maioria das empresas em Moçambique NÃO possui website próprio. É ESTRITAMENTE PROIBIDO inventar, deduzir ou adivinhar domínios ou URLs, especialmente domínios terminados em .co.mz ou .mz. Se a empresa não tiver um website oficial real e comprovado, coloca OBRIGATORIAMENTE website: null)
 - instagram: string ou null (perfil real com @ se existir, senão null)
 - description: string (resumo verídico dos serviços e especialidades)
 
@@ -720,7 +522,13 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
       seenIds.add(bId);
       seenNames.add(normKey);
       const phone = sanitizeMozambiquePhone(p.phone);
-      const website = (p.website && /^https?:\/\//i.test(p.website)) ? p.website.trim() : null;
+      let website: string | null = null;
+      if (p.website && /^https?:\/\//i.test(p.website)) {
+        const cleanWeb = p.website.trim();
+        if (!cleanWeb.toLowerCase().includes('.co.mz') && !cleanWeb.toLowerCase().endsWith('.mz')) {
+          website = cleanWeb;
+        }
+      }
       const instagram = (p.instagram && p.instagram.startsWith('@')) ? p.instagram.trim() : null;
       const biz: Business = {
         id: bId,
