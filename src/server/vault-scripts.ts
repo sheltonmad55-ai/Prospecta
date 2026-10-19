@@ -1384,6 +1384,43 @@ export function buildVaultPromptMatrix(params?: {
     ? VAULT_SCRIPTS.find(s => s.id === 'ss-01')!
     : VAULT_SCRIPTS.find(s => s.id === 'pc-01')!;
 
+  const sLower = service.toLowerCase();
+  let serviceStrategy = '';
+  if (sLower.includes('tráfego') || sLower.includes('anúncio') || sLower.includes('trafego')) {
+    serviceStrategy = `
+- ESTRATÉGIA ESPECÍFICA PARA TRÁFEGO PAGO / ANÚNCIOS ONLINE:
+  * Diagnóstico: A empresa já tem presença ou ponto no Maps/Instagram, mas não possui campanhas ativas rodando para alcançar pessoas da sua cidade ou bairro.
+  * Oportunidade: Os concorrentes próximos estão a captar quem pesquisa ou navega nas redes sociais. A empresa depende apenas de passa-palavra e movimento orgânico.
+  * Proposta: Campanhas geolocalizadas com botão direto para o WhatsApp da empresa para atrair novos clientes todos os dias.
+  * Abordagem recomendada: Falar de clientes e agendamentos na porta, não de "cliques".
+  * Valor de referência em Moçambique: 15.000 MT a 30.000 MT/mês de gestão de tráfego.`;
+  } else if (sLower.includes('social') || sLower.includes('redes')) {
+    serviceStrategy = `
+- ESTRATÉGIA ESPECÍFICA PARA GESTÃO DE REDES SOCIAIS:
+  * Diagnóstico: A empresa precisa de consistência visual, reels e calendário editorial sem sobrecarregar o empresário com criação de artes.
+  * Proposta: Cuidar de todo o design e postagens para posicionar a marca como referência de qualidade no segmento.`;
+  } else if (sLower.includes('automação') || sLower.includes('chatbot') || sLower.includes('automacao')) {
+    serviceStrategy = `
+- ESTRATÉGIA ESPECÍFICA PARA AUTOMAÇÃO NO WHATSAPP:
+  * Diagnóstico: O cliente desiste se esperar 30 minutos por uma resposta de orçamento, catálogo ou agendamento.
+  * Proposta: Atendimento inteligente 24h que responde em 5 segundos, envia catálogo/preços e faz o agendamento prévio.`;
+  } else if (sLower.includes('menu') || sLower.includes('catálogo') || sLower.includes('catalogo')) {
+    serviceStrategy = `
+- ESTRATÉGIA ESPECÍFICA PARA MENUS E CATÁLOGOS DIGITAIS:
+  * Diagnóstico: O envio de fotos borradas ou PDFs pesados faz o cliente desistir da compra pelo telemóvel.
+  * Proposta: Menu digital rápido e elegante que abre instantaneamente e permite escolher o pedido direto no WhatsApp.`;
+  } else if (sLower.includes('design') || sLower.includes('identidade')) {
+    serviceStrategy = `
+- ESTRATÉGIA ESPECÍFICA PARA DESIGN E IDENTIDADE VISUAL:
+  * Diagnóstico: A qualidade do produto/serviço é alta, mas a identidade visual informal impede a empresa de cobrar preços premium.
+  * Proposta: Modernizar a identidade visual e materiais corporativos para transmitir autoridade e atrair clientes de alto valor.`;
+  } else {
+    serviceStrategy = `
+- ESTRATÉGIA ESPECÍFICA PARA CRIAÇÃO DE WEBSITES:
+  * Diagnóstico: Ausência de página web própria reduz a credibilidade no Google e limita o alcance de novos clientes.
+  * Proposta: Página rápida, profissional e otimizada para telemóveis com botão direto para o WhatsApp.`;
+  }
+
   return `
 [MATRIZ OFICIAL DE SCRIPTS COMERCIAIS - COFRE CÓDIGO ZERO / PROSPECTA MZ]
 Utilize a psicologia de vendas e os princípios destes roteiros testados em Moçambique para redigir a mensagem de abordagem (draftMessage) e estruturar as hipóteses comerciais para qualquer setor de atividade:
@@ -1400,7 +1437,9 @@ ${primaryTemplate.template
   .replace(/{{beneficio_principal}}/g, `modernizar o atendimento e a presença online com ${service.toLowerCase()}`)}
 """
 
-2. REGRAS DE CONVERSÃO E ADAPTAÇÃO LOCAL PARA MOÇAMBIQUE:
+2. DIRETRIZES DO SERVIÇO EM FOCO:${serviceStrategy}
+
+3. REGRAS DE CONVERSÃO E ADAPTAÇÃO LOCAL PARA MOÇAMBIQUE:
 - Contexto de Moçambique: Em Moçambique, a maioria das decisões e contactos comerciais passa directamente pelo WhatsApp e pagamentos por M-Pesa e e-Mola.
 - Ausência de site (empresas sem site): Se a empresa não possui website identificado, destaque como isso faz pessoas desistirem antes de chamar no WhatsApp, e ofereça um rascunho visual/demonstração sem compromisso.
 - Proposta de Valor: Foco em parar a sangria de clientes perdidos por respostas lentas ou falta de credibilidade.

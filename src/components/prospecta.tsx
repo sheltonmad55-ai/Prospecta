@@ -13,6 +13,7 @@ import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
 import {
   PROVINCES, SERVICES, STAGES, isMozambiqueMobile, isMozambiqueLandline,
+  getMetaAdLibraryUrl,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
   type VaultScript
@@ -1169,6 +1170,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     >
                       · Ver no Google Maps <ExternalLink size={12} />
                     </a>
+                    <a
+                      href={getMetaAdLibraryUrl(business.name)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="heading-map-link"
+                      title="Verificar anúncios desta empresa na Biblioteca de Anúncios do Meta"
+                    >
+                      · Biblioteca de Anúncios Meta <ExternalLink size={12} />
+                    </a>
                   </p>
                   </div>
                 </div>
@@ -1224,6 +1234,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <div className="contact-line"><Globe2 size={17} /><div><span>Website</span>{business.website ? <a href={business.website} target="_blank" rel="noreferrer">{business.website.replace('https://', '')} <ExternalLink size={12} /></a> : <b>Não identificado nesta fonte</b>}</div></div>
                       {business.instagram && <div className="contact-line"><Sparkles size={17} /><div><span>Instagram</span><b>{business.instagram}</b></div></div>}
                       <div className="contact-line"><MapPin size={17} /><div><span>Localização</span><a href={getGoogleMapsUrl(business.name, business.locality, business.province)} target="_blank" rel="noreferrer">Ver no Google Maps <ExternalLink size={12} /></a></div></div>
+                      <div className="contact-line"><Target size={17} /><div><span>Anúncios Meta</span><a href={getMetaAdLibraryUrl(business.name)} target="_blank" rel="noreferrer">Verificar na Biblioteca <ExternalLink size={12} /></a></div></div>
                       <div className="alert"><ShieldCheck size={17} /><span>A ausência de informação não prova ausência de presença digital.</span></div>
                     </section>
                     <section className="blue-note">
@@ -1520,16 +1531,30 @@ function BusinessCard({ business: b, busy, onView, onSave }: { business: Busines
       <div className="business-source"><Database size={13} /><span>{b.source}<small>Actualizado a {date(b.observedAt)}</small></span></div>
       <div className="card-actions-wrapper">
         <button className="card-action" onClick={onView} disabled={busy}>Ver empresa e possibilidades <ArrowUpRight size={17} /></button>
-        <a
-          href={getGoogleMapsUrl(b.name, b.locality, b.province)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="card-map-action"
-          title="Pesquisar esta empresa no Google Maps"
-          onClick={e => e.stopPropagation()}
-        >
-          <MapPin size={14} /> Ver no Google Maps <ExternalLink size={12} />
-        </a>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%' }}>
+          <a
+            href={getGoogleMapsUrl(b.name, b.locality, b.province)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="card-map-action"
+            title="Pesquisar esta empresa no Google Maps"
+            onClick={e => e.stopPropagation()}
+            style={{ margin: 0, justifyContent: 'center' }}
+          >
+            <MapPin size={13} /> Maps <ExternalLink size={11} />
+          </a>
+          <a
+            href={getMetaAdLibraryUrl(b.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="card-map-action"
+            title="Verificar anúncios desta empresa na Biblioteca de Anúncios do Meta"
+            onClick={e => e.stopPropagation()}
+            style={{ margin: 0, justifyContent: 'center' }}
+          >
+            <Target size={13} /> Anúncios <ExternalLink size={11} />
+          </a>
+        </div>
       </div>
     </article>
   );

@@ -1,6 +1,15 @@
 export const PROVINCES = ['Cabo Delgado', 'Gaza', 'Inhambane', 'Manica', 'Maputo Província', 'Maputo Cidade', 'Nampula', 'Niassa', 'Sofala', 'Tete', 'Zambézia'] as const;
 export const STAGES = ['Novo', 'Contactado', 'Em conversa', 'Proposta', 'Ganho', 'Perdido'] as const;
-export const SERVICES = ['Criação de websites', 'Menus e catálogos digitais', 'Gestão de redes sociais', 'Design e identidade visual', 'Fotografia', 'Consultoria'] as const;
+export const SERVICES = [
+  'Tráfego pago (Anúncios online)',
+  'Criação de websites',
+  'Gestão de redes sociais',
+  'Automação no WhatsApp',
+  'Menus e catálogos digitais',
+  'Design e identidade visual',
+  'Fotografia',
+  'Consultoria'
+] as const;
 export type Stage = typeof STAGES[number];
 export interface Credits { available: number; reserved: number; spent: number }
 export interface Profile { service: string; pitch: string; province: string; phone: string; nationwide: boolean; onboarded: boolean }
@@ -43,7 +52,14 @@ export function getMozambiquePhoneKind(phone: string | null | undefined): Mozamb
   return 'unknown';
 }
 
-export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean; phoneType?: 'mobile' | 'landline' | null; }
+/**
+ * Gera URL direto para verificação na Biblioteca de Anúncios do Meta para Moçambique
+ */
+export function getMetaAdLibraryUrl(businessName: string): string {
+  return `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=MZ&q=${encodeURIComponent(businessName.trim())}`;
+}
+
+export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean; phoneType?: 'mobile' | 'landline' | null; hasActiveAds?: boolean; }
 export interface SearchFilters { province?: string; locality?: string; category?: string; service: string; budget?: number; niche?: string; cities?: string; phone?: string; website?: string; instagram?: string }
 export interface SearchTask { province: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'limited'; count: number; error?: string }
 export interface SearchResult { id: string; status: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed'; filters: SearchFilters; tasks: SearchTask[]; results: Business[]; allResults?: Business[]; total: number; page: number; pages: number; createdAt: string; mode: 'demo' | 'live' }
