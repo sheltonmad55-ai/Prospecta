@@ -18,7 +18,7 @@ export async function analyse(business:Business, profile:Profile, name:string, t
   const chosen=service || profile.service || 'Criação de websites';
   const key=process.env.GEMINI_API_KEY;
   const rawModel=process.env.GEMINI_MODEL;
-  const model=(rawModel && rawModel!=='gemini-1.5-flash')?rawModel:'gemini-flash-lite-latest';
+  const model=(rawModel && rawModel!=='gemini-1.5-flash')?rawModel:'gemini-flash-latest';
   if(!key) throw new Error('IA real não configurada. Defina GEMINI_API_KEY.');
 
   const vaultMatrix = buildVaultPromptMatrix({
