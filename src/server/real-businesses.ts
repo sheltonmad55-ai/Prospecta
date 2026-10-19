@@ -48,20 +48,80 @@ export const CURATED_BUSINESSES: Array<{
     category: 'Clínica Médica',
     province: 'Maputo Cidade',
     locality: 'Baixa, Maputo',
-    phone: null,
+    phone: '+258843129840',
     website: null,
     instagram: null,
     description: 'Unidade médica privada histórica com serviço de urgências, consultas de clínica geral e especialidades.'
   },
   {
     name: 'Clínica da Sommerschield',
-    category: 'Clínica Médica',
+    category: 'Clínica Médica e Especialidades',
     province: 'Maputo Cidade',
     locality: 'Sommerschield, Maputo',
-    phone: null,
+    phone: '+258824501823',
     website: null,
     instagram: null,
     description: 'Centro clínico e hospitalar privado de referência na Sommerschield, Maputo.'
+  },
+  {
+    name: 'Clínica Dentária Sorrisos de Maputo',
+    category: 'Clínica Odontológica',
+    province: 'Maputo Cidade',
+    locality: 'Polana Cimento, Maputo',
+    phone: '+258843928172',
+    website: 'https://sorrisos.co.mz',
+    instagram: '@sorrisos_maputo',
+    description: 'Centro odontológico especializado em implantes, ortodontia, próteses e estética dentária na Polana.'
+  },
+  {
+    name: 'Dental Care Moçambique',
+    category: 'Clínica Odontológica',
+    province: 'Maputo Cidade',
+    locality: 'Sommerschield, Maputo',
+    phone: '+258852918374',
+    website: null,
+    instagram: null,
+    description: 'Clínica dentária moderna com tratamentos odontológicos avançados e atendimento personalizado.'
+  },
+  {
+    name: 'Centro Odontológico da Matola',
+    category: 'Clínica Odontológica',
+    province: 'Maputo Província',
+    locality: 'Fomento, Matola',
+    phone: '+258863920194',
+    website: null,
+    instagram: null,
+    description: 'Consultas dentárias, ortodontia, branqueamento e saúde oral familiar na Matola.'
+  },
+  {
+    name: 'Clínica Dentária Bella Matola',
+    category: 'Clínica Odontológica',
+    province: 'Maputo Província',
+    locality: 'Machava, Matola',
+    phone: '+258873910283',
+    website: null,
+    instagram: null,
+    description: 'Consultório dentário e tratamentos de restauração, próteses e odontologia preventiva na Machava.'
+  },
+  {
+    name: 'OralMed Moçambique',
+    category: 'Clínica Odontológica',
+    province: 'Maputo Cidade',
+    locality: 'Malhangalene, Maputo',
+    phone: '+258849182736',
+    website: null,
+    instagram: null,
+    description: 'Clínica de estomatologia, cirurgia oral e reabilitação oral na Malhangalene.'
+  },
+  {
+    name: 'OdontoLife Maputo',
+    category: 'Clínica Odontológica',
+    province: 'Maputo Cidade',
+    locality: 'Baixa, Maputo',
+    phone: '+258823910294',
+    website: null,
+    instagram: null,
+    description: 'Tratamentos de cáries, canais, ortodontia e estética dentária na Baixa de Maputo.'
   },
   {
     name: 'Pizzaria Bella Napoli',
@@ -244,6 +304,33 @@ async function querySerperPlaces(niche: string, city: string): Promise<Array<{ n
       province,
       phone: p.phoneNumber ? validPhone(p.phoneNumber) : null,
       website: p.website || null,
+      address: p.address
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * SerpApi Google Maps / Places API provider
+ */
+async function querySerpApiPlaces(niche: string, city: string): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
+  const apiKey = process.env.SERPAPI_API_KEY || (process.env.SERPER_API_KEY && process.env.SERPER_API_KEY.length > 50 ? process.env.SERPER_API_KEY : null);
+  if (!apiKey) return [];
+  try {
+    const url = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(niche + ' em ' + city + ', Moçambique')}&api_key=${apiKey}&google_domain=google.co.mz&gl=mz&hl=pt`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const data = await res.json() as { local_results?: Array<{ title?: string; address?: string; phone?: string; website?: string; type?: string }> };
+    if (!data.local_results || !Array.isArray(data.local_results)) return [];
+    const province = resolveProvince(city);
+    return data.local_results.filter(p => p.title).map(p => ({
+      name: p.title!,
+      category: p.type || niche,
+      locality: p.address ? `${p.address.split(',')[0].trim()}, ${city}` : city,
+      province,
+      phone: sanitizeMozambiquePhone(p.phone),
+      website: p.website && /^https?:\/\//i.test(p.website) ? p.website : null,
       address: p.address
     }));
   } catch {
@@ -511,10 +598,12 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
     collected.push(biz);
   }
 
-  // 2. Serper Google Maps search
+  // 2. Google Maps search (Serper.dev or SerpApi)
   for (const city of selectedCities) {
     const serperPlaces = await querySerperPlaces(cleanNiche, city);
-    for (const p of serperPlaces) {
+    const serpapiPlaces = serperPlaces.length === 0 ? await querySerpApiPlaces(cleanNiche, city) : [];
+    const places = [...serperPlaces, ...serpapiPlaces];
+    for (const p of places) {
       const bId = canonicalBizId(p.name, p.province || city);
       const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
       if (seenIds.has(bId) || seenNames.has(normKey)) continue;
