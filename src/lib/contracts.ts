@@ -1,8 +1,9 @@
 export const PROVINCES = ['Cabo Delgado', 'Gaza', 'Inhambane', 'Manica', 'Maputo Província', 'Maputo Cidade', 'Nampula', 'Niassa', 'Sofala', 'Tete', 'Zambézia'] as const;
 export const STAGES = ['Novo', 'Contactado', 'Em conversa', 'Proposta', 'Ganho', 'Perdido'] as const;
 export const SERVICES = [
-  'Tráfego pago (Anúncios online)',
   'Criação de websites',
+  'Criação de landing pages',
+  'Tráfego pago (Anúncios online)',
   'Gestão de redes sociais',
   'Automação no WhatsApp',
   'Menus e catálogos digitais',
@@ -86,7 +87,7 @@ export function getRecommendedPricing(service: string, nicheOrCategory = ''): Pr
   const isHighTicket = /(clinic|medic|dent|odonto|hospital|saude|advocac|advogad|juridic|imobiliar|construt|construcao|engenhari|arquitet|consultor|seguro|banco|finan)/.test(normNiche);
   const isSmallLocal = /(salao|beleza|cabel|estetic|unha|nail|spa|barbear|lavandar|mecanic|oficin|padar|pastelar|boutique|artesan)/.test(normNiche);
 
-  if (normService.includes('website') || normService.includes('site')) {
+  if (normService.includes('website') || normService.includes('site') || normService.includes('landing')) {
     if (isHighTicket) {
       return {
         minMt: 12000,

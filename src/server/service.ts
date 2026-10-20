@@ -257,14 +257,14 @@ export function getAnalysis(user:User,businessId:string) {
  const row=db().prepare('SELECT * FROM analyses WHERE workspace_id=? AND business_id=? ORDER BY created_at DESC LIMIT 1').get(user.workspaceId,businessId) as Row|undefined;
  return row?{...JSON.parse(String(row.data)),id:row.id,businessId:row.business_id,draftMessage:row.draft,createdAt:row.created_at} as Analysis:null;
 }
-export function requestAnalysis(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business):Job {
+export function requestAnalysis(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business,length:'curta'|'media'|'longa'='media',customInstructions=''):Job {
  if (businessData && businessData.id) {
   try {
    db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(businessData.id, JSON.stringify(businessData), 'live', now());
   } catch {}
  }
  const business=getBusiness(businessId,user);if(business.suppressed) throw new AppError('Este contacto está marcado para não contactar.',409);
- const payload={businessId,tone,service:service||user.profile.service,name:user.name,profile:user.profile,evidence:business.evidence};
+ const payload={businessId,tone,service:service||user.profile.service,name:user.name,profile:user.profile,evidence:business.evidence,length,customInstructions};
  const payloadHash=hash(JSON.stringify(payload));
  return transaction(()=>{
   const previous=db().prepare("SELECT * FROM jobs WHERE workspace_id=? AND kind='analysis' AND idempotency_key=?").get(user.workspaceId,key) as Row|undefined;
@@ -280,8 +280,8 @@ export function requestAnalysis(user:User,businessId:string,tone:string,service:
   return {id:jobId,status:'queued'};
  });
 }
-export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business):Promise<Job> {
- const initial = requestAnalysis(user, businessId, tone, service, key, fresh, businessData);
+export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business,length:'curta'|'media'|'longa'='media',customInstructions=''):Promise<Job> {
+ const initial = requestAnalysis(user, businessId, tone, service, key, fresh, businessData, length, customInstructions);
  if (initial.status === 'succeeded' || initial.status === 'failed') {
    return initial;
  }
@@ -441,7 +441,7 @@ async function processAnalysis(job:Row) {
  const payload=JSON.parse(String(job.payload));
  try {
   if(db().prepare('SELECT business_id FROM suppressions WHERE workspace_id=? AND business_id=?').get(job.workspace_id,payload.businessId))throw new Error('Contacto marcado para não contactar.');
-  const result=await analyse(getBusiness(payload.businessId),payload.profile,payload.name,payload.tone,payload.service);
+  const result=await analyse(getBusiness(payload.businessId),payload.profile,payload.name,payload.tone,payload.service,payload.length||'media',payload.customInstructions||'');
   transaction(()=>{
    const current=db().prepare('SELECT status,attempts FROM jobs WHERE id=?').get(job.id) as {status:string;attempts:number};
    if(!current || current.status!=='running')return;

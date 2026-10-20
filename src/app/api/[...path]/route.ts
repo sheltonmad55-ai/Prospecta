@@ -283,9 +283,9 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({opportunities:opps});
   }
   if(route==='analyses' && method==='POST') {
-   const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional(),businessData:z.any().optional()}).parse(input);
+   const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional(),businessData:z.any().optional(),length:z.enum(['curta','media','longa']).optional().default('media'),customInstructions:z.string().max(1000).optional().default('')}).parse(input);
    const key=request.headers.get('idempotency-key');if(!key||key.length>100)throw new AppError('É necessária uma chave de operação válida.');
-   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh,data.businessData);
+   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh,data.businessData,data.length,data.customInstructions);
    return reply(result, 202);
   }
   if(path[0]==='jobs' && path[1]) {if(path[2]==='cancel' && method==='POST')return reply(cancelJob(user,path[1]));if(method==='GET')return reply(readJob(user,path[1]));}

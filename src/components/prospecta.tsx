@@ -6,7 +6,7 @@ import {
   Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock3,
   Compass, Copy, Database, Download, ExternalLink, FileText, Globe2,
   LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Plus,
-  Radar, Search, Send, Settings2, ShieldCheck, Sparkles, Star, Target, TrendingUp,
+  Radar, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
   Wallet, X
 } from 'lucide-react';
 import Landing from './landing';
@@ -45,6 +45,231 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data;
 }
 const post = <T,>(path: string, data: unknown = {}) => api<T>(path, { method: 'POST', body: JSON.stringify(data) });
+
+
+function getCoherentVaultScript(
+  type: 'primeiro-contato' | 'sem-site' | 'esta-caro' | 'fechamento-mpesa' | 'followup',
+  serviceName: string,
+  biz: Business,
+  userName: string,
+  length: 'curta' | 'media' | 'longa' = 'curta'
+): string {
+  const normS = (serviceName || '').toLowerCase();
+  const isSiteOrLanding = normS.includes('website') || normS.includes('site') || normS.includes('landing');
+  const isAds = normS.includes('tráfego') || normS.includes('anúncio') || normS.includes('ads');
+  const isSocial = normS.includes('rede') || normS.includes('social') || normS.includes('instagram');
+  const isBot = normS.includes('whatsapp') || normS.includes('automação') || normS.includes('bot');
+
+  const bizName = biz.name || 'a vossa empresa';
+  const loc = biz.locality || 'a vossa zona';
+  const cat = biz.category ? biz.category.toLowerCase() : 'negócios locais';
+  const sender = userName || 'Chelton Madime';
+
+  if (type === 'primeiro-contato') {
+    if (isSiteOrLanding) {
+      if (length === 'curta') {
+        return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, sou especialista em criação de ${normS.includes('landing') ? 'landing pages' : 'websites'} aqui em Moçambique.
+
+Reparei que têm um óptimo trabalho em ${loc}, mas estão sem uma página rápida para converter quem vos pesquisa no Google directo para o vosso WhatsApp.
+
+Faz sentido conversarmos 2 minutinhos sobre uma proposta visual sem compromisso?
+
+Um abraço,
+${sender}`;
+      }
+      return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, sou especialista em ${normS.includes('landing') ? 'landing pages de alta conversão' : 'websites profissionais'} e presença digital aqui em Moçambique.
+
+Estive a analisar empresas de ${cat} na zona de ${loc} e reparei que o vosso negócio tem um excelente trabalho, mas uma página web própria e rápida pode converter muito mais potenciais clientes directamente ao vosso WhatsApp.
+
+Preparei uma proposta rápida mostrando exactamente como podemos estruturar uma página moderna e rápida, com adesão simples (inclusive com pagamentos práticos via M-Pesa / e-Mola).
+
+Faz sentido apresentar-vos uma demonstração visual de 5 minutos, sem qualquer compromisso?
+
+Um abraço,
+${sender}`;
+    }
+
+    if (isAds) {
+      if (length === 'curta') {
+        return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, ajudo empresas de ${cat} em ${loc} a atraírem clientes qualificados todos os dias pelo Instagram e Google.
+
+Preparei uma estratégia rápida para trazer mais orçamentos directos ao vosso WhatsApp.
+
+Podemos conversar 2 minutinhos sobre isto hoje? Prometo ser breve!
+
+Cumprimentos,
+${sender}`;
+      }
+      return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, especialista em tráfego pago e captação de clientes em ${biz.province || 'Moçambique'}.
+
+Notei a óptima reputação do vosso negócio em ${loc} e reparei que os concorrentes da zona estão a captar quem pesquisa por ${cat} na internet. Desenvolvi um plano de anúncios para colocar o vosso WhatsApp a receber pedidos diários de orçamento.
+
+Podemos conversar 5 minutos sobre como aplicar isto ao vosso negócio este mês?
+
+Com os melhores cumprimentos,
+${sender}`;
+    }
+
+    if (isSocial) {
+      if (length === 'curta') {
+        return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, actuo com gestão de redes sociais e autoridade visual para negócios em ${loc}.
+
+Notei o potencial de ${bizName} e separei 2 ideias visuais práticas para aumentarem o engajamento e atraírem mais orçamentos pelo WhatsApp.
+
+Posso enviar-vos estas ideias em 2 minutinhos sem compromisso?
+
+Um abraço,
+${sender}`;
+      }
+      return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, actuo com posicionamento e gestão de redes sociais para ${cat} em ${biz.province || 'Moçambique'}.
+
+Identifiquei oportunidades para modernizar a imagem visual e a consistência das vossas publicações em ${loc}, transformando seguidores em clientes pagantes no WhatsApp.
+
+Faz sentido agendarmos uma conversa de 5 minutos para vos mostrar exemplos de resultados práticos?
+
+Cumprimentos,
+${sender}`;
+    }
+
+    if (isBot) {
+      if (length === 'curta') {
+        return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender} e ajudo empresas de ${cat} em ${loc} a automatizarem o WhatsApp para responderem orçamentos 24h sem demora e nunca perderem clientes.
+
+Faz sentido conversarmos 2 minutinhos sobre como funciona para o vosso caso?
+
+Um abraço,
+${sender}`;
+      }
+      return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender} e ajudo empresas em ${loc} a modernizarem o atendimento no WhatsApp para nunca mais perderem clientes por demora em horários de pico ou fins de semana.
+
+Desenvolvemos um assistente inteligente que atende, tira dúvidas e encaminha para pagamento de forma automática e humanizada.
+
+Podemos agendar uma demonstração rápida de 5 minutos?
+
+Cumprimentos,
+${sender}`;
+    }
+
+    if (length === 'curta') {
+      return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, trabalho com ${serviceName.toLowerCase()} em Moçambique.
+
+Identifiquei 2 melhorias práticas para aumentarem as vendas de ${cat} em ${loc}.
+
+Posso enviar-vos uma proposta rápida de 2 minutos sem compromisso?
+
+Um abraço,
+${sender}`;
+    }
+    return `Olá, equipa do(a) ${bizName}! Tudo bem?
+
+O meu nome é ${sender}, actuo com ${serviceName.toLowerCase()} em Moçambique.
+
+Estive a analisar a presença de empresas de ${cat} em ${loc} e notei oportunidades claras para o(a) ${bizName} captar mais clientes qualificados.
+
+Faz sentido conversarmos 5 minutos esta semana para vos mostrar essa proposta sem compromisso?
+
+Um abraço,
+${sender}`;
+  }
+
+  if (type === 'sem-site') {
+    const pageKind = isSiteOrLanding ? (normS.includes('landing') ? 'landing page' : 'página web moderna') : 'página oficial com catálogo e botão de WhatsApp';
+    return `Olá, equipa do(a) ${bizName}! Como estão?
+
+Estava a pesquisar empresas de ${cat} em ${loc} e encontrei o vosso perfil no Google. O trabalho de vocês é excelente, mas reparei que ainda não têm uma ${pageKind}, o que faz potenciais clientes hesitarem antes de chamar no WhatsApp.
+
+Em menos de 48h consigo estruturar uma página rápida e responsiva para o(a) ${bizName} que multiplica os cliques directamente para o vosso atendimento.
+
+Gostariam de ver uma demonstração visual sem compromisso?
+
+Com os melhores cumprimentos,
+${sender}`;
+  }
+
+  if (type === 'esta-caro') {
+    return `Entendo perfeitamente, equipa do(a) ${bizName}. O valor pode parecer um investimento num primeiro momento.
+
+Mas vamos analisar juntos: para um negócio de ${cat}, quanto custa perder apenas 1 ou 2 clientes por mês por falta de ${serviceName.toLowerCase()} e presença digital profissional?
+
+Se esta solução vos trouxer apenas 2 novos clientes neste mês, o investimento já não se pagou e gerou lucro contínuo?
+
+Além disso, facilitamos o pagamento em 2 parcelas práticas via M-Pesa / e-Mola para começarmos hoje mesmo sem pesar no caixa. O que vos parece?`;
+  }
+
+  if (type === 'fechamento-mpesa') {
+    return `Perfeito, equipa do(a) ${bizName}! Fico muito contente por darmos este passo juntos.
+
+Para darmos início imediato ao projeto de ${serviceName.toLowerCase()} do(a) ${bizName}:
+
+📱 Pagamento prático via M-Pesa / e-Mola:
+• Titular: ${sender}
+• Serviço: ${serviceName}
+• Referência: ${bizName}
+
+Assim que enviarem o comprovativo por aqui, dou início imediato ao desenvolvimento e entrego a primeira prévia em 48h!`;
+  }
+
+  if (type === 'followup') {
+    return `Olá, equipa do(a) ${bizName}, bom dia! Tudo bem?
+
+Conseguiram analisar a proposta de ${serviceName.toLowerCase()} que vos enviei ontem? Sei que a rotina do negócio é sempre corrida!
+
+Se preferirem, posso mandar um áudio de 1 minuto a resumir os principais ganhos para vocês, ou tirar qualquer dúvida rápida. Como está a vossa disponibilidade hoje?`;
+  }
+
+  return '';
+}
+
+function adaptScriptTemplate(
+  template: string,
+  company: string,
+  niche: string,
+  serviceName: string,
+  locality: string,
+  userName: string
+): string {
+  let result = template
+    .replace(/{{empresa}}/g, company || '[Nome da Empresa]')
+    .replace(/{{categoria}}/g, niche || '[Nicho do Negócio]')
+    .replace(/{{setor}}/g, niche || '[Setor]')
+    .replace(/{{servico}}/g, serviceName || '[Serviço]')
+    .replace(/{{localidade}}/g, locality || '[Localidade]')
+    .replace(/{{nome}}/g, userName || '[Seu Nome]');
+
+  const sLower = (serviceName || '').toLowerCase();
+  if (sLower.includes('website') || sLower.includes('site') || sLower.includes('landing')) {
+    if (result.includes('automatizarem o atendimento no WhatsApp')) {
+      result = result
+        .replace('automatizarem o atendimento no WhatsApp para nunca mais deixarem clientes esperando (e perderem vendas por demora)', `estruturarem uma ${sLower.includes('landing') ? 'Landing Page rápida' : 'página web moderna'} para converterem quem pesquisa no Google directo para o vosso WhatsApp`)
+        .replace('automatizarem o atendimento no WhatsApp para nunca mais deixarem clientes esperando', `estruturarem uma ${sLower.includes('landing') ? 'Landing Page rápida' : 'página web moderna'} para converterem quem vos pesquisa no Google`)
+        .replace('inteligência artificial para responder orçamentos 24h por dia', 'uma página de alta conversão ligada directamente ao vosso WhatsApp');
+    }
+  } else if (sLower.includes('tráfego') || sLower.includes('anúncio')) {
+    if (result.includes('automatizarem o atendimento no WhatsApp')) {
+      result = result.replace('automatizarem o atendimento no WhatsApp para nunca mais deixarem clientes esperando (e perderem vendas por demora)', 'anúncios online no Instagram e Google para atraírem clientes qualificados todos os dias');
+    }
+  }
+
+  return result;
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -178,6 +403,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [draft, setDraft] = useState('');
   const [tone, setTone] = useState('Profissional');
   const [service, setService] = useState<string>(SERVICES[0]);
+  const [messageLength, setMessageLength] = useState<'curta' | 'media' | 'longa'>('curta');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [showPromptDetails, setShowPromptDetails] = useState(false);
+  const [customizingVaultId, setCustomizingVaultId] = useState<string | null>(null);
+  const [vaultCustomNiche, setVaultCustomNiche] = useState('');
+  const [vaultCustomService, setVaultCustomService] = useState('');
+  const [vaultCustomCompany, setVaultCustomCompany] = useState('');
+  const [vaultCustomLocality, setVaultCustomLocality] = useState('');
+  const [vaultCustomText, setVaultCustomText] = useState('');
   const [job, setJob] = useState<Job | null>(null);
   const [usage, setUsage] = useState<LedgerEntry[]>([]);
   const [requests, setRequests] = useState<PrivacyRequest[]>([]);
@@ -666,7 +900,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       let result = await api<Job>('analyses', {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business })
+        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business, length: messageLength, customInstructions: customPrompt })
       });
       setJob(result);
       if (result.status === 'succeeded' && result.result) {
@@ -1338,28 +1572,173 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <div className="vault-template-box">
                         <pre>{script.template}</pre>
                       </div>
+                      {customizingVaultId === script.id && (
+                        <div className="vault-customizer-box">
+                          <div className="vault-customizer-header">
+                            <span><SlidersHorizontal size={14} /> Adaptar a outro Nicho & Editar</span>
+                            <button type="button" className="text-button" style={{ padding: 0, fontSize: 11 }} onClick={() => setCustomizingVaultId(null)}>
+                              <X size={14} /> Fechar
+                            </button>
+                          </div>
+
+                          <div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Nichos para inspiração rápida:</div>
+                            <div className="vault-niche-chips">
+                              {[
+                                { label: '🦷 Clínica Odontológica', niche: 'Clínica Odontológica', company: 'Clínica Sorriso Lda' },
+                                { label: '💇‍♀️ Salão de Beleza', niche: 'Salão de Beleza & Estética', company: 'Studio Glamour' },
+                                { label: '🍽️ Restaurante', niche: 'Restaurante & Bar', company: 'Restaurante Sabor da Terra' },
+                                { label: '🔧 Oficina Mecânica', niche: 'Oficina Mecânica', company: 'Auto Center Maputo' },
+                                { label: '⚖️ Advocacia', niche: 'Escritório de Advocacia', company: 'Madime Advogados Associados' },
+                                { label: '🏠 Imobiliária', niche: 'Mediação Imobiliária', company: 'Imobiliária Maputo Prime' }
+                              ].map(n => (
+                                <button
+                                  key={n.niche}
+                                  type="button"
+                                  className={cls('vault-chip-btn', vaultCustomNiche === n.niche && 'active')}
+                                  onClick={() => {
+                                    setVaultCustomNiche(n.niche);
+                                    setVaultCustomCompany(n.company);
+                                    const updated = adaptScriptTemplate(script.template, n.company, n.niche, vaultCustomService, vaultCustomLocality, user.name);
+                                    setVaultCustomText(updated);
+                                  }}
+                                >
+                                  {n.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="vault-inputs-grid">
+                            <div className="vault-input-group">
+                              <label>Nome da Empresa</label>
+                              <input
+                                value={vaultCustomCompany}
+                                placeholder="Ex: Dental Prime Lda"
+                                onChange={e => {
+                                  setVaultCustomCompany(e.target.value);
+                                  setVaultCustomText(adaptScriptTemplate(script.template, e.target.value, vaultCustomNiche, vaultCustomService, vaultCustomLocality, user.name));
+                                }}
+                              />
+                            </div>
+                            <div className="vault-input-group">
+                              <label>Nicho / Ramo de Atividade</label>
+                              <input
+                                value={vaultCustomNiche}
+                                placeholder="Ex: Clínica, Salão, Restaurante..."
+                                onChange={e => {
+                                  setVaultCustomNiche(e.target.value);
+                                  setVaultCustomText(adaptScriptTemplate(script.template, vaultCustomCompany, e.target.value, vaultCustomService, vaultCustomLocality, user.name));
+                                }}
+                              />
+                            </div>
+                            <div className="vault-input-group">
+                              <label>Serviço oferecido</label>
+                              <select
+                                value={vaultCustomService}
+                                onChange={e => {
+                                  setVaultCustomService(e.target.value);
+                                  setVaultCustomText(adaptScriptTemplate(script.template, vaultCustomCompany, vaultCustomNiche, e.target.value, vaultCustomLocality, user.name));
+                                }}
+                              >
+                                {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </div>
+                            <div className="vault-input-group">
+                              <label>Localidade</label>
+                              <input
+                                value={vaultCustomLocality}
+                                placeholder="Ex: Maputo, Matola, Nampula..."
+                                onChange={e => {
+                                  setVaultCustomLocality(e.target.value);
+                                  setVaultCustomText(adaptScriptTemplate(script.template, vaultCustomCompany, vaultCustomNiche, vaultCustomService, e.target.value, user.name));
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' }}>Texto Adaptado (Pode editar directamente):</label>
+                              <small style={{ fontSize: 11, color: '#94a3b8' }}>{vaultCustomText.length} caracteres</small>
+                            </div>
+                            <textarea
+                              className="vault-custom-textarea"
+                              value={vaultCustomText}
+                              onChange={e => setVaultCustomText(e.target.value)}
+                              rows={7}
+                              placeholder="O texto personalizado e adaptado aparecerá aqui..."
+                            />
+                          </div>
+
+                          <div className="vault-customizer-actions">
+                            <button
+                              type="button"
+                              className="button outline compact"
+                              onClick={() => {
+                                navigator.clipboard.writeText(vaultCustomText);
+                                notify('Script adaptado copiado para a área de transferência!');
+                              }}
+                            >
+                              <Copy size={13} /> Copiar texto adaptado
+                            </button>
+                            <button
+                              type="button"
+                              className="button compact"
+                              onClick={() => {
+                                setDraft(vaultCustomText);
+                                if (business) {
+                                  navigate('outreach', business);
+                                  notify('Script personalizado aplicado na preparação da mensagem!');
+                                } else {
+                                  notify('Script guardado no rascunho de abordagem!');
+                                }
+                              }}
+                            >
+                              <ArrowRight size={13} /> {business ? `Usar com ${business.name}` : 'Usar na abordagem'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <div className="vault-card-footer">
+                        <button
+                          type="button"
+                          className={cls('button outline compact', customizingVaultId === script.id && 'active')}
+                          onClick={() => {
+                            if (customizingVaultId === script.id) {
+                              setCustomizingVaultId(null);
+                            } else {
+                              setCustomizingVaultId(script.id);
+                              const comp = business?.name || 'Empresa Exemplo Lda';
+                              const nic = business?.category || 'Clínica Odontológica';
+                              const srv = service || SERVICES[0];
+                              const loc = business?.locality || 'Maputo';
+                              setVaultCustomCompany(comp);
+                              setVaultCustomNiche(nic);
+                              setVaultCustomService(srv);
+                              setVaultCustomLocality(loc);
+                              setVaultCustomText(adaptScriptTemplate(script.template, comp, nic, srv, loc, user.name));
+                            }
+                          }}
+                        >
+                          <SlidersHorizontal size={14} /> {customizingVaultId === script.id ? 'Fechar adaptação' : 'Adaptar Nicho / Editar'}
+                        </button>
                         <button
                           type="button"
                           className="button outline compact"
                           onClick={() => {
                             navigator.clipboard.writeText(script.template);
-                            notify('Script copiado para a área de transferência!');
+                            notify('Script original copiado!');
                           }}
                         >
-                          <Copy size={14} /> Copiar script
+                          <Copy size={14} /> Copiar original
                         </button>
                         {business && (
                           <button
                             type="button"
                             className="button compact"
                             onClick={() => {
-                              const filled = script.template
-                                .replace(/{{empresa}}/g, business.name)
-                                .replace(/{{nome}}/g, user.name)
-                                .replace(/{{localidade}}/g, business.locality)
-                                .replace(/{{categoria}}/g, business.category)
-                                .replace(/{{servico}}/g, service);
+                              const filled = adaptScriptTemplate(script.template, business.name, business.category, service, business.locality, user.name);
                               setDraft(filled);
                               navigate('outreach', business);
                               notify('Script inserido na preparação da mensagem!');
@@ -1559,6 +1938,104 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <label>Tom da mensagem<select value={tone} onChange={e => setTone(e.target.value)}>{['Profissional', 'Amigável', 'Consultivo'].map(t => <option key={t}>{t}</option>)}</select></label>
                       <label>Serviço em destaque<select value={service} onChange={e => setService(e.target.value)}>{SERVICES.map(s => <option key={s}>{s}</option>)}</select></label>
                     </div>
+
+                    {/* Extensão da mensagem */}
+                    <div className="message-length-bar">
+                      <div className="length-label">
+                        <span>Extensão da mensagem:</span>
+                        <small>{messageLength === 'curta' ? '⚡ Curta (ideal para atendentes no WhatsApp lerem rápido)' : messageLength === 'media' ? '💬 Equilibrada (consultiva com apresentação)' : '📄 Completa (detalhada com quebra de objeções)'}</small>
+                      </div>
+                      <div className="length-options">
+                        <button
+                          type="button"
+                          className={cls('length-pill', messageLength === 'curta' && 'active')}
+                          onClick={() => setMessageLength('curta')}
+                        >
+                          ⚡ Curta (para atendente / 3 frases)
+                        </button>
+                        <button
+                          type="button"
+                          className={cls('length-pill', messageLength === 'media' && 'active')}
+                          onClick={() => setMessageLength('media')}
+                        >
+                          💬 Equilibrada
+                        </button>
+                        <button
+                          type="button"
+                          className={cls('length-pill', messageLength === 'longa' && 'active')}
+                          onClick={() => setMessageLength('longa')}
+                        >
+                          📄 Completa
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Instruções personalizadas para a IA */}
+                    <div className="prompt-customizer-box">
+                      <button
+                        type="button"
+                        className="prompt-toggle-btn"
+                        onClick={() => setShowPromptDetails(!showPromptDetails)}
+                      >
+                        <span><SlidersHorizontal size={14} /> Personalizar instruções da IA {customPrompt.trim() && <span className="prompt-active-dot" />}</span>
+                        <span className="prompt-toggle-action">{showPromptDetails ? 'Ocultar' : 'Detalhar como quero a mensagem'}</span>
+                      </button>
+
+                      {(showPromptDetails || customPrompt.trim().length > 0) && (
+                        <div className="prompt-details-body">
+                          <textarea
+                            value={customPrompt}
+                            onChange={e => setCustomPrompt(e.target.value)}
+                            placeholder="Ex.: Mensagem bem curta para recepcionista ler rápido, focar em criação de Landing Page rápida, mencionar que vi no Google Maps, ou pedir apenas 2 minutos de áudio..."
+                            rows={2}
+                            className="prompt-textarea"
+                          />
+                          <div className="prompt-quick-chips">
+                            <span className="prompt-chips-label">Sugestões rápidas:</span>
+                            <button
+                              type="button"
+                              className="prompt-chip"
+                              onClick={() => setCustomPrompt('Mensagem super curta de 3 frases, directa para a atendente do WhatsApp ler em 5 segundos sem cansar.')}
+                            >
+                              ⚡ Super curta para atendente
+                            </button>
+                            <button
+                              type="button"
+                              className="prompt-chip"
+                              onClick={() => setCustomPrompt('Focar na criação de uma Landing Page moderna e rápida para converter quem pesquisa no Google Maps directamente para o WhatsApp.')}
+                            >
+                              🎯 Focar em Landing Page
+                            </button>
+                            <button
+                              type="button"
+                              className="prompt-chip"
+                              onClick={() => setCustomPrompt('Mencionar que encontrei a empresa no Google Maps com óptima reputação e elogiar o trabalho antes de propor a solução.')}
+                            >
+                              📍 Mencionar Google Maps
+                            </button>
+                            <button
+                              type="button"
+                              className="prompt-chip"
+                              onClick={() => setCustomPrompt('Perguntar gentilmente à atendente com quem devo falar sobre a presença digital e captação de clientes da empresa.')}
+                            >
+                              📱 Pedir contacto do responsável
+                            </button>
+                            <button
+                              type="button"
+                              className="prompt-chip"
+                              onClick={() => setCustomPrompt('Destacar facilidade de pagamento parcelado via M-Pesa / e-Mola.')}
+                            >
+                              💰 Facilitar com M-Pesa
+                            </button>
+                            {customPrompt && (
+                              <button type="button" className="prompt-chip danger" onClick={() => setCustomPrompt('')}>
+                                Limpar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <div className="editor-heading">
                       <div className="step-label"><span>2</span><div><h2>Prepare uma boa conversa.</h2><p>{analysis ? 'Reveja, personalize e guarde a mensagem.' : 'Uma nova análise inclui a primeira mensagem.'}</p></div></div>
                       <button className="button outline compact" disabled={busy || business.suppressed} onClick={() => generate(!!analysis)}>{busy ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} {analysis ? 'Nova análise' : 'Gerar mensagem'} · 1 crédito</button>
@@ -1566,23 +2043,23 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <div className="vault-quick-bar">
                       <span className="vault-quick-label"><ShieldCheck size={13} /> Modelos do Cofre:</span>
                       <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(`Olá, equipa do(a) ${business.name}! Tudo bem?\n\nO meu nome é ${user.name} e ajudo empresas no vosso sector a modernizar o atendimento no WhatsApp para nunca mais perderem clientes por demora.\n\nNotei que têm presença relevante em ${business.locality}. Faz sentido conversarmos 5 minutinhos sobre como isto funciona para o vosso caso? Prometo ser breve!`);
-                        notify('Modelo de Primeiro Contato inserido!');
+                        setDraft(getCoherentVaultScript('primeiro-contato', service, business, user.name, messageLength));
+                        notify(`Modelo de Primeiro Contato (${service}) inserido!`);
                       }}>Primeiro Contato</button>
                       <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(`Olá, pessoal do(a) ${business.name}! Como estão?\n\nEstava a pesquisar serviços de ${business.category} em ${business.locality} e encontrei-vos no Google Maps. Vi que o perfil está super bem avaliado, mas notei que ainda não têm um website próprio, o que faz muitas pessoas desistirem antes de entrar em contacto.\n\nEm menos de 48h consigo colocar uma Landing Page no ar para o(a) ${business.name} que vai duplicar as pessoas que clicam para o WhatsApp de vocês.\n\nGostariam de ver um rascunho sem compromisso?`);
+                        setDraft(getCoherentVaultScript('sem-site', service, business, user.name, messageLength));
                         notify('Modelo para Empresa Sem Site inserido!');
                       }}>Sem Website</button>
                       <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(`Entendo perfeitamente, [Nome do Cliente]. O valor pode parecer um investimento considerável num primeiro momento.\n\nMas vamos pensar juntos: quanto custa hoje o(a) ${business.name} perder 1 ou 2 clientes por semana porque o WhatsApp demorou a responder ou faltou um site?\n\nSe a solução vos trouxer apenas 2 vendas a mais neste mês, ele já não se pagou e gerou lucro limpo?`);
+                        setDraft(getCoherentVaultScript('esta-caro', service, business, user.name, messageLength));
                         notify('Modelo de Quebra de Objeção ("Está Caro") inserido!');
                       }}>Quebra "Está Caro"</button>
                       <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(`Perfeito, [Nome]! Fico muito contente por darmos este passo juntos.\n\nPara darmos início imediato ao setup do(a) ${business.name}:\n\n📱 Pagamento via M-Pesa / e-Mola:\n• Número: [SEU NÚMERO M-PESA]\n• Nome: ${user.name}\n• Valor: [VALOR] MT\n• Referência: ${business.name}\n\nAssim que enviarem o comprovativo aqui, crio o grupo no WhatsApp com a equipa técnica para iniciarmos hoje mesmo!`);
+                        setDraft(getCoherentVaultScript('fechamento-mpesa', service, business, user.name, messageLength));
                         notify('Modelo de Fechamento via M-Pesa inserido!');
                       }}>Fechamento M-Pesa</button>
                       <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(`Olá, [Nome], bom dia! Tudo certo no(a) ${business.name}?\n\nConseguiu dar uma olhada na proposta que enviei ontem? Sei que a rotina com o negócio é sempre corrida!\n\nSe preferir, posso ligar-lhe por 5 minutinhos apenas para tirar dúvidas rápidas. Como está a sua agenda para hoje à tarde?`);
+                        setDraft(getCoherentVaultScript('followup', service, business, user.name, messageLength));
                         notify('Modelo de Follow-up inserido!');
                       }}>Follow-up</button>
                       <button type="button" className="text-button" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => navigate('vault')}>Ver todos no Cofre <ArrowRight size={12} /></button>
