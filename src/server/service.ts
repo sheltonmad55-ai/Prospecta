@@ -207,16 +207,23 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
  };
 }
 export function listSearches(user:User):SearchResult[] {
- const rows=db().prepare('SELECT * FROM searches WHERE workspace_id=? ORDER BY created_at DESC LIMIT 8').all(user.workspaceId) as Row[];
+ const rows=db().prepare('SELECT * FROM searches WHERE workspace_id=? ORDER BY created_at DESC LIMIT 12').all(user.workspaceId) as Row[];
  return rows.map(row=>{
   const ids=JSON.parse(String(row.results||'[]')) as string[];
+  const sampleBiz: Business[] = [];
+  for (const b of ids.slice(0, 8)) {
+    try {
+      const biz = getBusiness(b, user);
+      if (biz && biz.name) sampleBiz.push(biz);
+    } catch {}
+  }
   const pages=Math.max(1,Math.ceil(ids.length/8));
   return {
    id:String(row.id),
    status:row.status as SearchResult['status'],
    filters:JSON.parse(String(row.filters)),
    tasks:JSON.parse(String(row.tasks||'[]')),
-   results:[],
+   results:sampleBiz,
    total:ids.length,
    page:1,
    pages,
@@ -225,11 +232,37 @@ export function listSearches(user:User):SearchResult[] {
   };
  });
 }
+export async function syncSearchesFromSupabase(user: User): Promise<void> {
+  if (!supabaseConfigured()) return;
+  try {
+    const localCount = db().prepare('SELECT count(*) as c FROM searches WHERE workspace_id=?').get(user.workspaceId) as { c: number } | undefined;
+    if (localCount && localCount.c > 0) return;
+
+    const client = supabaseAdmin();
+    if (!client) return;
+    const { data, error } = await client.from('searches').select('*').eq('workspace_id', user.workspaceId).order('created_at', { ascending: false }).limit(10);
+    if (error || !data || !Array.isArray(data)) return;
+
+    for (const item of data) {
+      const filters = item.filters || {};
+      const results = filters._cached_biz_ids || [];
+      db().prepare('INSERT OR IGNORE INTO searches(id,workspace_id,filters,tasks,results,status,mode,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)')
+        .run(item.id, user.workspaceId, JSON.stringify(filters), JSON.stringify(item.tasks || []), JSON.stringify(results), item.status || 'succeeded', 'live', item.created_at || now(), item.created_at || now());
+    }
+  } catch (err) {
+    console.warn('[syncSearchesFromSupabase error]:', err);
+  }
+}
 export function getAnalysis(user:User,businessId:string) {
  const row=db().prepare('SELECT * FROM analyses WHERE workspace_id=? AND business_id=? ORDER BY created_at DESC LIMIT 1').get(user.workspaceId,businessId) as Row|undefined;
  return row?{...JSON.parse(String(row.data)),id:row.id,businessId:row.business_id,draftMessage:row.draft,createdAt:row.created_at} as Analysis:null;
 }
-export function requestAnalysis(user:User,businessId:string,tone:string,service:string,key:string,fresh=false):Job {
+export function requestAnalysis(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business):Job {
+ if (businessData && businessData.id) {
+  try {
+   db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(businessData.id, JSON.stringify(businessData), 'live', now());
+  } catch {}
+ }
  const business=getBusiness(businessId,user);if(business.suppressed) throw new AppError('Este contacto está marcado para não contactar.',409);
  const payload={businessId,tone,service:service||user.profile.service,name:user.name,profile:user.profile,evidence:business.evidence};
  const payloadHash=hash(JSON.stringify(payload));
@@ -247,8 +280,8 @@ export function requestAnalysis(user:User,businessId:string,tone:string,service:
   return {id:jobId,status:'queued'};
  });
 }
-export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false):Promise<Job> {
- const initial = requestAnalysis(user, businessId, tone, service, key, fresh);
+export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business):Promise<Job> {
+ const initial = requestAnalysis(user, businessId, tone, service, key, fresh, businessData);
  if (initial.status === 'succeeded' || initial.status === 'failed') {
    return initial;
  }
@@ -382,7 +415,27 @@ async function processSearch(row:Row) {
    }
  }
  const status=tasks.some(t=>t.status==='limited' || t.status==='failed')?'partial':'succeeded';
- db().prepare('UPDATE searches SET results=?,tasks=?,status=?,updated_at=? WHERE id=?').run(JSON.stringify([...new Set(ordered)]),JSON.stringify(tasks),status,now(),row.id);
+ const finalIds = [...new Set(ordered)];
+ db().prepare('UPDATE searches SET results=?,tasks=?,status=?,updated_at=? WHERE id=?').run(JSON.stringify(finalIds),JSON.stringify(tasks),status,now(),row.id);
+
+ if (supabaseConfigured()) {
+   try {
+     const client = supabaseAdmin();
+     if (client && row.workspace_id) {
+       const sHash = createHash('md5').update(String(row.id)).digest('hex');
+       const sUuid = `${sHash.slice(0, 8)}-${sHash.slice(8, 12)}-4${sHash.slice(13, 16)}-a${sHash.slice(17, 20)}-${sHash.slice(20, 32)}`;
+       const filters = JSON.parse(String(row.filters || '{}'));
+       filters._cached_biz_ids = finalIds;
+       Promise.resolve(client.from('searches').upsert({
+         id: sUuid,
+         workspace_id: row.workspace_id,
+         filters,
+         tasks,
+         status
+       }, { onConflict: 'id' })).catch(() => {});
+     }
+   } catch {}
+ }
 }
 async function processAnalysis(job:Row) {
  const payload=JSON.parse(String(job.payload));

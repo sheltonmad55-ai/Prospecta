@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
 import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase } from '../../../server/service.ts';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase, syncSearchesFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '../../../server/google-oauth.ts';
@@ -12,6 +12,7 @@ import { getDailyOpportunities } from '../../../server/real-businesses.ts';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
+export const maxDuration=60;
 type Context={params:Promise<{path:string[]}>};
 const reply=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 function isAuthorizedOrigin(origin: string, requestUrl: string): boolean {
@@ -212,7 +213,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(route==='profile')return reply({ success: true, user, profile: user.profile });
   if(route==='dashboard' && method==='GET')return reply(dashboard(user));
   if(route==='locations' && method==='GET')return reply({locations:db().prepare('SELECT * FROM locations').all(),catalogue:'Unidades de primeiro nível; localidades pesquisáveis por texto. Não é um catálogo completo de distritos.'});
-  if(route==='searches' && method==='GET')return reply({searches:listSearches(user)});
+  if(route==='searches' && method==='GET') { await syncSearchesFromSupabase(user); return reply({searches:listSearches(user)}); }
   if(route==='searches' && method==='POST') {
    rateLimit('search:'+user.id,20,60000);
    const filters=z.object({
@@ -282,9 +283,9 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({opportunities:opps});
   }
   if(route==='analyses' && method==='POST') {
-   const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional()}).parse(input);
+   const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional(),businessData:z.any().optional()}).parse(input);
    const key=request.headers.get('idempotency-key');if(!key||key.length>100)throw new AppError('É necessária uma chave de operação válida.');
-   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh);
+   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh,data.businessData);
    return reply(result, 202);
   }
   if(path[0]==='jobs' && path[1]) {if(path[2]==='cancel' && method==='POST')return reply(cancelJob(user,path[1]));if(method==='GET')return reply(readJob(user,path[1]));}

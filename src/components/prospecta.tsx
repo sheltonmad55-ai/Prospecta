@@ -232,20 +232,40 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   }, [business, notify]);
 
   const loadPastSearches = useCallback(async () => {
+    let localList: SearchResult[] = [];
+    if (typeof window !== 'undefined' && user?.id) {
+      const cached = localStorage.getItem('prospecta_past_searches_' + user.id);
+      if (cached) {
+        try {
+          localList = JSON.parse(cached) || [];
+          if (localList.length > 0) setPastSearches(localList);
+        } catch {}
+      }
+    }
     try {
       const res = await api<{ searches: SearchResult[] }>('searches');
-      const list = res.searches || [];
-      setPastSearches(list);
-      if (typeof window !== 'undefined' && user?.id && list.length > 0) {
-        localStorage.setItem('prospecta_past_searches_' + user.id, JSON.stringify(list));
+      const serverList = res.searches || [];
+      if (serverList.length > 0) {
+        const mergedMap = new Map<string, SearchResult>();
+        for (const item of localList) mergedMap.set(item.id, item);
+        for (const item of serverList) {
+          const existing = mergedMap.get(item.id);
+          if (existing && existing.results && existing.results.length > 0 && (!item.results || item.results.length === 0)) {
+            mergedMap.set(item.id, { ...item, results: existing.results, allResults: existing.allResults || existing.results });
+          } else {
+            mergedMap.set(item.id, item);
+          }
+        }
+        const finalList = Array.from(mergedMap.values()).slice(0, 20);
+        setPastSearches(finalList);
+        if (typeof window !== 'undefined' && user?.id) {
+          localStorage.setItem('prospecta_past_searches_' + user.id, JSON.stringify(finalList));
+        }
+      } else if (localList.length > 0) {
+        setPastSearches(localList);
       }
     } catch {
-      if (typeof window !== 'undefined' && user?.id) {
-        const cached = localStorage.getItem('prospecta_past_searches_' + user.id);
-        if (cached) {
-          try { setPastSearches(JSON.parse(cached)); } catch {}
-        }
-      }
+      // Keep localList on error
     }
   }, [user?.id]);
   const refreshUser = useCallback(async () => {
@@ -414,7 +434,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     let active = true;
     async function load() {
       if (view === 'today') { const r = await api<Dashboard>('dashboard'); if (active) setDashboard(r); }
-      if (view === 'search' || view === 'saved-searches') { const r = await api<{ searches: SearchResult[] }>('searches'); if (active) setPastSearches(r.searches || []); }
+      if (view === 'search' || view === 'saved-searches') { loadPastSearches(); }
       if (view === 'leads') { const r = await api<{ leads: Lead[] }>('leads'); if (active) setLeads(r.leads); }
       if (view === 'vault' || view === 'outreach') { const r = await api<{ scripts: VaultScript[] }>('vault'); if (active) setVaultScripts(r.scripts || []); }
       if (view === 'account') {
@@ -566,6 +586,13 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           localStorage.setItem('prospecta_search_filters_' + user.id, JSON.stringify(searchParams));
         } catch {}
       }
+      setPastSearches(prev => {
+        const next = [result, ...prev.filter(p => p.id !== result.id)].slice(0, 20);
+        if (typeof window !== 'undefined' && user?.id) {
+          try { localStorage.setItem('prospecta_past_searches_' + user.id, JSON.stringify(next)); } catch {}
+        }
+        return next;
+      });
       for (let i = 0; ['queued', 'running'].includes(result.status) && i < 80; i++) {
         await new Promise(r => setTimeout(r, 650));
         try {
@@ -581,12 +608,31 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         }
       }
       if (['queued', 'running'].includes(result.status)) notify('A pesquisa continua em curso. Verifique o processador de tarefas.', true);
-      else loadPastSearches();
+      else {
+        setPastSearches(prev => {
+          const next = [result, ...prev.filter(p => p.id !== result.id)].slice(0, 20);
+          if (typeof window !== 'undefined' && user?.id) {
+            try { localStorage.setItem('prospecta_past_searches_' + user.id, JSON.stringify(next)); } catch {}
+          }
+          return next;
+        });
+      }
     });
   }
 
   async function resumeSearch(item: SearchResult) {
     setFilters(item.filters);
+    // Instant restoration from local memory/cache without network delay
+    if (item.results && item.results.length > 0) {
+      setSearchResult(item);
+      if (typeof window !== 'undefined' && user?.id) {
+        try {
+          localStorage.setItem('prospecta_active_search_' + user.id, JSON.stringify(item));
+          localStorage.setItem('prospecta_search_filters_' + user.id, JSON.stringify(item.filters));
+        } catch {}
+      }
+      return;
+    }
     await run(async () => {
       try {
         const full = await api<SearchResult>(`searches/${item.id}`);
@@ -598,7 +644,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           } catch {}
         }
       }
-      catch { await doSearch(undefined, item.filters); }
+      catch {
+        notify('Filtros da pesquisa retomados.');
+      }
     });
   }
 
@@ -615,15 +663,19 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   async function generate(fresh = false) {
     if (!business) return;
     await run(async () => {
-      let result = await api<Job>('analyses', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ businessId: business.id, tone, service, fresh }) });
+      let result = await api<Job>('analyses', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business })
+      });
       setJob(result);
       if (result.status === 'succeeded' && result.result) {
         if (!activeBusiness.current || activeBusiness.current === result.result.businessId || business.id === result.result.businessId) { setAnalysis(result.result); setDraft(result.result.draftMessage); }
         await refreshUser(); notify('Análise e mensagem preparadas.');
         return;
       }
-      for (let i = 0; ['queued', 'running'].includes(result.status) && i < 40; i++) {
-        await new Promise(r => setTimeout(r, 650));
+      for (let i = 0; ['queued', 'running'].includes(result.status) && i < 20; i++) {
+        await new Promise(r => setTimeout(r, 600));
         result = await api<Job>('jobs/' + result.id); setJob(result);
       }
       if (result.status === 'succeeded' && result.result) {
