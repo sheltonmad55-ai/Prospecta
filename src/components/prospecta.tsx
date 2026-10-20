@@ -13,7 +13,7 @@ import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
 import {
   PROVINCES, SERVICES, STAGES, isMozambiqueMobile, isMozambiqueLandline,
-  getMetaAdLibraryUrl,
+  getMetaAdLibraryUrl, getRecommendedPricing,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
   type VaultScript
@@ -86,10 +86,76 @@ function CircleScore({ value, max = 100, size = 68, color = '#1877f2' }: { value
   );
 }
 
-const TODAY_OPP = [
-  { id: 'o1', name: 'Pizzaria Bella Napoli', category: 'Pizzaria e Restauração', initial: 'B', color: '#34D399', stars: 5, phone: '+258 21 492 010', locality: 'Sommerschield, Maputo' },
-  { id: 'o2', name: 'Restaurante Zambi Waterfront', category: 'Restauração', initial: 'Z', color: '#60A5FA', stars: 5, phone: '+258 84 220 5000', locality: 'Baixa, Maputo' },
-  { id: 'o3', name: 'Clínica da Sommerschield', category: 'Saúde e Clínica Médica', initial: 'S', color: '#FBBF24', stars: 5, phone: '+258 21 493 515', locality: 'Sommerschield, Maputo' },
+const DEFAULT_OPPORTUNITIES: Array<Business & { stars?: number; initial?: string; color?: string }> = [
+  {
+    id: 'biz-bellanapoli',
+    name: 'Pizzaria Bella Napoli',
+    category: 'Pizzaria e Restauração',
+    province: 'Maputo Cidade',
+    locality: 'Sommerschield, Maputo',
+    phone: '+258 21 492 010',
+    website: null,
+    instagram: '@bellanapoli_mz',
+    description: 'Pizzaria tradicional e forno a lenha no coração de Sommerschield, Maputo.',
+    source: 'Google Maps Moçambique',
+    observedAt: '2026-10-20T00:00:00.000Z',
+    isDemo: false,
+    stars: 5,
+    initial: 'B',
+    color: '#34D399',
+    evidence: [
+      { id: 'b-name', field: 'name', value: 'Pizzaria Bella Napoli', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 'b-loc', field: 'location', value: 'Sommerschield, Maputo Cidade', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 'b-cat', field: 'category', value: 'Pizzaria e Restauração', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 'b-tel', field: 'phone', value: '+258 21 492 010', source: 'Google Maps Contacto', observedAt: '2026-10-20' }
+    ]
+  },
+  {
+    id: 'biz-zambi',
+    name: 'Restaurante Zambi Waterfront',
+    category: 'Restauração e Gastronomia',
+    province: 'Maputo Cidade',
+    locality: 'Baixa, Maputo',
+    phone: '+258 84 220 5000',
+    website: null,
+    instagram: '@restaurantezambi',
+    description: 'Referência gastronómica com vista para a baía de Maputo na marginal da Baixa.',
+    source: 'Google Maps Moçambique',
+    observedAt: '2026-10-20T00:00:00.000Z',
+    isDemo: false,
+    stars: 5,
+    initial: 'Z',
+    color: '#60A5FA',
+    evidence: [
+      { id: 'z-name', field: 'name', value: 'Restaurante Zambi Waterfront', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 'z-loc', field: 'location', value: 'Baixa, Maputo Cidade', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 'z-cat', field: 'category', value: 'Restauração e Gastronomia', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 'z-tel', field: 'phone', value: '+258 84 220 5000', source: 'Google Maps Contacto', observedAt: '2026-10-20' }
+    ]
+  },
+  {
+    id: 'biz-sommerschield',
+    name: 'Clínica da Sommerschield',
+    category: 'Saúde e Clínica Médica',
+    province: 'Maputo Cidade',
+    locality: 'Sommerschield, Maputo',
+    phone: '+258 21 493 515',
+    website: null,
+    instagram: null,
+    description: 'Consultas especializadas, análises clínicas e atendimento médico de excelência em Maputo.',
+    source: 'Google Maps Moçambique',
+    observedAt: '2026-10-20T00:00:00.000Z',
+    isDemo: false,
+    stars: 5,
+    initial: 'S',
+    color: '#FBBF24',
+    evidence: [
+      { id: 's-name', field: 'name', value: 'Clínica da Sommerschield', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 's-loc', field: 'location', value: 'Sommerschield, Maputo Cidade', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 's-cat', field: 'category', value: 'Saúde e Clínica Médica', source: 'Google Maps Moçambique', observedAt: '2026-10-20' },
+      { id: 's-tel', field: 'phone', value: '+258 21 493 515', source: 'Google Maps Contacto', observedAt: '2026-10-20' }
+    ]
+  }
 ];
 
 export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMode | null } = {}) {
@@ -121,6 +187,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [leadSearch, setLeadSearch] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [trialDay, setTrialDay] = useState(0);
+  const [dailyOpps, setDailyOpps] = useState<Array<Business & { stars?: number; initial?: string; color?: string }>>(DEFAULT_OPPORTUNITIES);
   const [vaultScripts, setVaultScripts] = useState<VaultScript[]>([]);
   const [vaultCategory, setVaultCategory] = useState<string>('all');
   const [vaultSearch, setVaultSearch] = useState<string>('');
@@ -136,9 +203,51 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   }, []);
 
   const notify = useCallback((message: string, error = false) => setToast({ message, error }), []);
-  const loadPastSearches = useCallback(async () => {
-    try { const res = await api<{ searches: SearchResult[] }>('searches'); setPastSearches(res.searches || []); } catch { /* silent */ }
+
+  const loadDailyOpportunities = useCallback(async (day = 0) => {
+    try {
+      const res = await api<{ opportunities: Array<Business & { stars?: number; initial?: string; color?: string }> }>('opportunities?day=' + day);
+      if (res.opportunities && res.opportunities.length > 0) {
+        setDailyOpps(res.opportunities);
+      }
+    } catch {}
   }, []);
+
+  const handleUpdateBusinessPhone = useCallback(async (bizId: string, phoneInput: string) => {
+    try {
+      const res = await api<{ business: Business }>(`businesses/${bizId}/phone`, { method: 'POST', body: JSON.stringify({ phone: phoneInput }) });
+      setSearchResult(prev => prev ? {
+        ...prev,
+        results: prev.results.map(item => item.id === bizId ? { ...item, phone: res.business.phone } : item),
+        allResults: prev.allResults ? prev.allResults.map(item => item.id === bizId ? { ...item, phone: res.business.phone } : item) : prev.allResults
+      } : prev);
+      setDailyOpps(prev => prev.map(item => item.id === bizId ? { ...item, phone: res.business.phone } : item));
+      if (business && business.id === bizId) {
+        setBusiness(res.business);
+      }
+      notify('Contacto guardado com sucesso!');
+    } catch (err: any) {
+      notify(err.message, true);
+    }
+  }, [business, notify]);
+
+  const loadPastSearches = useCallback(async () => {
+    try {
+      const res = await api<{ searches: SearchResult[] }>('searches');
+      const list = res.searches || [];
+      setPastSearches(list);
+      if (typeof window !== 'undefined' && user?.id && list.length > 0) {
+        localStorage.setItem('prospecta_past_searches_' + user.id, JSON.stringify(list));
+      }
+    } catch {
+      if (typeof window !== 'undefined' && user?.id) {
+        const cached = localStorage.getItem('prospecta_past_searches_' + user.id);
+        if (cached) {
+          try { setPastSearches(JSON.parse(cached)); } catch {}
+        }
+      }
+    }
+  }, [user?.id]);
   const refreshUser = useCallback(async () => {
     const result = await api<{ user: User | null; mode: 'demo' | 'live' }>('me');
     let u = result.user;
@@ -211,7 +320,29 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             }
           };
         }
+        const cachedSearch = localStorage.getItem('prospecta_active_search_' + currentUser.id);
+        const cachedFilters = localStorage.getItem('prospecta_search_filters_' + currentUser.id);
+        if (cachedSearch) {
+          try {
+            const parsed = JSON.parse(cachedSearch) as SearchResult;
+            setSearchResult(parsed);
+          } catch {}
+        }
+        if (cachedFilters) {
+          try {
+            const parsedF = JSON.parse(cachedFilters) as SearchFilters;
+            setFilters(parsedF);
+          } catch {}
+        }
+        const cachedPast = localStorage.getItem('prospecta_past_searches_' + currentUser.id);
+        if (cachedPast) {
+          try {
+            setPastSearches(JSON.parse(cachedPast));
+          } catch {}
+        }
       }
+      loadPastSearches();
+      loadDailyOpportunities(0);
       setUser(currentUser); setMode(result.mode);
       if (currentUser?.profile) {
         setProfile(currentUser.profile);
@@ -403,12 +534,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         const pages = Math.max(1, Math.ceil(total / pageSize));
         const safePage = Math.min(Math.max(1, page), pages);
         const results = searchResult.allResults.slice((safePage - 1) * pageSize, safePage * pageSize);
-        setSearchResult({
+        const updated = {
           ...searchResult,
           page: safePage,
           pages,
           results
-        });
+        };
+        setSearchResult(updated);
+        if (typeof window !== 'undefined' && user?.id) {
+          try {
+            localStorage.setItem('prospecta_active_search_' + user.id, JSON.stringify(updated));
+          } catch {}
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -423,11 +560,22 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         result = await post<SearchResult>('searches', searchParams);
       }
       setSearchResult(result);
+      if (typeof window !== 'undefined' && user?.id) {
+        try {
+          localStorage.setItem('prospecta_active_search_' + user.id, JSON.stringify(result));
+          localStorage.setItem('prospecta_search_filters_' + user.id, JSON.stringify(searchParams));
+        } catch {}
+      }
       for (let i = 0; ['queued', 'running'].includes(result.status) && i < 80; i++) {
         await new Promise(r => setTimeout(r, 650));
         try {
           result = await api<SearchResult>('searches/' + result.id);
           setSearchResult(result);
+          if (typeof window !== 'undefined' && user?.id) {
+            try {
+              localStorage.setItem('prospecta_active_search_' + user.id, JSON.stringify(result));
+            } catch {}
+          }
         } catch {
           break;
         }
@@ -440,7 +588,16 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   async function resumeSearch(item: SearchResult) {
     setFilters(item.filters);
     await run(async () => {
-      try { const full = await api<SearchResult>(`searches/${item.id}`); setSearchResult(full); }
+      try {
+        const full = await api<SearchResult>(`searches/${item.id}`);
+        setSearchResult(full);
+        if (typeof window !== 'undefined' && user?.id) {
+          try {
+            localStorage.setItem('prospecta_active_search_' + user.id, JSON.stringify(full));
+            localStorage.setItem('prospecta_search_filters_' + user.id, JSON.stringify(item.filters));
+          } catch {}
+        }
+      }
       catch { await doSearch(undefined, item.filters); }
     });
   }
@@ -460,12 +617,17 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     await run(async () => {
       let result = await api<Job>('analyses', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ businessId: business.id, tone, service, fresh }) });
       setJob(result);
-      for (let i = 0; ['queued', 'running'].includes(result.status) && i < 90; i++) {
+      if (result.status === 'succeeded' && result.result) {
+        if (!activeBusiness.current || activeBusiness.current === result.result.businessId || business.id === result.result.businessId) { setAnalysis(result.result); setDraft(result.result.draftMessage); }
+        await refreshUser(); notify('Análise e mensagem preparadas.');
+        return;
+      }
+      for (let i = 0; ['queued', 'running'].includes(result.status) && i < 40; i++) {
         await new Promise(r => setTimeout(r, 650));
         result = await api<Job>('jobs/' + result.id); setJob(result);
       }
       if (result.status === 'succeeded' && result.result) {
-        if (activeBusiness.current === result.result.businessId) { setAnalysis(result.result); setDraft(result.result.draftMessage); }
+        if (!activeBusiness.current || activeBusiness.current === result.result.businessId || business.id === result.result.businessId) { setAnalysis(result.result); setDraft(result.result.draftMessage); }
         await refreshUser(); notify('Análise e mensagem preparadas.');
       } else if (result.status === 'failed') { await refreshUser(); throw new Error(result.error || 'A análise falhou; a reserva foi libertada.'); }
       else if (result.status === 'cancelled') { await refreshUser(); notify('Análise cancelada.'); }
@@ -638,7 +800,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               {/* Trial progress */}
               <div className="trial-banner">
                 {(['Hoje', 'Dia 2', 'Dia 3'] as const).map((label, i) => (
-                  <button key={i} className={cls('trial-day', i === trialDay && 'active', i < trialDay && 'done')} onClick={() => setTrialDay(i)}>
+                  <button key={i} className={cls('trial-day', i === trialDay && 'active', i < trialDay && 'done')} onClick={() => { setTrialDay(i); loadDailyOpportunities(i); }}>
                     {i < trialDay ? <Check size={14} /> : <span className="trial-num">{i + 1}</span>}
                     {label}
                   </button>
@@ -647,28 +809,34 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               </div>
 
               {/* Opportunity cards */}
-              <p className="section-label">Oportunidades de hoje</p>
+              <p className="section-label">Oportunidades de {trialDay === 0 ? 'hoje' : trialDay === 1 ? 'amanhã (Dia 2)' : 'depois de amanhã (Dia 3)'}</p>
               <div className="opp-grid">
-                {TODAY_OPP.map(opp => (
+                {dailyOpps.map(opp => (
                   <article key={opp.id} className="opp-card">
                     <div className="opp-card-top">
-                      <span className="opp-initial" style={{ background: 'rgba(24, 119, 242, 0.15)', color: opp.color, borderColor: 'rgba(37, 99, 235, 0.3)' }}>{opp.initial}</span>
+                      <span className="opp-initial" style={{ background: 'rgba(24, 119, 242, 0.15)', color: opp.color || '#38BDF8', borderColor: 'rgba(37, 99, 235, 0.3)' }}>{opp.initial || opp.name.charAt(0)}</span>
                       <div className="opp-meta">
                         <h3>{opp.name}</h3>
                         <span>{opp.category} · {opp.locality}</span>
                       </div>
                       <div className="opp-stars">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={13} fill={i < opp.stars ? '#e9b458' : 'none'} stroke={i < opp.stars ? '#e9b458' : 'rgba(255, 255, 255, 0.2)'} />
+                          <Star key={i} size={13} fill={i < (opp.stars || 5) ? '#e9b458' : 'none'} stroke={i < (opp.stars || 5) ? '#e9b458' : 'rgba(255, 255, 255, 0.2)'} />
                         ))}
                       </div>
                     </div>
                     <div className="opp-actions">
-                      <a className="button whatsapp opp-btn" href={`https://wa.me/${opp.phone}`} target="_blank" rel="noreferrer">
-                        <MessageCircle size={15} /> Chamar no WhatsApp
-                      </a>
-                      <button className="button outline opp-btn" onClick={() => navigate('search')}>
-                        Ver lead
+                      {opp.phone ? (
+                        <a className="button whatsapp opp-btn" href={`https://wa.me/${opp.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
+                          <MessageCircle size={15} /> Chamar no WhatsApp
+                        </a>
+                      ) : (
+                        <button className="button outline opp-btn" onClick={() => loadBusiness(opp.id, 'business', opp)}>
+                          <Phone size={14} /> Ver contacto
+                        </button>
+                      )}
+                      <button className="button outline opp-btn" onClick={() => loadBusiness(opp.id, 'business', opp)}>
+                        Ver lead <ArrowRight size={14} />
                       </button>
                     </div>
                   </article>
@@ -866,10 +1034,21 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         <p>Alta probabilidade de interesse</p>
                       </div>
                     </div>
-                    <div className="adc-value-row">
-                      <span>Valor estimado</span>
-                      <strong>{money(1500000)}</strong>
-                    </div>
+                    {(() => {
+                      const currentService = filters.service || user.profile.service || 'Criação de websites';
+                      const currentNiche = filters.niche || searchResult?.filters.niche || '';
+                      const pricing = getRecommendedPricing(currentService, currentNiche);
+                      return (
+                        <div className="adc-pricing-box" style={{ background: 'rgba(24, 119, 242, 0.08)', border: '1px solid rgba(37, 99, 235, 0.25)', borderRadius: 10, padding: '10px 12px', margin: '12px 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <span style={{ fontSize: 10, color: '#93c5fd', fontWeight: 700, letterSpacing: '0.5px' }}>VALOR RECOMENDADO</span>
+                            <span style={{ fontSize: 9, background: 'rgba(37, 99, 235, 0.25)', color: '#bfdbfe', padding: '1px 6px', borderRadius: 10 }}>{pricing.period === 'mês' ? 'Mensal' : 'Setup'}</span>
+                          </div>
+                          <strong style={{ fontSize: 18, color: '#60a5fa', display: 'block', letterSpacing: '-0.3px', marginBottom: 3 }}>{pricing.formattedRange}</strong>
+                          <p style={{ fontSize: 10, color: '#94a3b8', margin: 0, lineHeight: 1.35 }}>{pricing.rationale}</p>
+                        </div>
+                      );
+                    })()}
                     <button className="button full" onClick={() => notify('Seleccione uma empresa para gerar análise profunda.')}>
                       <Sparkles size={16} /> Gerar análise · 1 crédito
                     </button>
@@ -904,7 +1083,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       return true;
                     });
                     return uniqueResults.length
-                      ? <div className="business-grid">{uniqueResults.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id, 'business', b))} onSave={() => saveBusiness(b)} />)}</div>
+                      ? <div className="business-grid">{uniqueResults.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id, 'business', b))} onSave={() => saveBusiness(b)} onUpdatePhone={(phone) => handleUpdateBusinessPhone(b.id, phone)} />)}</div>
                       : <section className="panel"><Empty icon={<Search size={30} />} title={searchResult.status === 'failed' ? 'Não foi possível consultar a fonte.' : 'Não encontrámos resultados nesta consulta.'} description={searchResult.tasks.find(t => t.error)?.error || 'Experimente outro nicho ou cidade.'}><button className="button outline" onClick={() => doSearch()}>Tentar novamente</button></Empty></section>;
                   })()}
                   <div className="pagination">
@@ -1213,7 +1392,44 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <div className="panel-footer"><span><Database size={14} /> {business.source}</span><span>Consultado a {date(business.observedAt)}</span></div>
                     </section>
                     <section className="panel opportunity-panel">
-                      <div className="panel-heading"><div><h2><Sparkles size={19} /> Possibilidades para explorar</h2><p>Hipóteses de trabalho. A confirmação vem da conversa.</p></div></div>
+                      <div className="panel-heading">
+                        <div>
+                          <h2><Sparkles size={19} /> Possibilidades para explorar</h2>
+                          <p>Hipóteses de trabalho e valores de mercado recomendados em Moçambique.</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const currentService = service || filters.service || user.profile.service || 'Criação de websites';
+                        const pricing = getRecommendedPricing(currentService, business.category);
+                        return (
+                          <div style={{ background: 'rgba(24, 119, 242, 0.08)', border: '1px solid rgba(37, 99, 235, 0.25)', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontSize: 11, color: '#93c5fd', fontWeight: 700, letterSpacing: '0.5px' }}>
+                                ESCALA RECOMENDADA · {pricing.tierName.toUpperCase()}
+                              </span>
+                              <span style={{ fontSize: 10, background: 'rgba(37, 99, 235, 0.2)', color: '#bfdbfe', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                                {pricing.period === 'mês' ? 'Mensalidade' : 'Valor de Setup'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '4px 0 6px' }}>
+                              <span style={{ fontSize: 24, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.4px' }}>
+                                {pricing.formattedRange}
+                              </span>
+                              <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                                para {business.category || 'este nicho'}
+                              </span>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 12, color: '#cbd5e1', lineHeight: 1.45 }}>
+                              {pricing.rationale}
+                            </p>
+                            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 11, color: '#94a3b8' }}>
+                              <span>Serviço: <strong style={{ color: '#f1f5f9' }}>{currentService}</strong></span>
+                              <span>Piso viável: <strong style={{ color: '#f1f5f9' }}>{pricing.minMt.toLocaleString('pt-MZ')} MT</strong></span>
+                              <span>Teto sugerido: <strong style={{ color: '#f1f5f9' }}>{pricing.maxMt.toLocaleString('pt-MZ')} MT</strong></span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {analysis
                         ? <div className="opportunities-content">
                           <Pill>Análise por IA</Pill>
@@ -1232,8 +1448,40 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <aside className="detail-aside">
                     <section className="panel content">
                       <h3>Dados de contacto</h3>
-                      <div className="contact-line"><Mail size={17} /><div><span>Telefone</span><b>{business.phone || 'Não disponível nesta fonte'}</b></div></div>
-                      <p className="micro">Um telefone listado não confirma uma conta WhatsApp.</p>
+                      <div className="contact-line">
+                        <Phone size={17} />
+                        <div style={{ flex: 1 }}>
+                          <span>Telefone / WhatsApp</span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
+                            <b>{business.phone ? getPhoneBadgeLabel(business.phone) : 'Não listado na busca'}</b>
+                            <button
+                              type="button"
+                              className="text-button"
+                              style={{ fontSize: 11, color: '#38bdf8', padding: 0 }}
+                              onClick={() => {
+                                const newPhone = window.prompt(`Inserir número do Google Maps para "${business.name}" (ex: 84 060 0333):`, business.phone || '');
+                                if (newPhone) {
+                                  handleUpdateBusinessPhone(business.id, newPhone);
+                                }
+                              }}
+                            >
+                              {business.phone ? 'Editar' : '+ Inserir do Maps'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      {business.phone && (
+                        <a
+                          className="button whatsapp"
+                          style={{ marginTop: 8, marginBottom: 8, width: '100%', justifyContent: 'center', gap: 6, fontSize: 13, textDecoration: 'none' }}
+                          href={`https://wa.me/${business.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle size={15} /> Abrir no WhatsApp ({business.phone})
+                        </a>
+                      )}
+                      <p className="micro">O contacto fica salvo na sua base da Prospecta.</p>
                       <div className="contact-line"><Globe2 size={17} /><div><span>Website</span>{business.website ? <a href={business.website} target="_blank" rel="noreferrer">{business.website.replace('https://', '')} <ExternalLink size={12} /></a> : <b>Não identificado nesta fonte</b>}</div></div>
                       {business.instagram && <div className="contact-line"><Sparkles size={17} /><div><span>Instagram</span><b>{business.instagram}</b></div></div>}
                       <div className="contact-line"><MapPin size={17} /><div><span>Localização</span><a href={getGoogleMapsUrl(business.name, business.locality, business.province)} target="_blank" rel="noreferrer">Ver no Google Maps <ExternalLink size={12} /></a></div></div>
@@ -1513,7 +1761,7 @@ function getPhoneBadgeLabel(phone: string): string {
   return formatted;
 }
 
-function BusinessCard({ business: b, busy, onView, onSave }: { business: Business; busy: boolean; onView: () => void; onSave: () => void }) {
+function BusinessCard({ business: b, busy, onView, onSave, onUpdatePhone }: { business: Business; busy: boolean; onView: () => void; onSave: () => void; onUpdatePhone?: (phone: string) => void }) {
   return (
     <article className="business-card">
       <div className="row">
@@ -1527,7 +1775,25 @@ function BusinessCard({ business: b, busy, onView, onSave }: { business: Busines
       <h3><button onClick={onView}>{b.name}</button></h3>
       <p className="location"><MapPin size={14} />{b.locality}, {b.province}</p>
       <div className="business-facts">
-        <span className={cls('fact-pill', b.phone ? 'fact-phone' : 'fact-phone-none')}><Phone size={13} />{b.phone ? <b>{getPhoneBadgeLabel(b.phone)}</b> : 'Sem telefone'}</span>
+        {!b.phone ? (
+          <button
+            type="button"
+            className="fact-pill fact-phone-none"
+            style={{ cursor: 'pointer', background: 'rgba(239, 68, 68, 0.12)', border: '1px dashed rgba(239, 68, 68, 0.45)', color: '#fca5a5' }}
+            title="Encontrou o número no Google Maps? Clique para registar."
+            onClick={(e) => {
+              e.stopPropagation();
+              const phoneInput = window.prompt(`Inserir número do Google Maps para "${b.name}" (ex: 84 123 4567):`);
+              if (phoneInput && onUpdatePhone) {
+                onUpdatePhone(phoneInput);
+              }
+            }}
+          >
+            <Phone size={13} /> + Inserir contacto
+          </button>
+        ) : (
+          <span className="fact-pill fact-phone"><Phone size={13} /><b>{getPhoneBadgeLabel(b.phone)}</b></span>
+        )}
         <span className={cls('fact-pill', b.website ? 'fact-web' : 'fact-web-none')}><Globe2 size={13} />{b.website ? 'Com website' : 'Sem website'}</span>
         {b.instagram && <span className="fact-pill fact-ig"><Sparkles size={13} /><b>{b.instagram}</b></span>}
       </div>

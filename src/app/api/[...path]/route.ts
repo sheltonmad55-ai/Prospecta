@@ -3,11 +3,12 @@ import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
 import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase } from '../../../server/service.ts';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '../../../server/google-oauth.ts';
 import { getAllVaultScripts, getVaultScriptsByCategory, searchVaultScripts, VAULT_CATEGORIES } from '../../../server/vault-scripts.ts';
+import { getDailyOpportunities } from '../../../server/real-businesses.ts';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -264,10 +265,27 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    return reply({business:biz,analysis:getAnalysis(user,bId),lead:listLeads(user).find(l=>l.businessId===bId)||null});
   }
+  if(path[0]==='businesses' && path[1] && path[2]==='phone' && (method==='POST' || method==='PUT')) {
+   const data=z.object({phone:z.string().min(8).max(30)}).parse(input);
+   const valid=validPhone(data.phone);
+   if(!valid) throw new AppError('Indique um número moçambicano válido, com +258.');
+   const biz=getBusiness(path[1],user);
+   biz.phone=valid;
+   biz.evidence.push({ id: `${biz.id}-tel-sync`, field: 'phone', value: valid, source: 'Contacto Confirmado', observedAt: now() });
+   db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(biz.id, JSON.stringify(biz), 'live', now());
+   return reply({business:biz});
+  }
+  if(route==='opportunities' && method==='GET') {
+   const query=new URL(request.url).searchParams;
+   const day=Number(query.get('day')) || 0;
+   const opps=getDailyOpportunities(day);
+   return reply({opportunities:opps});
+  }
   if(route==='analyses' && method==='POST') {
    const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional()}).parse(input);
    const key=request.headers.get('idempotency-key');if(!key||key.length>100)throw new AppError('É necessária uma chave de operação válida.');
-   return reply(requestAnalysis(user,data.businessId,data.tone,data.service,key,!!data.fresh),202);
+   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh);
+   return reply(result, 202);
   }
   if(path[0]==='jobs' && path[1]) {if(path[2]==='cancel' && method==='POST')return reply(cancelJob(user,path[1]));if(method==='GET')return reply(readJob(user,path[1]));}
   if(path[0]==='drafts' && path[1] && method==='PATCH') {

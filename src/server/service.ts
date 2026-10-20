@@ -62,9 +62,7 @@ export function getBusiness(businessId:string,user?:User):Business {
  }
  if(!row) throw new AppError('Empresa não encontrada.',404);
  const business=JSON.parse(row.data) as Business;
- if(business.id?.startsWith('b-') || business.source?.includes('Directório Empresarial MZ') || business.source?.includes('Directorio Empresarial MZ')) {
-  throw new AppError('Empresa não encontrada.',404);
- }
+
  if(user) {
   business.saved=!!db().prepare('SELECT id FROM leads WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);
   business.suppressed=!!db().prepare('SELECT business_id FROM suppressions WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);
@@ -184,7 +182,7 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
  for (const b of ids) {
   try {
    const biz = getBusiness(b, user);
-   if (!biz || !biz.name || biz.id?.startsWith('b-') || biz.source?.includes('Directório Empresarial MZ')) continue;
+   if (!biz || !biz.name) continue;
    const key = normalize(biz.name).toLowerCase().replace(/[^a-z0-9]/g, '');
    if (seenBizNames.has(key)) continue;
    seenBizNames.add(key);
@@ -210,7 +208,7 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
 }
 export function listSearches(user:User):SearchResult[] {
  const rows=db().prepare('SELECT * FROM searches WHERE workspace_id=? ORDER BY created_at DESC LIMIT 8').all(user.workspaceId) as Row[];
- return rows.filter(r => !String(r.filters || '').includes('Directório') && !String(r.tasks || '').includes('Central') && !String(r.results || '').includes('b-')).map(row=>{
+ return rows.map(row=>{
   const ids=JSON.parse(String(row.results||'[]')) as string[];
   const pages=Math.max(1,Math.ceil(ids.length/8));
   return {
@@ -248,6 +246,41 @@ export function requestAnalysis(user:User,businessId:string,tone:string,service:
   db().prepare('INSERT INTO credit_entries VALUES(?,?,?,?,?,?,?)').run(id(),user.workspaceId,jobId,'reserve',1,'Reserva para análise de oportunidade',timestamp);
   return {id:jobId,status:'queued'};
  });
+}
+export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false):Promise<Job> {
+ const initial = requestAnalysis(user, businessId, tone, service, key, fresh);
+ if (initial.status === 'succeeded' || initial.status === 'failed') {
+   return initial;
+ }
+ const claimed = transaction(() => {
+   const timestamp = now();
+   const next = db().prepare("SELECT * FROM jobs WHERE id=?").get(initial.id) as Row | undefined;
+   if (next && ['queued', 'running'].includes(String(next.status))) {
+     db().prepare("UPDATE jobs SET status='running',attempts=attempts+1,lease_until=?,updated_at=? WHERE id=?")
+       .run(new Date(Date.now() + 60000).toISOString(), timestamp, initial.id);
+     return db().prepare("SELECT * FROM jobs WHERE id=?").get(initial.id) as Row | undefined;
+   }
+   return next;
+ });
+ if (claimed && claimed.status === 'running') {
+   try {
+     await processAnalysis(claimed);
+   } catch (err) {
+     console.error('[requestAnalysisAsync error]:', err);
+   }
+   const check = db().prepare("SELECT * FROM jobs WHERE id=?").get(initial.id) as Row | undefined;
+   if (check && check.status === 'queued') {
+     const retryClaim = transaction(() => {
+       db().prepare("UPDATE jobs SET status='running',attempts=attempts+1,lease_until=?,updated_at=? WHERE id=?")
+         .run(new Date(Date.now() + 60000).toISOString(), now(), initial.id);
+       return db().prepare("SELECT * FROM jobs WHERE id=?").get(initial.id) as Row | undefined;
+     });
+     if (retryClaim) {
+       try { await processAnalysis(retryClaim); } catch {}
+     }
+   }
+ }
+ return readJob(user, initial.id);
 }
 export function readJob(user:User,jobId:string):Job {
  const row=db().prepare('SELECT * FROM jobs WHERE id=? AND workspace_id=?').get(jobId,user.workspaceId) as Row|undefined;
@@ -290,7 +323,7 @@ async function processSearch(row:Row) {
     const seen = new Set<string>();
     const out: Business[] = [];
     for (const b of list) {
-      if (!b || !b.name || b.id?.startsWith('b-') || b.source?.includes('Directório Empresarial MZ')) continue;
+      if (!b || !b.name) continue;
       const k = normalize(b.name).toLowerCase().replace(/[^a-z0-9]/g, '');
       if (seen.has(k)) continue;
       seen.add(k);
@@ -299,7 +332,7 @@ async function processSearch(row:Row) {
     return out;
   };
 
-  let sourceRows=db().prepare(row.mode==='live'?"SELECT data FROM businesses WHERE source_key<>'demo' AND id NOT LIKE 'b-%'":"SELECT data FROM businesses WHERE source_key='demo' AND id NOT LIKE 'b-%'").all() as {data:string}[];
+  let sourceRows=db().prepare(row.mode==='live'?"SELECT data FROM businesses WHERE source_key='live'":"SELECT data FROM businesses WHERE source_key='demo'").all() as {data:string}[];
   businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
 
   if(row.mode==='live') {
@@ -358,7 +391,7 @@ async function processAnalysis(job:Row) {
   const result=await analyse(getBusiness(payload.businessId),payload.profile,payload.name,payload.tone,payload.service);
   transaction(()=>{
    const current=db().prepare('SELECT status,attempts FROM jobs WHERE id=?').get(job.id) as {status:string;attempts:number};
-   if(current.status!=='running' || current.attempts!==Number(job.attempts)+1)return;
+   if(!current || current.status!=='running')return;
    const timestamp=now();const analysis={...result,id:id(),businessId:payload.businessId,createdAt:timestamp};
    db().prepare('INSERT INTO analyses VALUES(?,?,?,?,?,?,?,?)').run(analysis.id,job.workspace_id,payload.businessId,job.id,job.payload_hash,JSON.stringify(analysis),analysis.draftMessage,timestamp);
    db().prepare('INSERT OR IGNORE INTO credit_entries VALUES(?,?,?,?,?,?,?)').run(id(),job.workspace_id,job.id,'consume',1,'Análise de oportunidade concluída',timestamp);
@@ -366,7 +399,7 @@ async function processAnalysis(job:Row) {
   });
  } catch(error) {
   transaction(()=>{
-   const current=db().prepare('SELECT status,attempts FROM jobs WHERE id=?').get(job.id) as {status:string;attempts:number};if(current.status!=='running' || current.attempts!==Number(job.attempts)+1)return;
+   const current=db().prepare('SELECT status,attempts FROM jobs WHERE id=?').get(job.id) as {status:string;attempts:number}|undefined;if(!current || current.status!=='running')return;
    const message=error instanceof Error?error.message:'Não foi possível analisar esta empresa.';
    if(current.attempts<2)db().prepare("UPDATE jobs SET status='queued',error=?,next_run_at=?,lease_until=NULL,updated_at=? WHERE id=?").run(message,new Date(Date.now()+1500).toISOString(),now(),job.id);
    else {db().prepare("UPDATE jobs SET status='failed',error=?,lease_until=NULL,updated_at=? WHERE id=?").run(message,now(),job.id);db().prepare('INSERT OR IGNORE INTO credit_entries VALUES(?,?,?,?,?,?,?)').run(id(),job.workspace_id,job.id,'release',1,'Reserva libertada após falha da análise',now());}
