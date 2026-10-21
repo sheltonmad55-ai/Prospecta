@@ -99,17 +99,18 @@ async function handler(request:Request,context:Context):Promise<Response> {
      if(error)throw new AppError(error.message || 'Não foi possível criar a conta. Verifique os dados ou tente entrar.');
      if(!auth.user)throw new AppError('Não foi possível criar a conta.');
      if(!auth.session)return reply({confirmationRequired:true,message:'Confirme o seu e-mail e entre na sua conta.'});
+     const isAdminEmail = data.email === 'sheltonmad55@gmail.com' || data.email === 'sheltonmad5@gmail.com';
      const user: import('@/lib/contracts').User = {
        id: auth.user.id,
        name: data.name,
        email: data.email,
        workspaceId: auth.user.id,
-       role: 'owner',
+       role: isAdminEmail ? 'admin' : 'owner',
        profile: { service: 'Criação de websites', pitch: '', province: '', phone: data.phone ? validPhone(data.phone) || '' : '', nationwide: true, onboarded: false },
        credits: { available: 20, reserved: 0, spent: 0 }
      };
      try {
-       const local = userById(auth.user.id) || createUser(data.name, data.email, randomBytes(32).toString('hex'), !!data.consent, 'owner', auth.user.id);
+       const local = userById(auth.user.id) || createUser(data.name, data.email, randomBytes(32).toString('hex'), !!data.consent, isAdminEmail ? 'admin' : 'owner', auth.user.id);
        if (data.phone) db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({ ...local.profile, phone: validPhone(data.phone) }), local.workspaceId);
        recordConsent(local.id, !!data.consent, 'email');
      } catch {}
@@ -117,7 +118,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
      return reply({user, token: session},200,{'Set-Cookie':cookie(session,request)});
     }
     if(db().prepare('SELECT id FROM users WHERE email=?').get(data.email))throw new AppError('Este e-mail já tem uma conta. Experimente entrar.');
-    const user=createUser(data.name,data.email,data.password,!!data.consent);
+    const isAdminEmail = data.email === 'sheltonmad55@gmail.com' || data.email === 'sheltonmad5@gmail.com';
+    const user=createUser(data.name,data.email,data.password,!!data.consent,isAdminEmail ? 'admin' : 'owner');
     if(data.phone)db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({...user.profile,phone:validPhone(data.phone)}),user.workspaceId);
     recordConsent(user.id,!!data.consent,'email');
     const token=randomBytes(32).toString('hex');db().prepare('INSERT INTO auth_tokens VALUES(?,?,?,?,0)').run(hash(token),user.id,'confirm',new Date(Date.now()+86400000).toISOString());
@@ -127,6 +129,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    if(action==='login' && method==='POST') {
     const data=z.object({email:z.email().transform(s=>s.toLowerCase()),password:z.string().min(1).max(128)}).parse(input);
+    const isAdminEmail = data.email === 'sheltonmad55@gmail.com' || data.email === 'sheltonmad5@gmail.com';
     if(mode()==='live' || supabaseConfigured()) {
      const {data:auth,error}=await supabase().auth.signInWithPassword({email:data.email,password:data.password});
      if(error||!auth.user||!auth.session) {
@@ -139,7 +142,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
        name: auth.user.user_metadata?.name || auth.user.user_metadata?.full_name || data.email.split('@')[0],
        email: auth.user.email || data.email,
        workspaceId: auth.user.user_metadata?.workspaceId || auth.user.id,
-       role: (auth.user.app_metadata?.role || auth.user.user_metadata?.role || 'owner') as import('@/lib/contracts').User['role'],
+       role: (isAdminEmail ? 'admin' : (auth.user.app_metadata?.role || auth.user.user_metadata?.role || 'owner')) as import('@/lib/contracts').User['role'],
        profile: { service: 'Criação de websites', pitch: '', province: '', phone: '', nationwide: true, onboarded: false, ...(auth.user.user_metadata?.profile || {}) },
        credits: auth.user.user_metadata?.credits || { available: 20, reserved: 0, spent: 0 }
      };

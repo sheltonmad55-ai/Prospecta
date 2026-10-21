@@ -768,9 +768,13 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         if (currentUser.profile.service) setService(currentUser.profile.service);
       }
       const query = new URLSearchParams(window.location.search);
+      const isSheltonAdmin = currentUser && (currentUser.role === 'admin' || (currentUser.email && (currentUser.email.toLowerCase() === 'sheltonmad55@gmail.com' || currentUser.email.toLowerCase() === 'sheltonmad5@gmail.com')));
       if (currentUser && !query.get('reset')) {
         setAuth(null);
-        if (initialAuth) navigate('opportunities');
+        if (initialAuth) {
+          if (isSheltonAdmin) navigate('admin');
+          else navigate('opportunities');
+        }
       }
       if (query.get('auth') === 'recover') setAuth('recover');
       const oauthError = query.get('auth_error');
@@ -781,13 +785,17 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       );
       const initial = query.get('view') as View | null;
       const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
-      if (initial && validViews.includes(initial)) {
+      if (isSheltonAdmin && (!initial || initial === 'opportunities' || initial === 'search')) {
+        setView('admin');
+      } else if (initial && validViews.includes(initial)) {
         setView(initial);
       } else if (query.get('view') === 'radar') {
         setView('search');
+      } else if (isSheltonAdmin) {
+        setView('admin');
       }
       if (currentUser && (query.get('error') || query.get('error_code') || query.get('error_description') || query.get('auth_error'))) {
-        const targetView = (initial && validViews.includes(initial)) ? initial : 'opportunities';
+        const targetView = (initial && validViews.includes(initial)) ? initial : (isSheltonAdmin ? 'admin' : 'opportunities');
         window.history.replaceState({}, '', window.location.pathname + '?view=' + targetView);
       }
       if (currentUser && query.get('business')) loadBusiness(query.get('business')!, initial === 'outreach' ? 'outreach' : 'business').catch(e => notify(e.message, true));
@@ -885,7 +893,17 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         if (result.token && typeof window !== 'undefined') {
           localStorage.setItem('prospecta_session_token', result.token);
         }
-        resetWorkspace(); setUser(result.user); setProfile(result.user.profile); setAuth(null); navigate('opportunities');
+        resetWorkspace();
+        const isAdmin = result.user.role === 'admin' || (result.user.email && (result.user.email.toLowerCase() === 'sheltonmad55@gmail.com' || result.user.email.toLowerCase() === 'sheltonmad5@gmail.com'));
+        const userToSet = isAdmin ? { ...result.user, role: 'admin' as const } : result.user;
+        setUser(userToSet);
+        setProfile(userToSet.profile);
+        setAuth(null);
+        if (isAdmin) {
+          navigate('admin');
+        } else {
+          navigate('opportunities');
+        }
       }
     });
   }
@@ -1421,7 +1439,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         <main id="main" className="workspace">
 
           {/* Onboarding */}
-          {!user.profile.onboarded && (
+          {!user.profile.onboarded && view !== 'admin' && (
             <section className="panel onboarding">
               <div><span className="eyebrow">BEM-VINDO À PROSPECTA</span><h2>Primeiro, diga-nos o que faz.</h2><p className="muted">A sua apresentação ajuda a preparar abordagens com a sua voz.</p></div>
               <ProfileForm user={user} profile={profile || user.profile} busy={busy} onSubmit={saveProfile} />

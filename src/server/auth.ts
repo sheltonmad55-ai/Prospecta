@@ -191,12 +191,17 @@ export function userById(userId: string): User | null {
 
     const rawName = row.name;
     const safeName = (rawName && rawName.toLowerCase() !== 'droop store') ? rawName : 'Chelton Madime';
+    const rawEmail = (row.email || '').toLowerCase().trim();
+    const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com' || row.role === 'admin';
+    if (isAdmin) {
+      parsedProfile.onboarded = true;
+    }
     return {
       id: row.id,
       name: safeName,
       email: row.email,
       workspaceId,
-      role: (row.role || 'owner') as User['role'],
+      role: isAdmin ? 'admin' : ((row.role || 'owner') as User['role']),
       profile: parsedProfile,
       credits: credits(workspaceId),
       subscription: getUserSubscription(row.id)
@@ -209,10 +214,13 @@ export function userById(userId: string): User | null {
 export function ensureUserAndWorkspace(user: { id: string; name?: string; email?: string; role?: User['role']; workspaceId?: string; profile?: Partial<Profile> }): User {
   const timestamp = now();
   const workspaceId = user.workspaceId || user.id;
-  const role = user.role || 'owner';
+  const rawEmail = (user.email || '').toLowerCase().trim();
+  const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com' || user.role === 'admin';
+  const role = isAdmin ? 'admin' : (user.role || 'owner');
   const profileToSave: Profile = {
     ...defaultProfile,
-    ...(user.profile || {})
+    ...(user.profile || {}),
+    ...(isAdmin ? { onboarded: true } : {})
   };
 
   try {
@@ -224,7 +232,8 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
         VALUES (?, ?, ?, '', ?, 0, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = CASE WHEN excluded.name != '' AND excluded.name != 'droop store' THEN excluded.name ELSE users.name END,
-          email = CASE WHEN excluded.email != '' THEN excluded.email ELSE users.email END
+          email = CASE WHEN excluded.email != '' THEN excluded.email ELSE users.email END,
+          role = CASE WHEN excluded.role = 'admin' THEN 'admin' ELSE users.role END
       `).run(user.id, user.name || 'Utilizador', (user.email || '').toLowerCase(), role, timestamp);
 
       // Check if workspace exists

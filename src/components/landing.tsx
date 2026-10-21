@@ -370,7 +370,44 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
         </div>
       </section>
 
-      <section className="lp-section lp-faq lp-reveal" id="perguntas"><div className="lp-section-heading"><span className="lp-section-kicker">ANTES DA PRIMEIRA CONVERSA</span><h2>Perguntas frequentes</h2><p>O essencial para começar com clareza.</p></div><div className="lp-faq-list">{faqs.map((faq, index) => <article key={faq.question} className={`lp-reveal ${openFaq === index ? 'is-open' : ''}`}><h3><button id={`lp-faq-question-${index}`} aria-expanded={openFaq === index} aria-controls={`lp-faq-answer-${index}`} onClick={() => setOpenFaq(openFaq === index ? null : index)}>{faq.question}<ChevronDown size={18} /></button></h3><div id={`lp-faq-answer-${index}`} role="region" aria-labelledby={`lp-faq-question-${index}`} hidden={openFaq !== index}><p>{faq.answer}</p></div></article>)}</div></section>
+      <section className="lp-section lp-faq" id="perguntas">
+        <div className="lp-section-heading">
+          <span className="lp-section-kicker">ANTES DA PRIMEIRA CONVERSA</span>
+          <h2>Perguntas frequentes</h2>
+          <p>O essencial para começar com clareza.</p>
+        </div>
+        <div className="lp-faq-list">
+          {faqs.map((faq, index) => {
+            const isOpen = openFaq === index;
+            return (
+              <article key={faq.question} className={`lp-faq-card ${isOpen ? 'is-open' : ''}`}>
+                <h3>
+                  <button
+                    id={`lp-faq-question-${index}`}
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={`lp-faq-answer-${index}`}
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                  >
+                    <span>{faq.question}</span>
+                    <ChevronDown size={19} />
+                  </button>
+                </h3>
+                {isOpen && (
+                  <div
+                    id={`lp-faq-answer-${index}`}
+                    role="region"
+                    aria-labelledby={`lp-faq-question-${index}`}
+                    className="lp-faq-answer"
+                  >
+                    <p>{faq.answer}</p>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="lp-final lp-reveal"><div className="lp-final-orbits" aria-hidden="true" /><span className="lp-section-kicker">O PRÓXIMO PASSO É SEU</span><h2>O seu próximo cliente pode começar<br />com uma boa conversa.</h2><p>Encontre empresas em Moçambique, prepare a sua abordagem e acompanhe cada oportunidade.</p><div><button className="lp-button lp-final-primary" onClick={onRegister}>Começar agora <ArrowRight size={18} /></button><button className="lp-button lp-final-secondary" onClick={onLogin}>Entrar na minha conta</button></div></section>
     </main>
