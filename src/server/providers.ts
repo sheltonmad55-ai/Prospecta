@@ -13,7 +13,6 @@ export function validPhone(value: string, defaultCountry = 'MZ') {
   const isIntl = trimmed.startsWith('+');
   const number = parsePhoneNumberFromString(trimmed, isIntl ? undefined : (defaultCountry.toUpperCase() as import('libphonenumber-js').CountryCode));
   if (!number?.isValid()) return null;
-  if (!isIntl && defaultCountry === 'MZ' && number.country !== 'MZ') return null;
   return number.number;
 }
 const coerceStr=(max:number)=>z.union([z.string(),z.number(),z.boolean()]).transform(v=>String(v)).pipe(z.string().max(max));

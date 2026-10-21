@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Prospecta — Inteligência comercial para Moçambique',
-  description: 'Encontre empresas, prepare abordagens relevantes e acompanhe oportunidades em todo Moçambique.',
+  title: 'Prospecta — Inteligência Comercial para a CPLP & PALOP',
+  description: 'Encontre empresas reais, prepare abordagens com IA e dispare pelo WhatsApp em Moçambique, Angola, Portugal, Brasil e toda a CPLP.',
   robots: { index: false, follow: false },
   icons: {
     icon: [

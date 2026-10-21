@@ -988,6 +988,121 @@
   box-shadow: 0 8px 30px rgba(24, 119, 242, 0.6) !important;
 }
 
+/* ══ ESTILO DO CARD PRO BRILHANTE (CLIVRA PRO STYLE) ═══════════ */
+.lp-pro-glowing-card {
+  background: linear-gradient(180deg, #0e1629 0%, #070d19 100%) !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 0 35px rgba(59, 130, 246, 0.45), 0 0 70px rgba(99, 102, 241, 0.25), inset 0 0 25px rgba(59, 130, 246, 0.15) !important;
+  position: relative;
+}
+.lp-plan-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.lp-plan-header-row h3 {
+  margin: 0 !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+.lp-plan-badges-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-badge-black-friday {
+  background: #3b0764 !important;
+  border: 1px solid #7c3aed !important;
+  color: #c084fc !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+  letter-spacing: 0.2px;
+}
+.lp-badge-popular {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+}
+.lp-badge-start {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+}
+.lp-plan-sub-offer {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  margin: 2px 0 12px !important;
+  line-height: 1.4;
+}
+.lp-pro-glow-btn {
+  background: linear-gradient(135deg, #1877F2 0%, #3B82F6 45%, #6366F1 100%) !important;
+  box-shadow: 0 0 28px rgba(37, 99, 235, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  text-align: center !important;
+}
+.lp-pro-glow-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #4f46e5 100%) !important;
+  box-shadow: 0 0 38px rgba(37, 99, 235, 0.8), 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+  transform: translateY(-2px);
+}
+
+/* ══ CPLP & PALOP COUNTRIES ═════════════════════════════════ */
+.lp-cplp-countries {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+.lp-cplp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(14, 25, 45, 0.85);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  color: #e2e8f0;
+  transition: all 0.2s ease;
+}
+.lp-cplp-tag:hover {
+  border-color: #60a5fa;
+  background: rgba(24, 119, 242, 0.2);
+  transform: translateY(-1px);
+}
+.lp-cplp-flag {
+  font-size: 14px;
+}
+.lp-cplp-tag strong {
+  color: #ffffff;
+  font-weight: 650;
+}
+.lp-cplp-tag small {
+  color: #60a5fa;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .lp-plan-features-wrap {
   flex: 1;
 }

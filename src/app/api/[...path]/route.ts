@@ -80,7 +80,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    if(action==='register' && method==='POST') {
     const data=z.object({name:z.string().trim().min(2).max(100),email:z.email().max(180).transform(s=>s.toLowerCase()),phone:z.string().trim().max(30).optional(),password:z.string().min(10).max(128),consent:z.boolean().optional(),acceptedTerms:z.literal(true)}).parse(input);
-    if(data.phone&&!validPhone(data.phone))throw new AppError('Indique um número moçambicano válido, com +258.');
+    if(data.phone&&!validPhone(data.phone))throw new AppError('Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).');
     if(mode()==='live' || supabaseConfigured()) {
      const client=supabase();
      const {data:auth,error}=await client.auth.signUp({
@@ -199,7 +199,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
   rateLimit(`user:${user.id}`,240,60000);
   if(route==='profile' && (method==='PUT' || method==='POST')) {
    const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120).default('Criação de websites'),pitch:z.string().max(1000).default(''),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),phone:z.string().max(30).default(''),nationwide:z.boolean().default(true),onboarded:z.boolean().default(true)}).parse(input);
-   if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número moçambicano válido, com +258.');
+   if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).');
    const updatedUser = await saveUserProfile(user.id, {
      name: data.name,
      service: data.service,
@@ -346,6 +346,15 @@ async function handler(request:Request,context:Context):Promise<Response> {
       } catch(err) {
         if (err instanceof AppError) throw err;
         throw new AppError('Não foi possível conectar ao motor WhatsApp Baileys. Certifique-se de que iniciou `npm run whatsapp`.', 503);
+      }
+    }
+    if(path[1]==='logout' && method==='POST') {
+      try {
+        const res = await fetch(`${gatewayUrl}/logout`, { method: 'POST', signal: AbortSignal.timeout(5000) });
+        const json = await res.json();
+        return reply(json, 200);
+      } catch(err: any) {
+        return reply({ ok: false, error: err.message || 'Falha ao reiniciar sessão WhatsApp.' }, 500);
       }
     }
   }

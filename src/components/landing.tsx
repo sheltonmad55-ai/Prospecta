@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ArrowRight, ArrowUpRight, AtSign, Bookmark, Building2, CalendarDays, Check, ChevronDown, Compass, Copy, Database, FileText, Globe2, LoaderCircle, MapPin, Menu, MessageCircle, Radar, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
-import { PROVINCES, PLANS, PLAN_DEADLINE_DISPLAY } from '@/lib/contracts';
+import { PROVINCES, COUNTRIES, PLANS, PLAN_DEADLINE_DISPLAY } from '@/lib/contracts';
 import './landing.css';
 
 export const ROTATING_SERVICES = [
@@ -106,17 +106,17 @@ function GoalCounter() {
 }
 
 function LandingBrand({ light = false }: { light?: boolean }) {
-  return <a href="#inicio" className={`lp-brand ${light ? 'lp-brand-light' : ''}`} aria-label="Prospecta — início"><span><Radar size={23} strokeWidth={2.25} /></span>prospecta<span className="lp-brand-country">MZ</span></a>;
+  return <a href="#inicio" className={`lp-brand ${light ? 'lp-brand-light' : ''}`} aria-label="Prospecta — início"><span><Radar size={23} strokeWidth={2.25} /></span>prospecta<span className="lp-brand-country">CPLP</span></a>;
 }
 
 const faqs = [
   { question: 'O que é a Prospecta?', answer: 'É uma plataforma para encontrar empresas, explorar possíveis oportunidades para os seus serviços, preparar mensagens e acompanhar conversas comerciais num só lugar.' },
-  { question: 'Posso pesquisar em todo Moçambique?', answer: 'Sim. Pode pesquisar por província, localidade ou seleccionar Todo Moçambique. A quantidade e a qualidade da informação dependem da fonte e da zona consultada; não se trata de um inventário completo de todas as empresas.' },
-  { question: 'A Prospecta envia mensagens por mim?', answer: 'Não. É você quem revê o texto e decide copiar a mensagem ou abrir o WhatsApp. Abrir a aplicação não confirma que a mensagem foi enviada, entregue ou lida.' },
-  { question: 'Um telefone listado significa que a empresa tem WhatsApp?', answer: 'Não. Um número de telefone disponível não confirma uma conta WhatsApp activa. Verifique sempre o canal antes de abordar a empresa.' },
-  { question: 'A análise garante que a empresa precisa do meu serviço?', answer: 'Não. As sugestões são hipóteses baseadas na informação disponível. Confirme as necessidades e o interesse directamente com a empresa antes de apresentar uma proposta.' },
+  { question: 'Posso pesquisar em toda a CPLP & PALOP?', answer: 'Sim. Pode pesquisar em Moçambique, Angola, Portugal, Brasil, Cabo Verde, São Tomé e Príncipe, Guiné-Bissau e todos os países da CPLP. A busca permite filtrar por país, província, região e cidade com dados reais de contacto.' },
+  { question: 'A Prospecta envia mensagens por mim?', answer: 'Sim! Com o motor WhatsApp Baileys integrado no Plano Pro, pode disparar mensagens em massa diretamente do seu WhatsApp conectado, com intervalo de segurança anti-bloqueio e personalização automática pelo nome da empresa.' },
+  { question: 'Como a Prospecta sabe se uma empresa tem WhatsApp?', answer: 'A plataforma faz uma análise inteligente multinível: verifica se o número pertence a prefixos de operadoras móveis locais (ex: Vodacom 84/85, Movitel 86/87, Tmcel em Moçambique; Unitel/Africell em Angola; rede móvel 9 em Portugal), rastreia links wa.me e widgets no website oficial, e consulta o status em tempo real via Baileys.' },
+  { question: 'A análise garante que a empresa precisa do meu serviço?', answer: 'As sugestões são diagnósticos avançados com IA baseados nos dados públicos e auditoria digital da empresa. O pitch vem pré-configurado para quebrar as principais objeções comerciais.' },
   { question: 'Como funcionam os créditos do piloto?', answer: 'Cada espaço começa com 20 créditos. Uma análise concluída com a primeira mensagem custa 1 crédito. Editar e reabrir resultados existentes são gratuitos. Uma falha definitiva liberta o crédito reservado.' },
-  { question: 'Posso experimentar antes de começar?', answer: 'Sim. Cada nova conta recebe 20 créditos gratuitos para explorar pesquisas em todo Moçambique, aceder a dados verificados de contacto e preparar propostas comerciais inteligentes com IA.' },
+  { question: 'Posso experimentar antes de começar?', answer: 'Sim. Cada nova conta recebe créditos gratuitos para explorar pesquisas em toda a CPLP & PALOP, aceder a dados verificados de contacto e preparar propostas comerciais inteligentes com IA.' },
 ];
 
 type LandingProps = { mode?: string; busy: boolean; onRegister: () => void; onLogin: () => void; onDemo?: () => void };
@@ -148,7 +148,7 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
         <h1 id="lp-title">Encontre empresas<br />que precisam de<RotatingServices /></h1>
         <p className="lp-hero-description">O Prospecta busca negócios reais na sua cidade, mostra o que falta em cada um e escreve a mensagem pra você mandar no WhatsApp.</p>
         <div className="lp-hero-actions"><button className="lp-button lp-primary" onClick={onRegister}>Encontrar clientes <ArrowRight size={19} /></button><a href="#como-funciona" className="lp-button lp-secondary">Ver como funciona</a></div>
-        <div className="lp-benefits"><span><Check size={16} />20 créditos grátis</span><span><Check size={16} />Sem cartão de crédito</span><span><Check size={16} />Empresas reais de Moçambique</span></div>
+        <div className="lp-benefits"><span><Check size={16} />20 créditos grátis</span><span><Check size={16} />Sem cartão de crédito</span><span><Check size={16} />Empresas de toda CPLP & PALOP</span></div>
         <a className="lp-scroll-hint" href="#lp-main" aria-label="Descobrir como a Prospecta funciona"><span />DESÇA PARA DESCOBRIR</a>
       </section>
     </div>
@@ -288,7 +288,7 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
       <section className="lp-outreach-section lp-reveal"><div className="lp-outreach-inner"><div><span className="lp-section-kicker">A CONVERSA COMEÇA CONSIGO</span><h2>Saiba como se apresentar.<br /><em>E o que perguntar.</em></h2><p>Transforme o contexto numa mensagem natural. Reveja o texto, dê-lhe a sua voz e escolha o momento de contactar.</p><button className="lp-button lp-secondary" onClick={onRegister}>Preparar a minha abordagem <ArrowRight size={17} /></button><span className="lp-outreach-note"><ShieldCheck size={13} />O envio é sempre decidido por si.</span></div><div className="lp-outreach-example"><div className="lp-outreach-example-title"><Sparkles size={17} /><b>Uma boa primeira conversa</b><span>Rascunho</span></div><p className="lp-outreach-intro">Bom dia! Trabalho com criação de sites para pequenos negócios.</p><p className="lp-outreach-question">Gostaria de perceber se este serviço pode ser útil para a vossa empresa.</p><p className="lp-outreach-invite">Se fizer sentido, posso partilhar uma ideia sem compromisso.</p><div><Check size={13} />Sem presumir necessidades. Sem prometer resultados.</div></div></div></section>
 
       <section className="lp-section lp-features lp-reveal" id="recursos"><div className="lp-features-heading"><span className="lp-section-kicker">UM ESPAÇO PARA AVANÇAR</span><h2>Da pesquisa ao próximo<br />contacto, num só lugar.</h2><p>Ferramentas práticas para organizar a procura de novos clientes.</p><div className="lp-tiny-pipeline"><div><span />Novo<b>01</b></div><i /><div><span />Em conversa<b>02</b></div><i /><div><span />Próximo passo<CalendarDays size={14} /></div></div></div><div className="lp-feature-list">{[
-        { icon: Search, title: 'Encontrar empresas', text: 'Pesquisa por zona e actividade, em todo Moçambique.' },
+        { icon: Search, title: 'Encontrar empresas', text: 'Pesquisa por país, província e actividade em toda a CPLP & PALOP.' },
         { icon: Sparkles, title: 'Analisar oportunidades', text: 'Sugestões baseadas na informação disponível.' },
         { icon: MessageCircle, title: 'Preparar mensagens', text: 'Texto editável para apresentar os seus serviços.' },
         { icon: Bookmark, title: 'Guardar oportunidades', text: 'Empresas organizadas no seu espaço.' },
@@ -298,7 +298,27 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
 
       <section className="lp-audience lp-reveal"><span className="lp-section-kicker">O SEU SERVIÇO TEM LUGAR AQUI</span><h2>Feito para quem vende<br />serviços a empresas.</h2><p>Freelancers, consultores e pequenas agências podem usar a Prospecta para organizar a procura de novos clientes.</p><div>{['Criação de sites', 'Redes sociais', 'Design', 'Marketing', 'Fotografia', 'Vídeo', 'Consultoria', 'Menus digitais'].map(item => <span key={item}>{item}</span>)}</div></section>
 
-      <section className="lp-country-section lp-reveal"><div><Globe2 size={24} /><div><h3>Do Rovuma ao Maputo.</h3><p>Escolha onde quer encontrar oportunidades. A disponibilidade de informação varia por fonte e localidade.</p></div></div><div className="lp-provinces">{PROVINCES.map(province => <span key={province}><MapPin size={11} />{province}</span>)}</div></section>
+      <section className="lp-country-section lp-reveal">
+        <div>
+          <Globe2 size={24} />
+          <div>
+            <h3>Cobertura em toda a CPLP & PALOP.</h3>
+            <p>Encontre oportunidades em Moçambique, Angola, Portugal, Brasil, Cabo Verde e mercados de língua portuguesa. Pesquise por país, província e localidade.</p>
+          </div>
+        </div>
+        <div className="lp-cplp-countries">
+          {COUNTRIES.map(country => (
+            <span key={country.code} className="lp-cplp-tag">
+              <span className="lp-cplp-flag">{country.flag}</span>
+              <strong>{country.name}</strong>
+              <small>{country.ddi}</small>
+            </span>
+          ))}
+        </div>
+        <div className="lp-provinces">
+          {PROVINCES.map(province => <span key={province}><MapPin size={11} />{province}</span>)}
+        </div>
+      </section>
 
       <section className="lp-section lp-pricing lp-reveal" id="planos">
         <div className="lp-section-heading lp-pricing-heading">
@@ -317,53 +337,68 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
           {/* Plano Essencial */}
           <article className="lp-plan-card">
             <div className="lp-plan-top">
-              <span className="lp-plan-tag">Pra começar</span>
-              <h3>{PLANS.essential.name}</h3>
-              <p className="lp-plan-tagline">{PLANS.essential.tagline}</p>
+              <div className="lp-plan-header-row">
+                <h3>{PLANS.essential.name}</h3>
+                <span className="lp-badge-start">Pra começar</span>
+              </div>
               <div className="lp-plan-price-wrap">
                 <span className="lp-plan-val">{PLANS.essential.priceMt} MT</span>
-                <span className="lp-plan-period">{PLANS.essential.period}</span>
+                <span className="lp-plan-period">/mês</span>
               </div>
-              <div className="lp-plan-methods">M-Pesa · e-Mola · Cartão · Lojou Pay</div>
+              <p className="lp-plan-tagline">{PLANS.essential.tagline}</p>
               <a href={PLANS.essential.lojouCheckoutUrl} target="_blank" rel="noopener noreferrer" className="lp-button lp-plan-button">
-                Assinar Essential <ArrowRight size={16} />
+                ASSINAR ESSENTIAL
               </a>
             </div>
             <div className="lp-plan-features-wrap">
-              <span className="lp-plan-feature-header">O QUE ESTÁ INCLUÍDO:</span>
               <ul className="lp-plan-features">
-                {PLANS.essential.features.map(f => (
-                  <li key={f}><Check size={16} /><span>{f}</span></li>
-                ))}
+                <li><Check size={16} /><span><strong>150 créditos</strong> por mês</span></li>
+                <li><Check size={16} /><span>Até <strong>10 leads por busca</strong></span></li>
+                <li><Check size={16} /><span>5 leads novos por dia</span></li>
+                <li><Check size={16} /><span>Agente de Vendas com IA</span></li>
+                <li><Check size={16} /><span>Análise de cada empresa</span></li>
+                <li><Check size={16} /><span>Portfólio com até 3 modelos</span></li>
+                <li><Check size={16} /><span>Pesquisas em Moçambique e CPLP</span></li>
               </ul>
             </div>
           </article>
 
-          {/* Plano Pro */}
-          <article className="lp-plan-card is-popular">
-            <div className="lp-plan-badge-top">MAIS POPULAR · ALTA ESCALA</div>
+          {/* Plano Pro (Com visual Clivra Pro e brilho) */}
+          <article className="lp-plan-card is-popular lp-pro-glowing-card">
             <div className="lp-plan-top">
-              <span className="lp-plan-tag is-pro-tag">Para agências & prestadores</span>
-              <h3>{PLANS.pro.name}</h3>
-              <p className="lp-plan-tagline">{PLANS.pro.tagline}</p>
+              <div className="lp-plan-header-row">
+                <h3>{PLANS.pro.name}</h3>
+                <div className="lp-plan-badges-inline">
+                  <span className="lp-badge-black-friday">Black Friday</span>
+                  <span className="lp-badge-popular">Mais popular</span>
+                </div>
+              </div>
               <div className="lp-plan-price-wrap">
+                <span className="lp-plan-val lp-pro-val">{PLANS.pro.priceMt} MT</span>
+                <span className="lp-plan-period">no 1º mês</span>
                 {PLANS.pro.originalPriceMt && (
                   <span className="lp-plan-strikethrough">{PLANS.pro.originalPriceMt} MT</span>
                 )}
-                <span className="lp-plan-val lp-pro-val">{PLANS.pro.priceMt} MT</span>
-                <span className="lp-plan-period">{PLANS.pro.period}</span>
               </div>
-              <div className="lp-plan-methods">M-Pesa · e-Mola · Cartão · Lojou Pay</div>
-              <a href={PLANS.pro.lojouCheckoutUrl} target="_blank" rel="noopener noreferrer" className="lp-button lp-primary lp-plan-button">
-                Assinar Pro <ArrowRight size={16} />
+              <p className="lp-plan-sub-offer">Depois, {PLANS.pro.originalPriceMt || '497'} MT/mês. Oferta até 22/10.</p>
+              <div className="lp-plan-methods">PIX · M-Pesa · e-Mola · Cartão · Lojou Pay</div>
+              <p className="lp-plan-tagline">{PLANS.pro.tagline}</p>
+              <a href={PLANS.pro.lojouCheckoutUrl} target="_blank" rel="noopener noreferrer" className="lp-button lp-primary lp-plan-button lp-pro-glow-btn">
+                ASSINAR PRO
               </a>
             </div>
             <div className="lp-plan-features-wrap">
-              <span className="lp-plan-feature-header">TUDO DO ESSENCIAL E MAIS:</span>
               <ul className="lp-plan-features">
-                {PLANS.pro.features.map(f => (
-                  <li key={f}><Check size={16} /><span>{f}</span></li>
-                ))}
+                <li><Check size={16} /><span><strong>450 créditos</strong> por mês</span></li>
+                <li><Check size={16} /><span>Até <strong>30 leads por busca</strong> (Alta escala)</span></li>
+                <li><Check size={16} /><span>Tudo do Grátis & Essencial</span></li>
+                <li><Check size={16} /><span><strong>Disparo em Massa WhatsApp</strong> (com {'{nome_empresa}'})</span></li>
+                <li><Check size={16} /><span><strong>Análise profunda</strong> de cada empresa</span></li>
+                <li><Check size={16} /><span><strong>Agente de Vendas com IA</strong> (Gemini Pro)</span></li>
+                <li><Check size={16} /><span>Histórico completo & <strong>CRM Kanban</strong></span></li>
+                <li><Check size={16} /><span>Relatório <strong>"Sem WhatsApp"</strong> com edição manual</span></li>
+                <li><Check size={16} /><span>Pesquisas completas em toda a <strong>CPLP & PALOP</strong></span></li>
+                <li><Check size={16} /><span>Suporte prioritário via WhatsApp</span></li>
               </ul>
             </div>
           </article>
@@ -409,8 +444,8 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
         </div>
       </section>
 
-      <section className="lp-final lp-reveal"><div className="lp-final-orbits" aria-hidden="true" /><span className="lp-section-kicker">O PRÓXIMO PASSO É SEU</span><h2>O seu próximo cliente pode começar<br />com uma boa conversa.</h2><p>Encontre empresas em Moçambique, prepare a sua abordagem e acompanhe cada oportunidade.</p><div><button className="lp-button lp-final-primary" onClick={onRegister}>Começar agora <ArrowRight size={18} /></button><button className="lp-button lp-final-secondary" onClick={onLogin}>Entrar na minha conta</button></div></section>
+      <section className="lp-final lp-reveal"><div className="lp-final-orbits" aria-hidden="true" /><span className="lp-section-kicker">O PRÓXIMO PASSO É SEU</span><h2>O seu próximo cliente pode começar<br />com uma boa conversa.</h2><p>Encontre empresas em toda a CPLP & PALOP, prepare a sua abordagem e acompanhe cada oportunidade.</p><div><button className="lp-button lp-final-primary" onClick={onRegister}>Começar agora <ArrowRight size={18} /></button><button className="lp-button lp-final-secondary" onClick={onLogin}>Entrar na minha conta</button></div></section>
     </main>
-    <footer className="lp-footer lp-reveal"><div><LandingBrand /><p>Encontre empresas. Prepare a sua próxima venda.</p></div><nav aria-label="Navegação do rodapé"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#perguntas">Perguntas frequentes</a></nav><div className="lp-footer-bottom"><span>Prospecta · Feito para Moçambique</span><div><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a></div></div></footer>
+    <footer className="lp-footer lp-reveal"><div><LandingBrand /><p>Encontre empresas. Prepare a sua próxima venda.</p></div><nav aria-label="Navegação do rodapé"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#perguntas">Perguntas frequentes</a></nav><div className="lp-footer-bottom"><span>Prospecta · Feito para os países da CPLP & PALOP</span><div><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a></div></div></footer>
   </div>;
 }

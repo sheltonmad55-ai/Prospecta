@@ -123,6 +123,34 @@ export const COUNTRIES: CountryOption[] = [
     flag: '🇨🇻',
     ddi: '+238',
     provinces: ['Santiago', 'São Vicente', 'Sal', 'Boa Vista', 'Santo Antão', 'Fogo', 'São Nicolau', 'Maio', 'Brava']
+  },
+  {
+    code: 'ST',
+    name: 'São Tomé e Príncipe',
+    flag: '🇸🇹',
+    ddi: '+239',
+    provinces: ['Água Grande', 'Mé-Zóchi', 'Lobata', 'Cantagalo', 'Caué', 'Lembá', 'Príncipe']
+  },
+  {
+    code: 'GW',
+    name: 'Guiné-Bissau',
+    flag: '🇬🇼',
+    ddi: '+245',
+    provinces: ['Bissau', 'Bafatá', 'Gabú', 'Oio', 'Cacheu', 'Biombo', 'Quinara', 'Tombali', 'Bolama']
+  },
+  {
+    code: 'TL',
+    name: 'Timor-Leste',
+    flag: '🇹🇱',
+    ddi: '+670',
+    provinces: ['Díli', 'Baucau', 'Bobonaro', 'Cova Lima', 'Ermera', 'Lautém', 'Liquiçá', 'Manatuto', 'Manufahi', 'Oecusse', 'Viqueque', 'Aileu', 'Ainaro', 'Atauro']
+  },
+  {
+    code: 'GQ',
+    name: 'Guiné Equatorial',
+    flag: '🇬🇶',
+    ddi: '+240',
+    provinces: ['Bioko Norte', 'Bioko Sur', 'Litoral', 'Centro Sur', 'Kié-Ntem', 'Wele-Nzas', 'Annobón', 'Djibloho']
   }
 ];
 
@@ -150,7 +178,19 @@ export function isLikelyWhatsApp(phone: string | null | undefined, countryCode =
     const local = digits.startsWith('55') ? digits.slice(2) : digits;
     return (local.length === 11 && local[2] === '9') || (local.length === 10 && local[2] >= '7');
   }
-  return digits.length >= 8;
+  if (cleaned.startsWith('+238') || countryCode === 'CV') {
+    const local = digits.startsWith('238') ? digits.slice(3) : digits;
+    return local.length === 7 && /^9/.test(local);
+  }
+  if (cleaned.startsWith('+239') || countryCode === 'ST') {
+    const local = digits.startsWith('239') ? digits.slice(3) : digits;
+    return local.length === 7 && /^9/.test(local);
+  }
+  if (cleaned.startsWith('+245') || countryCode === 'GW') {
+    const local = digits.startsWith('245') ? digits.slice(3) : digits;
+    return local.length === 7 && /^9/.test(local);
+  }
+  return digits.length >= 7;
 }
 
 /**

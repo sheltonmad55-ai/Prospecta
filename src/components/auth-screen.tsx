@@ -56,10 +56,10 @@ export default function AuthScreen({ kind, mode: _mode, busy, onSubmit, onSwitch
         <span className="auth-story-symbol"><Radar size={48} strokeWidth={1.8}/></span>
         <span className="auth-story-kicker">O SEU TALENTO TEM ONDE CHEGAR</span>
         <h2>Encontre quem precisa<br/>do que <em>você vende.</em></h2>
-        <p>Empresas em todo Moçambique. Mais contexto para apresentar o seu trabalho.</p>
+        <p>Empresas em toda a CPLP & PALOP. Mais contexto para apresentar o seu trabalho.</p>
         <ul>{['Empresas para descobrir','Oportunidades para compreender','Uma abordagem à sua medida'].map(item=><li key={item}><span><Check size={14}/></span>{item}</li>)}</ul>
-        <div className="auth-example-frame"><div className="auth-example"><div className="auth-example-heading"><span><Building2 size={25}/></span><div><h3>Estúdio Horizonte</h3><p>Serviços profissionais · Beira</p></div></div><span className="auth-example-badge"><Sparkles size={12}/>Possibilidade a explorar</span><div className="auth-example-opportunity"><span>HIPÓTESE DE OPORTUNIDADE</span><b>Uma página para apresentar os serviços.</b><p>Confirme as necessidades antes de propor.</p></div><span className="auth-example-caption">OPORTUNIDADE COMERCIAL · MOÇAMBIQUE</span></div></div>
-        <div className="auth-story-national"><Globe2 size={15}/><span>Do Rovuma ao Maputo. O próximo passo é seu.</span></div>
+        <div className="auth-example-frame"><div className="auth-example"><div className="auth-example-heading"><span><Building2 size={25}/></span><div><h3>Estúdio Horizonte</h3><p>Serviços profissionais · Beira</p></div></div><span className="auth-example-badge"><Sparkles size={12}/>Possibilidade a explorar</span><div className="auth-example-opportunity"><span>HIPÓTESE DE OPORTUNIDADE</span><b>Uma página para apresentar os serviços.</b><p>Confirme as necessidades antes de propor.</p></div><span className="auth-example-caption">OPORTUNIDADE COMERCIAL · CPLP</span></div></div>
+        <div className="auth-story-national"><Globe2 size={15}/><span>Em toda a CPLP & PALOP. O próximo passo é seu.</span></div>
       </aside>
 
       <section className="auth-access" aria-labelledby="auth-page-title">
@@ -80,6 +80,6 @@ export default function AuthScreen({ kind, mode: _mode, busy, onSubmit, onSwitch
         <div className="auth-switch">{kind==='login'?<>Ainda não tem conta? <button onClick={()=>onSwitch('register')}>Criar conta</button></>:register?<>Já tem conta? <button onClick={()=>onSwitch('login')}>Entrar</button></>:<button onClick={()=>onSwitch('login')}><ArrowLeft size={13}/>Voltar para entrar</button>}</div>
       </section>
     </div>
-    <footer className="auth-page-footer"><span>Prospecta · Feito para Moçambique</span><div><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a></div></footer>
+    <footer className="auth-page-footer"><span>Prospecta · Feito para os países da CPLP & PALOP</span><div><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a></div></footer>
   </main>;
 }

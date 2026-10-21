@@ -38,7 +38,7 @@ async function handleSaveProfile(request: Request) {
     const data = profileSchema.parse(body);
 
     if (data.phone && !validPhone(data.phone)) {
-      return NextResponse.json({ error: 'Indique um número moçambicano válido, com +258.' }, { status: 400 });
+      return NextResponse.json({ error: 'Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).' }, { status: 400 });
     }
 
     const updatedUser = await saveUserProfile(user.id, {

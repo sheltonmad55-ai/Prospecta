@@ -6,7 +6,7 @@ import {
   Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock3,
   Compass, Copy, Database, Download, ExternalLink, FileText, Globe2,
   LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Plus,
-  Radar, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
+  Radar, RefreshCw, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
   Users, Wallet, X
 } from 'lucide-react';
 import Landing from './landing';
@@ -21,7 +21,7 @@ import {
   type VaultScript, type CountryOption, type PlanType, type SubscriptionStatus
 } from '@/lib/contracts';
 
-type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
+type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'integrations' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
 
 type AdminUserItem = {
   id: string;
@@ -384,7 +384,7 @@ function Brand({ light = false }: { light?: boolean }) {
   return (
     <div className={cls('brand', light && 'light')}>
       <span className="brand-mark"><Radar size={24} strokeWidth={2.4} /></span>
-      <div>prospecta<span>INTELIGÊNCIA COMERCIAL · MZ</span></div>
+      <div>prospecta<span>INTELIGÊNCIA COMERCIAL · CPLP</span></div>
     </div>
   );
 }
@@ -497,7 +497,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [resultsSubTab, setResultsSubTab] = useState<'all' | 'with_whatsapp' | 'no_whatsapp'>('all');
   const [inlinePhoneBizId, setInlinePhoneBizId] = useState<string | null>(null);
   const [inlinePhoneVal, setInlinePhoneVal] = useState('');
-  const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string } | null>(null);
+  const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string; qrDataUrl?: string } | null>(null);
+  const [waTestPhone, setWaTestPhone] = useState('847404158');
+  const [waTestMessage, setWaTestMessage] = useState('Olá! Teste de integração do WhatsApp Baileys com a Prospecta SaaS concluído com sucesso 🚀');
+  const [waTestSending, setWaTestSending] = useState(false);
+  const [integrationSource, setIntegrationSource] = useState<'search' | 'leads'>('search');
+  const [integrationFilter, setIntegrationFilter] = useState<'all' | 'with_wa' | 'no_wa'>('all');
   const [bulkDispatchRunning, setBulkDispatchRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentName: string; status: 'idle' | 'sending' | 'waiting' | 'done' | 'error'; errorCount: number }>({ current: 0, total: 0, currentName: '', status: 'idle', errorCount: 0 });
   const [safeIntervalSec, setSafeIntervalSec] = useState<number>(10);
@@ -505,8 +510,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
   const checkWhatsAppStatus = useCallback(async () => {
     try {
-      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string }>('whatsapp/status');
-      setWaServiceStatus({ connected: !!res.connected, user: res.user, status: res.status });
+      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string; qrDataUrl?: string }>('whatsapp/status');
+      setWaServiceStatus({ connected: !!res.connected, user: res.user, status: res.status, qrDataUrl: res.qrDataUrl });
       return res;
     } catch {
       setWaServiceStatus({ connected: false, status: 'offline' });
@@ -515,10 +520,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   }, []);
 
   useEffect(() => {
-    if (isBulkModalOpen) {
+    if (view === 'integrations' || isBulkModalOpen) {
       checkWhatsAppStatus();
+      const interval = setInterval(checkWhatsAppStatus, 4000);
+      return () => clearInterval(interval);
     }
-  }, [isBulkModalOpen, checkWhatsAppStatus]);
+  }, [view, isBulkModalOpen, checkWhatsAppStatus]);
 
   const startBackgroundDispatch = async (withWaList: Business[]) => {
     if (withWaList.length === 0) return;
@@ -621,6 +628,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         allResults: prev.allResults ? prev.allResults.map(item => item.id === bizId ? { ...item, phone: res.business.phone } : item) : prev.allResults
       } : prev);
       setDailyOpps(prev => prev.map(item => item.id === bizId ? { ...item, phone: res.business.phone } : item));
+      setLeads(prev => prev.map(l => l.business.id === bizId ? { ...l, business: { ...l.business, phone: res.business.phone } } : l));
       if (business && business.id === bizId) {
         setBusiness(res.business);
       }
@@ -629,6 +637,63 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       notify(err.message, true);
     }
   }, [business, notify]);
+
+  const handleSendTestMessage = useCallback(async () => {
+    if (!waTestPhone || waTestPhone.trim().length < 8) {
+      notify('Indique um número de telemóvel válido para o teste.', true);
+      return;
+    }
+    setWaTestSending(true);
+    try {
+      await post('whatsapp/send', { phone: waTestPhone.trim(), message: waTestMessage.trim() });
+      notify(`✅ Mensagem de teste enviada com sucesso para +${waTestPhone.replace(/\D/g, '')}!`);
+    } catch (err: any) {
+      notify(err.message || 'Falha ao enviar mensagem de teste.', true);
+    } finally {
+      setWaTestSending(false);
+    }
+  }, [waTestPhone, waTestMessage, notify]);
+
+  const handleResetWhatsApp = useCallback(async () => {
+    if (!window.confirm('Pretende desconectar o WhatsApp e gerar um novo QR Code?')) return;
+    try {
+      await post('whatsapp/logout');
+      notify('Sessão reiniciada. A gerar novo QR Code...');
+      setTimeout(checkWhatsAppStatus, 1500);
+    } catch (err: any) {
+      notify(err.message || 'Falha ao reiniciar sessão WhatsApp.', true);
+    }
+  }, [checkWhatsAppStatus, notify]);
+
+  const exportNoWhatsAppCsv = useCallback((list: Business[]) => {
+    if (list.length === 0) {
+      notify('Nenhuma empresa sem WhatsApp para exportar.', true);
+      return;
+    }
+    const rows = [
+      ['Nome da Empresa', 'Categoria / Ramo', 'Localidade', 'Provincia / Regiao', 'Pais', 'Telefone Fixo / Actual', 'Website', 'Instagram', 'Fonte'],
+      ...list.map(b => [
+        `"${(b.name || '').replace(/"/g, '""')}"`,
+        `"${(b.category || '').replace(/"/g, '""')}"`,
+        `"${(b.locality || '').replace(/"/g, '""')}"`,
+        `"${(b.province || '').replace(/"/g, '""')}"`,
+        `"${(b.country || 'MZ').replace(/"/g, '""')}"`,
+        `"${(b.phone || 'Sem telefone').replace(/"/g, '""')}"`,
+        `"${(b.website || 'Sem website').replace(/"/g, '""')}"`,
+        `"${(b.instagram || '').replace(/"/g, '""')}"`,
+        `"${(b.source || '').replace(/"/g, '""')}"`
+      ])
+    ];
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map(e => e.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `empresas_sem_whatsapp_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    notify(`Ficheiro CSV exportado com sucesso (${list.length} empresas)!`);
+  }, [notify]);
 
   const loadPastSearches = useCallback(async () => {
     let localList: SearchResult[] = [];
@@ -784,7 +849,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             : 'Não foi possível concluir o acesso com Google. Tente novamente.', true
       );
       const initial = query.get('view') as View | null;
-      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
+      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'integrations', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
       if (isSheltonAdmin && (!initial || initial === 'opportunities' || initial === 'search')) {
         setView('admin');
       } else if (initial && validViews.includes(initial)) {
@@ -1145,6 +1210,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     { view: 'search' as View, label: 'Encontrar clientes', icon: Compass },
     { view: 'saved-searches' as View, label: 'Buscas salvas', icon: Search },
     { view: 'leads' as View, label: 'Leads salvos', icon: Bookmark },
+    { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: 'WhatsApp' },
     { view: 'portfolio' as View, label: 'Portfólio', icon: FileText, beta: true },
     { view: 'vault' as View, label: 'Cofre', icon: ShieldCheck },
   ];
@@ -1185,6 +1251,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               <item.icon size={19} />
               <span>{item.label}</span>
               {item.beta && <span className="nav-beta">BETA</span>}
+              {item.badge && <span className="nav-beta" style={{ background: 'rgba(37, 211, 102, 0.2)', color: '#4ADE80', border: '1px solid rgba(37, 211, 102, 0.4)', fontWeight: 800 }}>{item.badge}</span>}
             </button>
           ))}
           {user.role === 'admin' && (
@@ -1233,12 +1300,13 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 {view === 'business' ? 'Ficha da empresa'
                   : view === 'outreach' ? 'Preparar abordagem'
                   : view === 'admin' ? 'Administração'
+                  : view === 'integrations' ? 'Integrações & WhatsApp'
                   : navMain.find(n => n.view === view)?.label || 'Configurações'}
               </b>
             </span>
           </div>
           <div className="topbar-right">
-            <span className="country"><span className="country-dot" /> Moçambique</span>
+            <span className="country" title="Cobertura completa em toda a CPLP & PALOP"><span className="country-dot" /> CPLP & PALOP ({getCountryByCode(filters.country).flag} {getCountryByCode(filters.country).name})</span>
             <button
               className="balance"
               onClick={() => setShowPlansModal(true)}
@@ -2466,6 +2534,563 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             </>
           )}
 
+          {/* ══ VIEW: Integrações & Disparos WhatsApp ═══════ */}
+          {user.profile.onboarded && view === 'integrations' && (() => {
+            const activeSourceList: Business[] = integrationSource === 'search'
+              ? (searchResult?.results || [])
+              : leads.map(l => l.business);
+
+            const withWaList = activeSourceList.filter(b => isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ'));
+            const noWaList = activeSourceList.filter(b => !isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ'));
+
+            const displayedList = integrationFilter === 'all'
+              ? activeSourceList
+              : integrationFilter === 'with_wa'
+                ? withWaList
+                : noWaList;
+
+            const allDisplayedSelected = displayedList.length > 0 && displayedList.every(b => selectedBizIds.includes(b.id));
+
+            const toggleSelectAll = () => {
+              if (allDisplayedSelected) {
+                const displayedIds = new Set(displayedList.map(b => b.id));
+                setSelectedBizIds(prev => prev.filter(id => !displayedIds.has(id)));
+              } else {
+                setSelectedBizIds(prev => Array.from(new Set([...prev, ...displayedList.map(b => b.id)])));
+              }
+            };
+
+            const selectedCount = activeSourceList.filter(b => selectedBizIds.includes(b.id)).length;
+            const selectedWithWa = activeSourceList.filter(b => selectedBizIds.includes(b.id) && isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ')).length;
+
+            const previewBiz = activeSourceList.find(b => selectedBizIds.includes(b.id)) || withWaList[0] || activeSourceList[0];
+            const previewText = previewBiz
+              ? interpolateMessage(bulkTemplate, previewBiz, user.name || 'Chelton', filters.service || user.profile.service)
+              : bulkTemplate;
+
+            return (
+              <>
+                <div className="page-heading">
+                  <div>
+                    <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <MessageCircle size={14} /> AUTOMAÇÃO DE DISPAROS <Pill tone="green">MOTOR BAILEYS</Pill>
+                    </div>
+                    <h1>Central de Integrações & WhatsApp.</h1>
+                    <p>Disparos automáticos em massa com mensagens personalizadas, anti-bloqueio e auditoria de contactos.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button className="button secondary" onClick={() => checkWhatsAppStatus()} title="Atualizar estado">
+                      <RefreshCw size={15} /> Verificar Conexão
+                    </button>
+                    <button className="button" onClick={() => {
+                      const toSend = activeSourceList.filter(b => selectedBizIds.includes(b.id) && isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ'));
+                      if (toSend.length === 0) {
+                        if (withWaList.length > 0) {
+                          startBackgroundDispatch(withWaList);
+                        } else {
+                          notify('Nenhuma empresa com WhatsApp válido para disparo.', true);
+                        }
+                      } else {
+                        startBackgroundDispatch(toSend);
+                      }
+                    }} disabled={bulkDispatchRunning || withWaList.length === 0}>
+                      <Send size={15} /> Iniciar Disparo ({selectedWithWa > 0 ? selectedWithWa : withWaList.length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* ══ 1. PAINEL DE CONEXÃO WHATSAPP BAILEYS ══ */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 18, marginBottom: 24 }}>
+                  {/* Status & Gateway */}
+                  <div className="panel" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <MessageCircle size={18} color="#25D366" />
+                        Motor WhatsApp Baileys
+                      </h3>
+                      {waServiceStatus?.connected ? (
+                        <span style={{ background: 'rgba(34, 197, 94, 0.18)', border: '1px solid rgba(34, 197, 94, 0.4)', color: '#4ADE80', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
+                          🟢 ONLINE · +{waServiceStatus.user || '847404158'}
+                        </span>
+                      ) : waServiceStatus?.status === 'waiting_qr' ? (
+                        <span style={{ background: 'rgba(234, 179, 8, 0.18)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#FACC15', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
+                          🟡 AGUARDANDO QR CODE
+                        </span>
+                      ) : (
+                        <span style={{ background: 'rgba(239, 68, 68, 0.18)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#FCA5A5', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
+                          🔴 DESCONECTADO
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#94A3B8', lineHeight: 1.5 }}>
+                      Serviço autónomo nativo via WebSockets na porta 5050. Sem intermediários, sem custos de API oficial e com total privacidade nos seus envios.
+                    </p>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 'auto' }}>
+                      <a href="http://localhost:5050" target="_blank" rel="noopener noreferrer" className="button secondary" style={{ fontSize: 12, textDecoration: 'none' }}>
+                        <ExternalLink size={14} /> Abrir Gateway (Porta 5050)
+                      </a>
+                      <button className="button secondary" onClick={handleResetWhatsApp} style={{ fontSize: 12, color: '#FCA5A5' }}>
+                        Desconectar / Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* QR Code / Conectado visual */}
+                  <div className="panel" style={{ padding: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12 }}>
+                    {waServiceStatus?.connected ? (
+                      <>
+                        <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'rgba(34, 197, 94, 0.15)', border: '2px solid rgba(34, 197, 94, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22C55E' }}>
+                          <CheckCheck size={36} />
+                        </div>
+                        <div>
+                          <strong style={{ color: '#FFFFFF', fontSize: 16 }}>Sessão Activa & Autorizada</strong>
+                          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8' }}>O seu WhatsApp está sincronizado. Os disparos em lote saem directamente deste terminal.</p>
+                        </div>
+                      </>
+                    ) : waServiceStatus?.qrDataUrl ? (
+                      <>
+                        <img src={waServiceStatus.qrDataUrl} alt="QR Code WhatsApp" style={{ width: 150, height: 150, borderRadius: 10, border: '3px solid #3B82F6', background: '#FFFFFF', padding: 4 }} />
+                        <span style={{ fontSize: 12, color: '#93C5FD', fontWeight: 600 }}>Abra o WhatsApp &gt; Aparelhos conectados &gt; Ler QR Code</span>
+                      </>
+                    ) : (
+                      <>
+                        <LoaderCircle size={32} className="spin" color="#3B82F6" />
+                        <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>A sincronizar estado do motor Baileys…</p>
+                        <button className="button secondary" onClick={() => checkWhatsAppStatus()} style={{ fontSize: 12 }}>
+                          Recarregar QR Code
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Disparo de Teste Rápido */}
+                  <div className="panel" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <strong style={{ fontSize: 14, color: '#FFFFFF' }}>🚀 Disparo de Teste Imediato</strong>
+                      <span style={{ fontSize: 11, color: '#94A3B8' }}>Valide a entrega agora</span>
+                    </div>
+                    <label style={{ fontSize: 12, color: '#CBD5E1', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      Número de teste (ex: 847404158):
+                      <input
+                        value={waTestPhone}
+                        onChange={e => setWaTestPhone(e.target.value)}
+                        placeholder="847404158 ou +258..."
+                        style={{ padding: '8px 12px', fontSize: 13, borderRadius: 8, background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#FFFFFF' }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, color: '#CBD5E1', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      Mensagem de teste:
+                      <textarea
+                        value={waTestMessage}
+                        onChange={e => setWaTestMessage(e.target.value)}
+                        rows={2}
+                        style={{ padding: '8px 12px', fontSize: 12, borderRadius: 8, background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#FFFFFF', resize: 'none' }}
+                      />
+                    </label>
+                    <button
+                      className="button"
+                      onClick={handleSendTestMessage}
+                      disabled={waTestSending || !waServiceStatus?.connected}
+                      style={{ marginTop: 'auto', fontSize: 13, justifyContent: 'center' }}
+                    >
+                      {waTestSending ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}
+                      Enviar Teste ao Vivo
+                    </button>
+                  </div>
+                </div>
+
+                {/* ══ 2. MOTOR DE DISPARO EM MASSA ══ */}
+                <section className="panel" style={{ padding: 24, marginBottom: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, borderBottom: '1px solid rgba(59, 130, 246, 0.2)', paddingBottom: 16, marginBottom: 18 }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: 18, color: '#FFFFFF' }}>Disparo em Massa Personalizado</h2>
+                      <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                        Envie abordagens em lote com substituição automática do nome da empresa e da cidade.
+                      </p>
+                    </div>
+
+                    {/* Fonte de dados */}
+                    <div style={{ display: 'flex', gap: 8, background: 'rgba(15, 23, 42, 0.8)', padding: 4, borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                      <button
+                        className={cls('tab-btn', integrationSource === 'search' && 'active')}
+                        onClick={() => setIntegrationSource('search')}
+                        style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'search' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                      >
+                        Resultados da Pesquisa ({searchResult?.results.length || 0})
+                      </button>
+                      <button
+                        className={cls('tab-btn', integrationSource === 'leads' && 'active')}
+                        onClick={() => setIntegrationSource('leads')}
+                        style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'leads' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                      >
+                        Leads Salvos / CRM ({leads.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Template Editor & Preview */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 20 }}>
+                    {/* Template editor */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>Template da Mensagem</span>
+                        <span style={{ fontSize: 11, color: '#94A3B8' }}>Variáveis dinâmicas suportadas</span>
+                      </div>
+                      <textarea
+                        value={bulkTemplate}
+                        onChange={e => setBulkTemplate(e.target.value)}
+                        rows={7}
+                        style={{ width: '100%', padding: '12px 14px', borderRadius: 10, background: 'rgba(11, 19, 38, 0.9)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#FFFFFF', fontSize: 13, lineHeight: 1.6, resize: 'vertical' }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>Inserir tag:</span>
+                        {[
+                          { label: '{nome_empresa}', tag: '{nome_empresa}' },
+                          { label: '{cidade}', tag: '{cidade}' },
+                          { label: '{nicho}', tag: '{nicho}' },
+                          { label: '{servico}', tag: '{servico}' },
+                          { label: '{responsavel}', tag: '{responsavel}' }
+                        ].map(t => (
+                          <button
+                            key={t.tag}
+                            type="button"
+                            onClick={() => setBulkTemplate(prev => prev + ' ' + t.tag)}
+                            style={{ background: 'rgba(37, 99, 235, 0.18)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#93C5FD', padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            + {t.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Interval slider */}
+                      <div style={{ marginTop: 8, padding: 12, background: 'rgba(15, 23, 42, 0.6)', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#E2E8F0' }}>
+                            🛡️ Intervalo Anti-Bloqueio: <b>{safeIntervalSec} segundos</b>
+                          </span>
+                          <span style={{ fontSize: 11, color: '#34D399' }}>Recomendado: 10s</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={5}
+                          max={30}
+                          step={1}
+                          value={safeIntervalSec}
+                          onChange={e => setSafeIntervalSec(Number(e.target.value))}
+                          style={{ width: '100%', accentColor: '#2563EB', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preview box */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>Pré-visualização em Tempo Real</span>
+                        <span style={{ fontSize: 11, color: '#60A5FA' }}>
+                          {previewBiz ? `Empresa: ${previewBiz.name}` : 'Nenhuma empresa selecionada'}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, padding: 16, borderRadius: 10, background: 'linear-gradient(180deg, rgba(7, 13, 26, 0.95) 0%, rgba(13, 24, 48, 0.9) 100%)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#E2E8F0', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', position: 'relative' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#25D366' }} />
+                          <strong style={{ fontSize: 13, color: '#FFFFFF' }}>{previewBiz?.name || 'Exemplo'}</strong>
+                          <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 'auto' }}>{previewBiz?.locality || 'Maputo'}</span>
+                        </div>
+                        {previewText}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bulk progress bar if running */}
+                  {bulkDispatchRunning && (
+                    <div style={{ margin: '16px 0', padding: 16, background: 'rgba(37, 99, 235, 0.15)', border: '1px solid #3B82F6', borderRadius: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <LoaderCircle size={16} className="spin" color="#60A5FA" />
+                          A enviar: <b>{bulkProgress.currentName}</b> ({bulkProgress.current} de {bulkProgress.total})
+                        </span>
+                        <button
+                          className="button secondary"
+                          onClick={() => { cancelBulkDispatchRef.current = true; }}
+                          style={{ padding: '4px 12px', fontSize: 12, color: '#FCA5A5' }}
+                        >
+                          Cancelar Disparo
+                        </button>
+                      </div>
+                      <div style={{ width: '100%', height: 8, background: 'rgba(15, 23, 42, 0.8)', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ width: `${(bulkProgress.current / Math.max(1, bulkProgress.total)) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #2563EB, #60A5FA)', transition: 'width 0.3s ease' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ══ SELEÇÃO & TABELA DE EMPRESAS ══ */}
+                  <div style={{ marginTop: 20 }}>
+                    {/* Filter sub-tabs & SELECT ALL button */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className={cls('vault-cat-pill', integrationFilter === 'all' && 'active')}
+                          onClick={() => setIntegrationFilter('all')}
+                        >
+                          Todas ({activeSourceList.length})
+                        </button>
+                        <button
+                          type="button"
+                          className={cls('vault-cat-pill', integrationFilter === 'with_wa' && 'active')}
+                          onClick={() => setIntegrationFilter('with_wa')}
+                        >
+                          🟢 Com WhatsApp ({withWaList.length})
+                        </button>
+                        <button
+                          type="button"
+                          className={cls('vault-cat-pill', integrationFilter === 'no_wa' && 'active')}
+                          onClick={() => setIntegrationFilter('no_wa')}
+                        >
+                          ⚠️ Sem WhatsApp ({noWaList.length})
+                        </button>
+                      </div>
+
+                      {/* SELECT ALL BUTTON */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={toggleSelectAll}
+                          style={{
+                            fontSize: 12.5,
+                            fontWeight: 750,
+                            padding: '7px 14px',
+                            background: allDisplayedSelected ? 'rgba(37, 99, 235, 0.3)' : 'rgba(255, 255, 255, 0.06)',
+                            border: allDisplayedSelected ? '1px solid #3B82F6' : '1px solid rgba(255, 255, 255, 0.15)',
+                            color: '#FFFFFF'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allDisplayedSelected}
+                            onChange={() => {}}
+                            style={{ marginRight: 6, accentColor: '#2563EB', cursor: 'pointer' }}
+                          />
+                          {allDisplayedSelected ? 'Desmarcar Todos' : 'Selecionar Tudo'} ({displayedList.length})
+                        </button>
+                        <span style={{ fontSize: 12, color: '#94A3B8' }}>
+                          Selecionadas: <strong style={{ color: '#60A5FA' }}>{selectedCount}</strong> de {activeSourceList.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Table of companies */}
+                    {displayedList.length > 0 ? (
+                      <div style={{ overflowX: 'auto', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(59, 130, 246, 0.25)', color: '#94A3B8', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                              <th style={{ padding: '12px 14px', width: 44 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={allDisplayedSelected}
+                                  onChange={toggleSelectAll}
+                                  style={{ accentColor: '#2563EB', cursor: 'pointer' }}
+                                />
+                              </th>
+                              <th style={{ padding: '12px 14px' }}>Empresa / Nicho</th>
+                              <th style={{ padding: '12px 14px' }}>Localização</th>
+                              <th style={{ padding: '12px 14px' }}>Contacto / WhatsApp</th>
+                              <th style={{ padding: '12px 14px', textAlign: 'right' }}>Ação</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayedList.map(b => {
+                              const isSelected = selectedBizIds.includes(b.id);
+                              const hasWa = isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ');
+                              const isEditingThis = inlinePhoneBizId === b.id;
+                              return (
+                                <tr
+                                  key={b.id}
+                                  style={{
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                    background: isSelected ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
+                                    transition: 'background 0.15s ease'
+                                  }}
+                                >
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        setSelectedBizIds(prev => prev.includes(b.id) ? prev.filter(x => x !== b.id) : [...prev, b.id]);
+                                      }}
+                                      style={{ accentColor: '#2563EB', cursor: 'pointer' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <strong style={{ color: '#FFFFFF', display: 'block' }}>{b.name}</strong>
+                                    <small style={{ color: '#94A3B8' }}>{b.category}</small>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', color: '#CBD5E1' }}>
+                                    {b.locality}, {b.province}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    {isEditingThis ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <input
+                                          value={inlinePhoneVal}
+                                          onChange={e => setInlinePhoneVal(e.target.value)}
+                                          placeholder="+258 84..."
+                                          style={{ padding: '4px 8px', fontSize: 12, borderRadius: 6, background: '#0B132B', border: '1px solid #3B82F6', color: '#FFFFFF' }}
+                                        />
+                                        <button
+                                          type="button"
+                                          className="button"
+                                          style={{ padding: '4px 8px', fontSize: 11 }}
+                                          onClick={() => {
+                                            handleUpdateBusinessPhone(b.id, inlinePhoneVal);
+                                            setInlinePhoneBizId(null);
+                                          }}
+                                        >
+                                          Guardar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="text-button"
+                                          style={{ fontSize: 11 }}
+                                          onClick={() => setInlinePhoneBizId(null)}
+                                        >
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    ) : hasWa ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.35)', color: '#4ADE80', padding: '3px 9px', borderRadius: 6, fontSize: 12, fontWeight: 650 }}>
+                                        <MessageCircle size={13} /> {formatPhone(b.phone) || b.phone}
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setInlinePhoneBizId(b.id);
+                                          setInlinePhoneVal(b.phone || '');
+                                        }}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(239, 68, 68, 0.12)', border: '1px dashed rgba(239, 68, 68, 0.4)', color: '#FCA5A5', padding: '3px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                                      >
+                                        <Phone size={12} /> {b.phone ? `${formatPhone(b.phone)} (Fixo - Inserir WhatsApp)` : '+ Inserir WhatsApp'}
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <button
+                                      type="button"
+                                      className="text-button"
+                                      onClick={() => loadBusiness(b.id, 'business', b)}
+                                      style={{ fontSize: 12, color: '#60A5FA' }}
+                                    >
+                                      Ver Ficha →
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <Empty title="Nenhuma empresa encontrada neste filtro." description="Realize uma pesquisa ou guarde leads para gerir os disparos.">
+                        <button className="button" onClick={() => navigate('search')}>
+                          Ir para Pesquisa de Clientes <ArrowRight size={15} />
+                        </button>
+                      </Empty>
+                    )}
+                  </div>
+                </section>
+
+                {/* ══ 3. GESTÃO DE EMPRESAS SEM WHATSAPP ══ */}
+                <section className="panel" style={{ padding: 24, marginBottom: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 17, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Phone size={18} color="#FBBF24" /> Relatório de Empresas "Sem WhatsApp"
+                      </h3>
+                      <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                        Empresas com telefone fixo ou sem contacto directo. Insira o WhatsApp móvel ou exporte para contacto telefónico.
+                      </p>
+                    </div>
+                    <button
+                      className="button secondary"
+                      onClick={() => exportNoWhatsAppCsv(noWaList)}
+                      disabled={noWaList.length === 0}
+                      style={{ fontSize: 12.5 }}
+                    >
+                      <Download size={15} /> Exportar Lista (CSV) ({noWaList.length})
+                    </button>
+                  </div>
+                </section>
+
+                {/* ══ 4. ROADMAP DE FUTURAS INTEGRAÇÕES ══ */}
+                <section className="panel" style={{ padding: 24 }}>
+                  <div style={{ marginBottom: 18 }}>
+                    <span className="eyebrow"><Sparkles size={13} /> EXPANSÃO DO SISTEMA</span>
+                    <h3 style={{ margin: '4px 0 0', fontSize: 18, color: '#FFFFFF' }}>Futuras Integrações em Desenvolvimento</h3>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                      Novos canais que estão a ser integrados para transformar a Prospecta no motor comercial completo para a CPLP & PALOP.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                    {[
+                      {
+                        title: 'Meta Ads & Instagram DM',
+                        badge: 'Em Desenvolvimento',
+                        badgeColor: 'blue',
+                        icon: Sparkles,
+                        desc: 'Auditoria com IA das empresas sem anúncios activos e disparo de abordagens automáticas por mensagem privada (DM) no Instagram.'
+                      },
+                      {
+                        title: 'Cold Email Corporativo',
+                        badge: 'Próximo Lançamento',
+                        badgeColor: 'amber',
+                        icon: Mail,
+                        desc: 'Sequências de e-mails profissionais (via Gmail, Outlook ou Resend) com acompanhamento de aberturas e respostas.'
+                      },
+                      {
+                        title: 'Webhooks, Zapier & Make',
+                        badge: 'Planeado',
+                        badgeColor: 'green',
+                        icon: SlidersHorizontal,
+                        desc: 'Envio automático de leads fechados para CRM externo (HubSpot, Notion, Trello, Google Sheets e ERPs locais).'
+                      },
+                      {
+                        title: 'Agente de Voz IA (Cold Calling)',
+                        badge: 'Pesquisa',
+                        badgeColor: 'purple',
+                        icon: Phone,
+                        desc: 'Ligações telefónicas automatizadas com voz ultra-realista em português para pré-qualificar decisores antes do envio de propostas.'
+                      }
+                    ].map(feat => (
+                      <div key={feat.title} style={{ padding: 18, background: 'rgba(11, 19, 38, 0.75)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(37, 99, 235, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60A5FA' }}>
+                            <feat.icon size={18} />
+                          </span>
+                          <Pill tone={feat.badgeColor as any}>{feat.badge}</Pill>
+                        </div>
+                        <h4 style={{ margin: 0, fontSize: 15, color: '#FFFFFF' }}>{feat.title}</h4>
+                        <p style={{ margin: 0, fontSize: 12.5, color: '#94A3B8', lineHeight: 1.5 }}>{feat.desc}</p>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => notify(`Obrigado pelo interesse na funcionalidade "${feat.title}"! Notificaremos no lançamento.`)}
+                          style={{ marginTop: 'auto', fontSize: 12, color: '#60A5FA', textAlign: 'left', padding: 0 }}
+                        >
+                          Manifestar Interesse →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
+            );
+          })()}
+
           {/* ══ VIEW: Cofre ══════════════════════════════ */}
           {user.profile.onboarded && view === 'vault' && (
             <>
@@ -3429,7 +4054,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
           <footer className="workspace-footer">
             <span><Radar size={14} /> Prospecta · O próximo passo é seu.</span>
-            <span>Feito para Moçambique <span className="country-dot" /></span>
+            <span>Feito para os países da CPLP & PALOP <span className="country-dot" /></span>
           </footer>
         </main>
       </div>
@@ -3549,39 +4174,85 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 </div>
               </div>
 
-              {/* Card Pro */}
-              <div className="panel content" style={{ display: 'flex', flexDirection: 'column', background: 'var(--navy-surface)', border: '2px solid #3B82F6', borderRadius: '14px', position: 'relative', boxShadow: '0 0 30px rgba(37, 99, 235, 0.25)' }}>
-                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10, background: 'rgba(37, 99, 235, 0.25)', color: '#60A5FA', borderColor: 'rgba(96, 165, 250, 0.5)', fontWeight: 700 }}>
-                  👑 Mais popular · Alta escala (Economize 150 MT)
-                </span>
-                <h3 style={{ fontSize: 20, margin: '0 0 4px', color: '#FFFFFF' }}>{PLANS.pro.name}</h3>
-                <p className="muted" style={{ fontSize: 13, minHeight: 38, color: '#94A3B8' }}>{PLANS.pro.tagline}</p>
-                <div style={{ margin: '14px 0 10px', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              {/* Card Pro (Radiant Clivra Pro Style) */}
+              <div
+                className="panel content lp-pro-glowing-card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  background: 'linear-gradient(180deg, #0e1629 0%, #070d19 100%)',
+                  border: '2px solid #3B82F6',
+                  borderRadius: '18px',
+                  position: 'relative',
+                  boxShadow: '0 0 35px rgba(59, 130, 246, 0.45), 0 0 70px rgba(99, 102, 241, 0.25), inset 0 0 25px rgba(59, 130, 246, 0.15)',
+                  padding: '24px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 22, margin: 0, fontWeight: 800, color: '#FFFFFF' }}>{PLANS.pro.name}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ background: '#3b0764', border: '1px solid #7c3aed', color: '#c084fc', fontSize: 11, fontWeight: 750, padding: '3px 10px', borderRadius: 9999 }}>
+                      Black Friday
+                    </span>
+                    <span style={{ background: 'rgba(255, 255, 255, 0.12)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#FFFFFF', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 9999 }}>
+                      Mais popular
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ margin: '8px 0 4px', display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 36, fontWeight: 850, color: '#60A5FA', textShadow: '0 0 25px rgba(96, 165, 250, 0.4)' }}>
+                    {PLANS.pro.priceMt} MT
+                  </span>
+                  <span style={{ fontSize: 13, color: '#94A3B8', fontWeight: 600 }}>no 1º mês</span>
                   {PLANS.pro.originalPriceMt && (
-                    <span style={{ fontSize: 15, color: '#64748B', textDecoration: 'line-through' }}>{PLANS.pro.originalPriceMt} MT</span>
+                    <span style={{ fontSize: 16, color: '#64748B', textDecoration: 'line-through', fontWeight: 600 }}>
+                      {PLANS.pro.originalPriceMt} MT
+                    </span>
                   )}
-                  <span style={{ fontSize: 32, fontWeight: 800, color: '#60A5FA' }}>{PLANS.pro.priceMt} MT</span>
-                  <span style={{ fontSize: 14, color: '#94A3B8' }}>{PLANS.pro.period}</span>
                 </div>
-                <div style={{ fontSize: 11, background: 'rgba(24, 119, 242, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#93C5FD', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
-                  M-Pesa · e-Mola · Cartão · Lojou Pay
+                <p style={{ margin: '0 0 10px', fontSize: 12, color: '#94A3B8' }}>
+                  Depois, {PLANS.pro.originalPriceMt || '497'} MT/mês. Oferta até 22/10.
+                </p>
+
+                <div style={{ fontSize: 11, background: 'rgba(24, 119, 242, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#93C5FD', padding: '6px 10px', borderRadius: 6, marginBottom: 14, textAlign: 'center' }}>
+                  PIX · M-Pesa · e-Mola · Cartão · Lojou Pay
                 </div>
+
+                <p className="muted" style={{ fontSize: 12.5, minHeight: 32, margin: '0 0 14px', color: '#CBD5E1', lineHeight: 1.5 }}>
+                  {PLANS.pro.tagline}
+                </p>
+
                 <a
                   href={PLANS.pro.lojouCheckoutUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="button"
-                  style={{ textDecoration: 'none', justifyContent: 'center', background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', border: '1px solid #60A5FA', color: '#FFFFFF', fontWeight: 750, boxShadow: '0 0 16px rgba(37, 99, 235, 0.4)' }}
+                  className="button lp-pro-glow-btn"
+                  style={{
+                    textDecoration: 'none',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, #1877F2 0%, #3B82F6 45%, #6366F1 100%)',
+                    boxShadow: '0 0 28px rgba(37, 99, 235, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: 14,
+                    letterSpacing: 0.6,
+                    textTransform: 'uppercase',
+                    padding: '12px 18px',
+                    borderRadius: 12
+                  }}
                 >
-                  Assinar Pro (347 MT) <ArrowRight size={15} />
+                  ASSINAR PRO
                 </a>
+
                 <div style={{ marginTop: 18, borderTop: '1px solid var(--navy-border)', paddingTop: 14, flex: 1 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, color: '#60A5FA', letterSpacing: 1 }}>TUDO DO ESSENCIAL E MAIS:</span>
                   <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                     {PLANS.pro.features.map(f => (
                       <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: '#F1F5F9' }}>
                         <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
-                        <span style={{ fontWeight: f.includes('WhatsApp') || f.includes('300') || f.includes('internacional') ? 650 : 400 }}>{f}</span>
+                        <span style={{ fontWeight: f.includes('WhatsApp') || f.includes('Vendas com IA') || f.includes('300') || f.includes('CPLP') || f.includes('Sem WhatsApp') ? 700 : 400 }}>{f}</span>
                       </li>
                     ))}
                   </ul>
