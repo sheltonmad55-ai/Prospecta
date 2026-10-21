@@ -1221,60 +1221,201 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           </div>
           <div className="topbar-right">
             <span className="country"><span className="country-dot" /> Moçambique</span>
-            <button className="balance" onClick={() => setShowPlansModal(true)} style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}>
-              <Wallet size={13} /> {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? (user.subscription.plan === 'pro' ? 'Plano Pro' : 'Plano Essencial') : 'Planos'}
+            <button
+              className="balance"
+              onClick={() => setShowPlansModal(true)}
+              style={{
+                background: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                  ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%)'
+                  : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%)',
+                borderColor: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                  ? 'rgba(16, 185, 129, 0.45)'
+                  : 'rgba(245, 158, 11, 0.45)',
+                color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                  ? '#34D399'
+                  : '#FCD34D',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              <Sparkles size={13} style={{ color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? '#34D399' : '#FBBF24' }} />
+              {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                ? (user.subscription.plan === 'pro' ? 'Plano Pro Ativo' : 'Plano Essencial')
+                : 'Ver Planos (197 MT)'}
             </button>
             <button className="balance" onClick={() => navigate('account')}><Sparkles size={14} />{user.credits.available} créditos</button>
             <span className="avatar small">{user.name.slice(0, 1)}</span>
           </div>
         </header>
 
-        {/* ══ URGENCY DEADLINE BANNER ══════════════════════ */}
+        {/* ══ URGENCY & PERSUASIVE VALUE BANNER ══════════════════════ */}
         <div className="plan-deadline-banner" role="banner" style={{
-          background: 'linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%)',
-          borderBottom: '1px solid #fde68a',
-          padding: '10px 24px',
+          background: 'linear-gradient(135deg, rgba(13, 27, 46, 0.98) 0%, rgba(17, 34, 64, 0.96) 50%, rgba(15, 23, 42, 0.98) 100%)',
+          borderBottom: '1px solid rgba(59, 130, 246, 0.35)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+          padding: '14px 28px',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '14px',
-          flexWrap: 'wrap',
-          boxShadow: '0 2px 8px rgba(245, 158, 11, 0.06)'
+          flexDirection: 'column',
+          gap: '12px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#78350f' }}>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '26px',
-              height: '26px',
-              borderRadius: '50%',
-              background: '#fde68a',
-              color: '#d97706',
-              flexShrink: 0
-            }}>
-              <AlertTriangle size={15} />
-            </span>
-            <span>
-              <strong>Prazo de Ativação do Plano:</strong> Todos os utilizadores devem escolher um plano até <b>{PLAN_DEADLINE_DISPLAY}</b> para garantir o funcionamento contínuo.
-            </span>
-            {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? (
-              <span style={{ background: '#dcfce7', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
-                Plano {user.subscription.plan === 'pro' ? 'Pro' : 'Essencial'} Ativo
+          {/* Top row: Urgency, Status, ROI Hook & Primary CTA */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.3) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                color: '#FBBF24',
+                flexShrink: 0
+              }}>
+                <AlertTriangle size={18} />
               </span>
-            ) : (
-              <span style={{ background: '#fee2e2', color: '#991b1b', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
-                Modo Demonstração
-              </span>
-            )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? (
+                    <span style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
+                      PLANO {user.subscription.plan === 'pro' ? 'PRO' : 'ESSENCIAL'} ATIVO
+                    </span>
+                  ) : (
+                    <span style={{ background: 'rgba(239, 68, 68, 0.18)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#FCA5A5', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
+                      MODO DEMONSTRAÇÃO
+                    </span>
+                  )}
+                  <span style={{ color: '#FFFFFF', fontSize: '13.5px', fontWeight: 700 }}>
+                    Prazo de Ativação: até <span style={{ color: '#FDE047', textDecoration: 'underline', textUnderlineOffset: '3px' }}>{PLAN_DEADLINE_DISPLAY}</span>
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '12.5px', color: '#93C5FD' }}>
+                  <span style={{ color: '#FFFFFF', fontWeight: 650 }}>💼 Acelere seus fechos:</span> Com apenas <strong>1 contrato fechado (15.000 a 30.000 MT)</strong>, você já cobre mais de <strong>3 anos do Plano Pro (347 MT)</strong>!
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="button"
+              onClick={() => setShowPlansModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                border: '1px solid #60A5FA',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 750,
+                padding: '9px 18px',
+                borderRadius: '8px',
+                boxShadow: '0 0 20px rgba(37, 99, 235, 0.45)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Sparkles size={15} style={{ color: '#FDE047' }} />
+              <span>Ver Benefícios & Ativar Plano (197 MT)</span>
+              <ArrowRight size={14} />
+            </button>
           </div>
-          <button
-            className="button compact"
-            onClick={() => setShowPlansModal(true)}
-            style={{ background: '#d97706', borderColor: '#b45309', color: '#ffffff', fontSize: '12px', fontWeight: 650, padding: '7px 14px' }}
-          >
-            <Sparkles size={13} /> Ver Planos & Ativar
-          </button>
+
+          {/* Bottom row: Interactive Benefits Pills */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            paddingTop: '8px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', letterSpacing: '0.8px', textTransform: 'uppercase', marginRight: '4px' }}>
+              Vantagens Exclusivas:
+            </span>
+
+            <div
+              onClick={() => setShowPlansModal(true)}
+              style={{
+                background: 'rgba(24, 119, 242, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '6px',
+                padding: '5px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                color: '#E2E8F0',
+                cursor: 'pointer'
+              }}
+            >
+              <span style={{ color: '#22C55E' }}>⚡</span>
+              <strong style={{ color: '#FFFFFF' }}>Disparo em Massa WhatsApp</strong>
+              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Com nome individual da empresa)</span>
+            </div>
+
+            <div
+              onClick={() => setShowPlansModal(true)}
+              style={{
+                background: 'rgba(24, 119, 242, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '6px',
+                padding: '5px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                color: '#E2E8F0',
+                cursor: 'pointer'
+              }}
+            >
+              <span>🌍</span>
+              <strong style={{ color: '#FFFFFF' }}>Busca Internacional</strong>
+              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Moçambique, Angola e Portugal)</span>
+            </div>
+
+            <div
+              onClick={() => setShowPlansModal(true)}
+              style={{
+                background: 'rgba(24, 119, 242, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '6px',
+                padding: '5px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                color: '#E2E8F0',
+                cursor: 'pointer'
+              }}
+            >
+              <span>🎯</span>
+              <strong style={{ color: '#FFFFFF' }}>Detector Meta Ads</strong>
+              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Auditoria IA de empresas sem anúncios)</span>
+            </div>
+
+            <div
+              onClick={() => setShowPlansModal(true)}
+              style={{
+                background: 'rgba(24, 119, 242, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '6px',
+                padding: '5px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                color: '#E2E8F0',
+                cursor: 'pointer'
+              }}
+            >
+              <span>🤖</span>
+              <strong style={{ color: '#FFFFFF' }}>IA Gemini Pro</strong>
+              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Pitches e scripts com 3x mais resposta)</span>
+            </div>
+          </div>
         </div>
 
         <main id="main" className="workspace">
@@ -3311,33 +3452,61 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             <h2 id="plans-title" style={{ marginTop: 8 }}>Invista no seu motor de prospecção</h2>
             <p className="muted">Encontre mais empresas, envie abordagens em simultâneo e feche contratos de alto valor.</p>
 
+            {/* Modal Urgency & Deadline Banner */}
             <div style={{
-              background: '#fef3c7',
-              border: '1px solid #fde68a',
-              borderRadius: '10px',
-              padding: '12px 16px',
-              margin: '16px 0 20px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(30, 58, 138, 0.22) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              margin: '16px 0 14px',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: '12px'
             }}>
-              <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-              <div style={{ fontSize: '13px', color: '#92400e' }}>
-                <strong>Aviso de Prazo:</strong> Todos os utilizadores devem escolher um plano até <b>{PLAN_DEADLINE_DISPLAY}</b> para garantir o funcionamento contínuo.
+              <div style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '6px', borderRadius: '8px', color: '#FBBF24', flexShrink: 0 }}>
+                <AlertTriangle size={18} />
+              </div>
+              <div style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: 1.5 }}>
+                <strong style={{ color: '#FDE047' }}>Prazo de Demonstração: até {PLAN_DEADLINE_DISPLAY}</strong>
+                <div style={{ color: '#CBD5E1', fontSize: '12px', marginTop: '2px' }}>
+                  Todos os utilizadores devem escolher um plano até o prazo para garantir o funcionamento contínuo e salvar suas oportunidades.
+                </div>
+              </div>
+            </div>
+
+            {/* Modal ROI Persuasion Callout */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(16, 185, 129, 0.12) 100%)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              marginBottom: '22px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px'
+            }}>
+              <span style={{ fontSize: '24px' }}>💡</span>
+              <div style={{ fontSize: '12.5px', color: '#E2E8F0', lineHeight: 1.5 }}>
+                <strong style={{ color: '#60A5FA' }}>Por que o Plano se paga sozinho?</strong>
+                <div style={{ color: '#CBD5E1', marginTop: '2px' }}>
+                  Com os scripts da IA e disparo pelo WhatsApp, fechar <strong>1 único cliente</strong> (15.000 MT a 30.000 MT) já paga mais de <strong>3 anos inteiros do Plano Pro (347 MT)</strong>. O retorno sobre o seu investimento é imediato.
+                </div>
               </div>
             </div>
 
             <div className="detail-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
               {/* Card Essencial */}
-              <div className="panel content" style={{ display: 'flex', flexDirection: 'column' }}>
-                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10 }}>Pra começar</span>
-                <h3 style={{ fontSize: 20, margin: '0 0 4px' }}>{PLANS.essential.name}</h3>
-                <p className="muted" style={{ fontSize: 13, minHeight: 38 }}>{PLANS.essential.tagline}</p>
+              <div className="panel content" style={{ display: 'flex', flexDirection: 'column', background: 'var(--navy-surface)', border: '1px solid var(--navy-border)', borderRadius: '14px' }}>
+                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10, background: 'rgba(59, 130, 246, 0.12)', color: '#93C5FD', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
+                  Pra começar · Básico
+                </span>
+                <h3 style={{ fontSize: 20, margin: '0 0 4px', color: '#FFFFFF' }}>{PLANS.essential.name}</h3>
+                <p className="muted" style={{ fontSize: 13, minHeight: 38, color: '#94A3B8' }}>{PLANS.essential.tagline}</p>
                 <div style={{ margin: '14px 0 10px', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 32, fontWeight: 800 }}>{PLANS.essential.priceMt} MT</span>
-                  <span style={{ fontSize: 14, color: 'var(--muted)' }}>{PLANS.essential.period}</span>
+                  <span style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF' }}>{PLANS.essential.priceMt} MT</span>
+                  <span style={{ fontSize: 14, color: '#94A3B8' }}>{PLANS.essential.period}</span>
                 </div>
-                <div style={{ fontSize: 11, background: 'var(--navy-surface-alt)', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, background: 'var(--navy-surface-alt)', border: '1px solid var(--navy-border)', color: '#CBD5E1', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
                   M-Pesa · e-Mola · Cartão · Lojou Pay
                 </div>
                 <a
@@ -3345,15 +3514,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   target="_blank"
                   rel="noopener noreferrer"
                   className="button"
-                  style={{ textDecoration: 'none', justifyContent: 'center' }}
+                  style={{ textDecoration: 'none', justifyContent: 'center', background: '#1E40AF', borderColor: '#3B82F6', color: '#FFFFFF', fontWeight: 700 }}
                 >
                   Assinar Essencial (197 MT) <ArrowRight size={15} />
                 </a>
                 <div style={{ marginTop: 18, borderTop: '1px solid var(--navy-border)', paddingTop: 14, flex: 1 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', letterSpacing: 1 }}>O QUE INCLUI:</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', letterSpacing: 1 }}>O QUE INCLUI:</span>
                   <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                     {PLANS.essential.features.map(f => (
-                      <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: '#E2E8F0' }}>
                         <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
                         <span>{f}</span>
                       </li>
@@ -3363,20 +3532,20 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               </div>
 
               {/* Card Pro */}
-              <div className="panel content" style={{ display: 'flex', flexDirection: 'column', borderColor: '#3b82f6', borderWidth: 2, position: 'relative' }}>
-                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10, background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
-                  Mais popular · Alta escala
+              <div className="panel content" style={{ display: 'flex', flexDirection: 'column', background: 'var(--navy-surface)', border: '2px solid #3B82F6', borderRadius: '14px', position: 'relative', boxShadow: '0 0 30px rgba(37, 99, 235, 0.25)' }}>
+                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10, background: 'rgba(37, 99, 235, 0.25)', color: '#60A5FA', borderColor: 'rgba(96, 165, 250, 0.5)', fontWeight: 700 }}>
+                  👑 Mais popular · Alta escala (Economize 150 MT)
                 </span>
-                <h3 style={{ fontSize: 20, margin: '0 0 4px' }}>{PLANS.pro.name}</h3>
-                <p className="muted" style={{ fontSize: 13, minHeight: 38 }}>{PLANS.pro.tagline}</p>
+                <h3 style={{ fontSize: 20, margin: '0 0 4px', color: '#FFFFFF' }}>{PLANS.pro.name}</h3>
+                <p className="muted" style={{ fontSize: 13, minHeight: 38, color: '#94A3B8' }}>{PLANS.pro.tagline}</p>
                 <div style={{ margin: '14px 0 10px', display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   {PLANS.pro.originalPriceMt && (
-                    <span style={{ fontSize: 15, color: 'var(--muted)', textDecoration: 'line-through' }}>{PLANS.pro.originalPriceMt} MT</span>
+                    <span style={{ fontSize: 15, color: '#64748B', textDecoration: 'line-through' }}>{PLANS.pro.originalPriceMt} MT</span>
                   )}
-                  <span style={{ fontSize: 32, fontWeight: 800, color: '#2563eb' }}>{PLANS.pro.priceMt} MT</span>
-                  <span style={{ fontSize: 14, color: 'var(--muted)' }}>{PLANS.pro.period}</span>
+                  <span style={{ fontSize: 32, fontWeight: 800, color: '#60A5FA' }}>{PLANS.pro.priceMt} MT</span>
+                  <span style={{ fontSize: 14, color: '#94A3B8' }}>{PLANS.pro.period}</span>
                 </div>
-                <div style={{ fontSize: 11, background: '#eff6ff', color: '#1e40af', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, background: 'rgba(24, 119, 242, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#93C5FD', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
                   M-Pesa · e-Mola · Cartão · Lojou Pay
                 </div>
                 <a
@@ -3384,17 +3553,17 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   target="_blank"
                   rel="noopener noreferrer"
                   className="button"
-                  style={{ textDecoration: 'none', justifyContent: 'center', background: '#2563eb' }}
+                  style={{ textDecoration: 'none', justifyContent: 'center', background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', border: '1px solid #60A5FA', color: '#FFFFFF', fontWeight: 750, boxShadow: '0 0 16px rgba(37, 99, 235, 0.4)' }}
                 >
                   Assinar Pro (347 MT) <ArrowRight size={15} />
                 </a>
                 <div style={{ marginTop: 18, borderTop: '1px solid var(--navy-border)', paddingTop: 14, flex: 1 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: 1 }}>TUDO DO ESSENCIAL E MAIS:</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#60A5FA', letterSpacing: 1 }}>TUDO DO ESSENCIAL E MAIS:</span>
                   <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                     {PLANS.pro.features.map(f => (
-                      <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: '#F1F5F9' }}>
                         <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
-                        <span>{f}</span>
+                        <span style={{ fontWeight: f.includes('WhatsApp') || f.includes('300') || f.includes('internacional') ? 650 : 400 }}>{f}</span>
                       </li>
                     ))}
                   </ul>
@@ -3402,8 +3571,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               </div>
             </div>
 
-            <div style={{ marginTop: 20, padding: 12, background: 'var(--navy-surface-alt)', borderRadius: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
-              🛡️ Pagamento seguro via <b>Lojou</b>. Aceita M-Pesa e e-Mola (Moçambique) e Cartões Visa/Mastercard internacionais.
+            <div style={{ marginTop: 20, padding: 14, background: 'var(--navy-surface-alt)', border: '1px solid var(--navy-border)', borderRadius: 10, fontSize: 12.5, color: '#CBD5E1', textAlign: 'center' }}>
+              🛡️ Pagamento seguro via <b>Lojou</b>. Aceita M-Pesa e e-Mola (Moçambique) e Cartões Visa/Mastercard internacionais. Ativação imediata sem fidelização.
             </div>
           </section>
         </div>
