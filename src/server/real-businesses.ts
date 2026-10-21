@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { PROVINCES, type Business, type Evidence } from '../lib/contracts.ts';
+import { PROVINCES, getCountryByCode, type CountryOption, type Business, type Evidence } from '../lib/contracts.ts';
 import { db, now } from './db.ts';
 import { validPhone, normalize } from './providers.ts';
 
@@ -10,7 +10,7 @@ import { validPhone, normalize } from './providers.ts';
  */
 export function sanitizeMozambiquePhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
-  const validated = validPhone(phone);
+  const validated = validPhone(phone, 'MZ');
   if (!validated) return null;
 
   const digits = validated.replace(/\D/g, '');
@@ -29,6 +29,19 @@ export function sanitizeMozambiquePhone(phone: string | null | undefined): strin
     return null;
   }
 
+  return validated;
+}
+
+export function sanitizeBusinessPhone(phone: string | null | undefined, countryCode = 'MZ'): string | null {
+  if (!phone) return null;
+  if (countryCode === 'MZ' || phone.startsWith('+258')) {
+    return sanitizeMozambiquePhone(phone);
+  }
+  const validated = validPhone(phone, countryCode);
+  if (!validated) return null;
+  const digits = validated.replace(/\D/g, '');
+  if (digits.length < 8) return null;
+  if (/^(.)\1+$/.test(digits)) return null;
   return validated;
 }
 
@@ -347,7 +360,7 @@ export function canonicalBizId(name: string, provinceOrLocality: string): string
   return 'biz-' + createHash('sha256').update(normName + '|' + normProv).digest('hex').slice(0, 16);
 }
 
-export function resolveProvince(cityName: string): string {
+export function resolveProvince(cityName: string, fallback?: string): string {
   const norm = normalize(cityName);
   if (norm.includes('maputo cidade') || norm === 'maputo' || norm.includes('polana') || norm.includes('sommerschield') || norm.includes('malhangalene') || norm.includes('kamubukwana') || norm.includes('katembe') || norm.includes('maxaquene') || norm.includes('costa do sol')) return 'Maputo Cidade';
   if (norm.includes('matola') || norm.includes('boane') || norm.includes('machava') || norm.includes('fomento') || norm.includes('marracuene') || norm.includes('manhica') || norm.includes('moamba')) return 'Maputo Província';
@@ -360,16 +373,17 @@ export function resolveProvince(cityName: string): string {
   if (norm.includes('inhambane') || norm.includes('maxixe') || norm.includes('vilankulo') || norm.includes('tofo')) return 'Inhambane';
   if (norm.includes('pemba') || norm.includes('montepuez') || norm.includes('palma') || norm.includes('mocimboa')) return 'Cabo Delgado';
   if (norm.includes('lichinga') || norm.includes('cuamba') || norm.includes('marrupa')) return 'Niassa';
-  return 'Maputo Cidade';
+  return fallback || 'Maputo Cidade';
 }
 
 /**
  * Serper Google Maps Places API provider
  */
-async function querySerperPlaces(niche: string, city: string): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
+async function querySerperPlaces(niche: string, city: string, country = getCountryByCode('MZ'), provinceFilter = ''): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
   const apiKey = process.env.SERPER_API_KEY;
   if (!apiKey) return [];
   try {
+    const locText = [city, provinceFilter, country.name].filter(Boolean).join(', ');
     const res = await fetch('https://google.serper.dev/places', {
       method: 'POST',
       headers: {
@@ -378,21 +392,21 @@ async function querySerperPlaces(niche: string, city: string): Promise<Array<{ n
       },
       signal: AbortSignal.timeout(7000),
       body: JSON.stringify({
-        q: `${niche} em ${city}, Moçambique`,
-        gl: 'mz',
+        q: `${niche} em ${locText}`,
+        gl: country.code.toLowerCase(),
         hl: 'pt'
       })
     });
     if (!res.ok) return [];
     const data = await res.json() as { places?: Array<{ title?: string; address?: string; phoneNumber?: string; website?: string; category?: string }> };
     if (!data.places || !Array.isArray(data.places)) return [];
-    const province = resolveProvince(city);
+    const province = provinceFilter || resolveProvince(city, country.code === 'MZ' ? undefined : (country.provinces[0] || city));
     return data.places.filter(p => p.title).map(p => ({
       name: p.title!,
       category: p.category || niche,
       locality: p.address ? `${p.address.split(',')[0].trim()}, ${city}` : city,
       province,
-      phone: p.phoneNumber ? validPhone(p.phoneNumber) : null,
+      phone: sanitizeBusinessPhone(p.phoneNumber, country.code),
       website: p.website || null,
       address: p.address
     }));
@@ -404,22 +418,23 @@ async function querySerperPlaces(niche: string, city: string): Promise<Array<{ n
 /**
  * SerpApi Google Maps / Places API provider
  */
-async function querySerpApiPlaces(niche: string, city: string): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
+async function querySerpApiPlaces(niche: string, city: string, country = getCountryByCode('MZ'), provinceFilter = ''): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
   const apiKey = process.env.SERPAPI_API_KEY || (process.env.SERPER_API_KEY && process.env.SERPER_API_KEY.length > 50 ? process.env.SERPER_API_KEY : null);
   if (!apiKey) return [];
   try {
-    const url = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(niche + ' em ' + city + ', Moçambique')}&api_key=${apiKey}&google_domain=google.co.mz&gl=mz&hl=pt`;
+    const locText = [city, provinceFilter, country.name].filter(Boolean).join(', ');
+    const url = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(niche + ' em ' + locText)}&api_key=${apiKey}&gl=${country.code.toLowerCase()}&hl=pt`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return [];
     const data = await res.json() as { local_results?: Array<{ title?: string; address?: string; phone?: string; website?: string; type?: string }> };
     if (!data.local_results || !Array.isArray(data.local_results)) return [];
-    const province = resolveProvince(city);
+    const province = provinceFilter || resolveProvince(city, country.code === 'MZ' ? undefined : (country.provinces[0] || city));
     return data.local_results.filter(p => p.title).map(p => ({
       name: p.title!,
       category: p.type || niche,
       locality: p.address ? `${p.address.split(',')[0].trim()}, ${city}` : city,
       province,
-      phone: sanitizeMozambiquePhone(p.phone),
+      phone: sanitizeBusinessPhone(p.phone, country.code),
       website: p.website && /^https?:\/\//i.test(p.website) ? p.website : null,
       address: p.address
     }));
@@ -431,9 +446,9 @@ async function querySerpApiPlaces(niche: string, city: string): Promise<Array<{ 
 /**
  * OpenStreetMap Nominatim Live Search provider (Free public geospatial data)
  */
-async function queryOsmPlaces(niche: string, city: string): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
+async function queryOsmPlaces(niche: string, city: string, country = getCountryByCode('MZ'), provinceFilter = ''): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(niche + ' ' + city)}&countrycodes=mz&format=json&addressdetails=1&extratags=1&limit=15`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(niche + ' ' + city)}&countrycodes=${country.code.toLowerCase()}&format=json&addressdetails=1&extratags=1&limit=15`;
     const res = await fetch(url, {
       headers: { 'User-Agent': 'ProspectaRadar/1.0 (contact@prospecta.co.mz)' },
       signal: AbortSignal.timeout(5000)
@@ -445,7 +460,7 @@ async function queryOsmPlaces(niche: string, city: string): Promise<Array<{ name
       address?: Record<string, string>;
     }>;
     if (!Array.isArray(items)) return [];
-    const province = resolveProvince(city);
+    const province = provinceFilter || resolveProvince(city, country.code === 'MZ' ? undefined : (country.provinces[0] || city));
     const validItems: Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }> = [];
     for (const it of items) {
       if (!it.name) continue;
@@ -458,7 +473,7 @@ async function queryOsmPlaces(niche: string, city: string): Promise<Array<{ name
         category: niche,
         locality: `${sub}, ${city}`,
         province,
-        phone: rawPhone ? validPhone(rawPhone) : null,
+        phone: rawPhone ? sanitizeBusinessPhone(rawPhone, country.code) : null,
         website: web,
         address: it.display_name
       });
@@ -534,22 +549,22 @@ async function queryOverpassPlaces(niche: string, city: string): Promise<Array<{
 /**
  * Gemini Live Commercial Radar provider with Google Search grounding
  */
-async function queryGeminiRadar(niche: string, cities: string[]): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string }>> {
+async function queryGeminiRadar(niche: string, cities: string[], country = getCountryByCode('MZ'), provinceFilter = ''): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string }>> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return [];
   const rawModel = process.env.GEMINI_MODEL;
   const model = (rawModel && rawModel !== 'gemini-1.5-flash') ? rawModel : 'gemini-flash-lite-latest';
   
-  const prompt = `És um directório e radar comercial de alta precisão para Moçambique.
-Pesquisa e localiza até 15 empresas, negócios ou estabelecimentos comerciais REAIS e existentes em Moçambique no nicho "${niche}" nas cidades "${cities.join(', ')}".
+  const prompt = `És um directório e radar comercial de alta precisão para ${country.name}.
+Pesquisa e localiza até 15 empresas, negócios ou estabelecimentos comerciais REAIS e existentes em ${country.name} no nicho "${niche}" nas cidades "${cities.join(', ')}"${provinceFilter ? ` na província/região "${provinceFilter}"` : ''}.
 Regras obrigatórias de veracidade comercial:
-- APENAS empresas e locais REAIS existentes no terreno em Moçambique. Proibido inventar dados ou criar nomes fictícios.
+- APENAS empresas e locais REAIS existentes no terreno em ${country.name}. Proibido inventar dados ou criar nomes fictícios.
 - name: string (nome comercial real da empresa ou estabelecimento)
 - category: string (categoria em português)
-- province: string (exata: Cabo Delgado, Gaza, Inhambane, Manica, Maputo Província, Maputo Cidade, Nampula, Niassa, Sofala, Tete ou Zambézia)
-- locality: string (bairro e cidade, ex: "Sommerschield, Maputo", "Polana, Maputo", "Baixa, Maputo", "Fomento, Matola", "Ponta Gêa, Beira")
+- province: string (província, estado ou região em ${country.name})
+- locality: string (bairro e cidade, ex: "${cities[0] || 'Centro'}, ${country.name}")
 - phone: string ou null (PROIBIDO adivinhar números de telefone. Coloca phone: null em todas as empresas cujo telefone não esteja explicitamente visível no snippet da pesquisa Google. NUNCA inventes números nem uses sequências repetidas como 111, 222, 555, 123)
-- website: string ou null (ATENÇÃO: A grande maioria das empresas em Moçambique NÃO possui website próprio. É ESTRITAMENTE PROIBIDO inventar, deduzir ou adivinhar domínios ou URLs, especialmente domínios terminados em .co.mz ou .mz. Se a empresa não tiver um website oficial real e comprovado, coloca OBRIGATORIAMENTE website: null)
+- website: string ou null (se a empresa não tiver um website oficial real e comprovado, coloca OBRIGATORIAMENTE website: null)
 - instagram: string ou null (perfil real com @ se existir, senão null)
 - description: string (resumo verídico dos serviços e especialidades)
 
@@ -574,7 +589,7 @@ Responde ESTRITAMENTE em formato JSON (array de objetos).`;
         const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(item => ({ ...item, phone: sanitizeMozambiquePhone(item.phone) }));
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(item => ({ ...item, phone: sanitizeBusinessPhone(item.phone, country.code) }));
         }
       }
     }
@@ -600,26 +615,28 @@ Responde ESTRITAMENTE em formato JSON (array de objetos).`;
     const parsed = JSON.parse(text) as Array<{
       name: string; category: string; province: string; locality: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string;
     }>;
-    return Array.isArray(parsed) ? parsed.map(item => ({ ...item, phone: sanitizeMozambiquePhone(item.phone) })) : [];
+    return Array.isArray(parsed) ? parsed.map(item => ({ ...item, phone: sanitizeBusinessPhone(item.phone, country.code) })) : [];
   } catch {
     return [];
   }
 }
 
 /**
- * Live sweep: scans Curated Mozambican Registry, Google Maps / Places, OSM and Gemini Radar in real time for Mozambique.
+ * Live sweep: scans Curated Registry, Google Maps / Places, OSM and Gemini Radar in real time.
  * Caches every discovered business into the database and returns them immediately.
  * ZERO synthetic data: no fake names, no fake phones, no fake domains.
  */
-export async function sweepRealBusinesses(niche: string, citiesInput: string | string[]): Promise<Business[]> {
-  const citiesStr = Array.isArray(citiesInput) ? citiesInput.join(', ') : (citiesInput || 'Maputo, Matola');
+export async function sweepRealBusinesses(niche: string, citiesInput: string | string[], countryCode = 'MZ', provinceFilter = ''): Promise<Business[]> {
+  const country = getCountryByCode(countryCode);
+  const defaultCities = country.code === 'MZ' ? 'Maputo, Matola' : country.code === 'PT' ? 'Lisboa, Porto' : country.code === 'AO' ? 'Luanda, Benguela' : country.code === 'BR' ? 'São Paulo, Rio de Janeiro' : 'Central';
+  const citiesStr = Array.isArray(citiesInput) ? citiesInput.join(', ') : (citiesInput || defaultCities);
   const cleanNiche = niche.trim() || 'Serviços e Negócios';
-  const cityTokens = (citiesStr || 'Maputo, Matola')
+  const cityTokens = (citiesStr || defaultCities)
     .split(',')
     .map(c => c.trim())
     .filter(Boolean)
     .slice(0, 5);
-  const selectedCities = cityTokens.length > 0 ? cityTokens : ['Maputo', 'Matola'];
+  const selectedCities = cityTokens.length > 0 ? cityTokens : [defaultCities.split(',')[0].trim()];
   const observedAt = now();
   const database = db();
   const upsert = database.prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data');
@@ -628,70 +645,74 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
 
-  // 1. Curated real Mozambican businesses check
-  const matchNiche = (target: string, query: string): boolean => {
-    if (!query || !query.trim()) return true;
-    const targetNorm = normalize(target);
-    const queryNorm = normalize(query.trim());
-    if (targetNorm.includes(queryNorm)) return true;
-    const queryWords = queryNorm.split(/[\s,]+/).filter(w => w.length >= 2);
-    if (queryWords.length === 0) return true;
-    return queryWords.some(word => {
-      if (targetNorm.includes(word)) return true;
-      if (word.endsWith('s') && word.length > 3 && targetNorm.includes(word.slice(0, -1))) return true;
-      const stem = word.length > 5 ? word.slice(0, word.length - 2) : word.slice(0, word.length - 1);
-      if (stem.length >= 3 && targetNorm.includes(stem)) return true;
-      return false;
-    });
-  };
-
-  for (const item of CURATED_BUSINESSES) {
-    const itemSearchable = `${item.category} ${item.name} ${item.description}`;
-    if (!matchNiche(itemSearchable, cleanNiche)) continue;
-
-    const itemLoc = normalize(item.locality);
-    const itemProv = normalize(item.province);
-    const matchesCity = selectedCities.length === 0 || selectedCities.some(city => {
-      const c = normalize(city);
-      return itemLoc.includes(c) || itemProv.includes(c) || c.includes(itemLoc) || c.includes(itemProv);
-    });
-    if (!matchesCity) continue;
-
-    const bId = canonicalBizId(item.name, item.province);
-    const normKey = normalize(item.name).toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (seenIds.has(bId) || seenNames.has(normKey)) continue;
-    seenIds.add(bId);
-    seenNames.add(normKey);
-
-    const biz: Business = {
-      id: bId,
-      name: item.name,
-      category: item.category,
-      province: item.province,
-      locality: item.locality,
-      description: item.description,
-      phone: item.phone ? validPhone(item.phone) : null,
-      website: item.website || null,
-      instagram: item.instagram || null,
-      source: 'Diretório Comercial de Moçambique',
-      observedAt,
-      isDemo: false,
-      evidence: [
-        { id: `${bId}-name`, field: 'name', value: item.name, source: 'Diretório Comercial de Moçambique', observedAt },
-        { id: `${bId}-loc`, field: 'location', value: `${item.locality}, ${item.province}`, source: 'Diretório Comercial de Moçambique', observedAt },
-        { id: `${bId}-cat`, field: 'category', value: item.category, source: 'Diretório Comercial de Moçambique', observedAt }
-      ]
+  // 1. Curated real Mozambican businesses check (only if country is MZ)
+  if (country.code === 'MZ') {
+    const matchNiche = (target: string, query: string): boolean => {
+      if (!query || !query.trim()) return true;
+      const targetNorm = normalize(target);
+      const queryNorm = normalize(query.trim());
+      if (targetNorm.includes(queryNorm)) return true;
+      const queryWords = queryNorm.split(/[\s,]+/).filter(w => w.length >= 2);
+      if (queryWords.length === 0) return true;
+      return queryWords.some(word => {
+        if (targetNorm.includes(word)) return true;
+        if (word.endsWith('s') && word.length > 3 && targetNorm.includes(word.slice(0, -1))) return true;
+        const stem = word.length > 5 ? word.slice(0, word.length - 2) : word.slice(0, word.length - 1);
+        if (stem.length >= 3 && targetNorm.includes(stem)) return true;
+        return false;
+      });
     };
-    if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Registo Telefónico MZ', observedAt });
-    if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Registo Digital MZ', observedAt });
-    upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
-    collected.push(biz);
+
+    for (const item of CURATED_BUSINESSES) {
+      const itemSearchable = `${item.category} ${item.name} ${item.description}`;
+      if (!matchNiche(itemSearchable, cleanNiche)) continue;
+
+      const itemLoc = normalize(item.locality);
+      const itemProv = normalize(item.province);
+      const matchesCity = selectedCities.length === 0 || selectedCities.some(city => {
+        const c = normalize(city);
+        return itemLoc.includes(c) || itemProv.includes(c) || c.includes(itemLoc) || c.includes(itemProv);
+      });
+      if (!matchesCity) continue;
+      if (provinceFilter && !itemProv.includes(normalize(provinceFilter)) && !normalize(provinceFilter).includes(itemProv)) continue;
+
+      const bId = canonicalBizId(item.name, item.province);
+      const normKey = normalize(item.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenIds.has(bId) || seenNames.has(normKey)) continue;
+      seenIds.add(bId);
+      seenNames.add(normKey);
+
+      const biz: Business = {
+        id: bId,
+        name: item.name,
+        category: item.category,
+        province: item.province,
+        locality: item.locality,
+        country: 'MZ',
+        description: item.description,
+        phone: item.phone ? validPhone(item.phone, 'MZ') : null,
+        website: item.website || null,
+        instagram: item.instagram || null,
+        source: 'Diretório Comercial de Moçambique',
+        observedAt,
+        isDemo: false,
+        evidence: [
+          { id: `${bId}-name`, field: 'name', value: item.name, source: 'Diretório Comercial de Moçambique', observedAt },
+          { id: `${bId}-loc`, field: 'location', value: `${item.locality}, ${item.province}`, source: 'Diretório Comercial de Moçambique', observedAt },
+          { id: `${bId}-cat`, field: 'category', value: item.category, source: 'Diretório Comercial de Moçambique', observedAt }
+        ]
+      };
+      if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Registo Telefónico MZ', observedAt });
+      if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Registo Digital MZ', observedAt });
+      upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
+      collected.push(biz);
+    }
   }
 
   // 2. Google Maps search (Serper.dev or SerpApi)
   for (const city of selectedCities) {
-    const serperPlaces = await querySerperPlaces(cleanNiche, city);
-    const serpapiPlaces = serperPlaces.length === 0 ? await querySerpApiPlaces(cleanNiche, city) : [];
+    const serperPlaces = await querySerperPlaces(cleanNiche, city, country, provinceFilter);
+    const serpapiPlaces = serperPlaces.length === 0 ? await querySerpApiPlaces(cleanNiche, city, country, provinceFilter) : [];
     const places = [...serperPlaces, ...serpapiPlaces];
     for (const p of places) {
       const bId = canonicalBizId(p.name, p.province || city);
@@ -706,21 +727,22 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
         category: p.category || cleanNiche,
         province: p.province,
         locality: p.locality,
-        description: `Negócio localizado em ${p.locality}, verificado via Google Maps Moçambique.`,
-        phone: sanitizeMozambiquePhone(p.phone),
+        country: country.code,
+        description: `Negócio localizado em ${p.locality}, verificado via Google Maps ${country.name}.`,
+        phone: sanitizeBusinessPhone(p.phone, country.code),
         website: validWeb,
         instagram: null,
-        source: 'Google Maps Moçambique',
+        source: `Google Maps ${country.name}`,
         observedAt,
         isDemo: false,
         evidence: [
-          { id: `${bId}-name`, field: 'name', value: p.name, source: 'Google Maps Moçambique', observedAt },
-          { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: 'Google Maps Moçambique', observedAt },
-          { id: `${bId}-cat`, field: 'category', value: p.category || cleanNiche, source: 'Google Maps Moçambique', observedAt }
+          { id: `${bId}-name`, field: 'name', value: p.name, source: `Google Maps ${country.name}`, observedAt },
+          { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: `Google Maps ${country.name}`, observedAt },
+          { id: `${bId}-cat`, field: 'category', value: p.category || cleanNiche, source: `Google Maps ${country.name}`, observedAt }
         ]
       };
-      if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Google Maps Contacto', observedAt });
-      if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Google Maps Website', observedAt });
+      if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: `Contacto ${country.code}`, observedAt });
+      if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: `Website ${country.code}`, observedAt });
       upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
       collected.push(biz);
     }
@@ -729,7 +751,7 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
   // 3. Overpass & OpenStreetMap Spatial Live Search
   if (collected.length < 15) {
     for (const city of selectedCities) {
-      const overpassPlaces = await queryOverpassPlaces(cleanNiche, city);
+      const overpassPlaces = country.code === 'MZ' ? await queryOverpassPlaces(cleanNiche, city) : [];
       for (const p of overpassPlaces) {
         const bId = canonicalBizId(p.name, p.province || city);
         const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -743,27 +765,28 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
           category: cleanNiche,
           province: p.province,
           locality: p.locality,
-          description: `Estabelecimento localizado em ${p.locality}, registado no mapeamento geográfico de Moçambique.`,
-          phone: sanitizeMozambiquePhone(p.phone),
+          country: country.code,
+          description: `Estabelecimento localizado em ${p.locality}, registado no mapeamento geográfico de ${country.name}.`,
+          phone: sanitizeBusinessPhone(p.phone, country.code),
           website: validWeb,
           instagram: null,
-          source: 'Mapeamento Comercial Moçambique',
+          source: `Mapeamento Comercial ${country.name}`,
           observedAt,
           isDemo: false,
           evidence: [
-            { id: `${bId}-name`, field: 'name', value: p.name, source: 'Mapeamento Comercial Moçambique', observedAt },
-            { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: 'Mapeamento Comercial Moçambique', observedAt },
-            { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: 'Mapeamento Comercial Moçambique', observedAt }
+            { id: `${bId}-name`, field: 'name', value: p.name, source: `Mapeamento Comercial ${country.name}`, observedAt },
+            { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: `Mapeamento Comercial ${country.name}`, observedAt },
+            { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: `Mapeamento Comercial ${country.name}`, observedAt }
           ]
         };
-        if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Contacto Registado MZ', observedAt });
-        if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Website Registado MZ', observedAt });
+        if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: `Contacto ${country.code}`, observedAt });
+        if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: `Website ${country.code}`, observedAt });
         upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
         collected.push(biz);
       }
 
       if (collected.length < 15) {
-        const osmPlaces = await queryOsmPlaces(cleanNiche, city);
+        const osmPlaces = await queryOsmPlaces(cleanNiche, city, country, provinceFilter);
         for (const p of osmPlaces) {
           const bId = canonicalBizId(p.name, p.province || city);
           const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -777,21 +800,22 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
             category: cleanNiche,
             province: p.province,
             locality: p.locality,
-            description: `Estabelecimento localizado em ${p.locality}, registado no mapeamento geográfico de Moçambique.`,
-            phone: sanitizeMozambiquePhone(p.phone),
+            country: country.code,
+            description: `Estabelecimento localizado em ${p.locality}, registado no mapeamento geográfico de ${country.name}.`,
+            phone: sanitizeBusinessPhone(p.phone, country.code),
             website: validWeb,
             instagram: null,
-            source: 'OpenStreetMap Moçambique',
+            source: `Mapeamento Comercial ${country.name}`,
             observedAt,
             isDemo: false,
             evidence: [
-              { id: `${bId}-name`, field: 'name', value: p.name, source: 'OpenStreetMap Moçambique', observedAt },
-              { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: 'OpenStreetMap Moçambique', observedAt },
-              { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: 'OpenStreetMap Moçambique', observedAt }
+              { id: `${bId}-name`, field: 'name', value: p.name, source: `Mapeamento Comercial ${country.name}`, observedAt },
+              { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${p.province}`, source: `Mapeamento Comercial ${country.name}`, observedAt },
+              { id: `${bId}-cat`, field: 'category', value: cleanNiche, source: `Mapeamento Comercial ${country.name}`, observedAt }
             ]
           };
-          if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Contacto OSM', observedAt });
-          if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Website OSM', observedAt });
+          if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: `Contacto ${country.code}`, observedAt });
+          if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: `Website ${country.code}`, observedAt });
           upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
           collected.push(biz);
         }
@@ -801,19 +825,23 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
 
   // 4. Gemini Live Commercial Radar with Google Search grounding (Real places only)
   if (collected.length < 15) {
-    const aiPlaces = await queryGeminiRadar(cleanNiche, selectedCities);
+    const aiPlaces = await queryGeminiRadar(cleanNiche, selectedCities, country, provinceFilter);
     for (const p of aiPlaces) {
-      const prov = PROVINCES.includes(p.province as typeof PROVINCES[number]) ? p.province : resolveProvince(p.locality);
+      const prov = (country.provinces && country.provinces.includes(p.province)) ? p.province : resolveProvince(p.locality, country.code === 'MZ' ? undefined : (country.provinces[0] || p.locality));
       const bId = canonicalBizId(p.name, prov || p.locality);
       const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
       if (seenIds.has(bId) || seenNames.has(normKey)) continue;
       seenIds.add(bId);
       seenNames.add(normKey);
-      const phone = sanitizeMozambiquePhone(p.phone);
+      const phone = sanitizeBusinessPhone(p.phone, country.code);
       let website: string | null = null;
       if (p.website && /^https?:\/\//i.test(p.website)) {
         const cleanWeb = p.website.trim();
-        if (!cleanWeb.toLowerCase().includes('.co.mz') && !cleanWeb.toLowerCase().endsWith('.mz')) {
+        if (country.code === 'MZ') {
+          if (!cleanWeb.toLowerCase().includes('.co.mz') && !cleanWeb.toLowerCase().endsWith('.mz')) {
+            website = cleanWeb;
+          }
+        } else {
           website = cleanWeb;
         }
       }
@@ -824,22 +852,23 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
         category: p.category || cleanNiche,
         province: prov,
         locality: p.locality,
+        country: country.code,
         description: p.description || `Serviços profissionais e atendimento de ${cleanNiche} em ${p.locality}.`,
         phone,
         website,
         instagram,
-        source: 'Radar Comercial Moçambique',
+        source: `Radar Comercial ${country.name}`,
         observedAt,
         isDemo: false,
         evidence: [
-          { id: `${bId}-name`, field: 'name', value: p.name, source: 'Radar Comercial Moçambique', observedAt },
-          { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${prov}`, source: 'Radar Comercial Moçambique', observedAt },
-          { id: `${bId}-cat`, field: 'category', value: p.category || cleanNiche, source: 'Radar Comercial Moçambique', observedAt }
+          { id: `${bId}-name`, field: 'name', value: p.name, source: `Radar Comercial ${country.name}`, observedAt },
+          { id: `${bId}-loc`, field: 'location', value: `${p.locality}, ${prov}`, source: `Radar Comercial ${country.name}`, observedAt },
+          { id: `${bId}-cat`, field: 'category', value: p.category || cleanNiche, source: `Radar Comercial ${country.name}`, observedAt }
         ]
       };
-      if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: 'Registo Telefónico MZ', observedAt });
-      if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: 'Presença Digital MZ', observedAt });
-      if (biz.instagram) biz.evidence.push({ id: `${bId}-ig`, field: 'instagram', value: biz.instagram, source: 'Instagram Moçambique', observedAt });
+      if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: `Registo Telefónico ${country.code}`, observedAt });
+      if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: `Presença Digital ${country.code}`, observedAt });
+      if (biz.instagram) biz.evidence.push({ id: `${bId}-ig`, field: 'instagram', value: biz.instagram, source: `Instagram ${country.code}`, observedAt });
       upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
       collected.push(biz);
     }

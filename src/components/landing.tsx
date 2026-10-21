@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ArrowRight, ArrowUpRight, AtSign, Bookmark, Building2, CalendarDays, Check, ChevronDown, Compass, Copy, Database, FileText, Globe2, LoaderCircle, MapPin, Menu, MessageCircle, Radar, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
-import { PROVINCES } from '@/lib/contracts';
+import { PROVINCES, PLANS, PLAN_DEADLINE_DISPLAY } from '@/lib/contracts';
 import './landing.css';
 
 export const ROTATING_SERVICES = [
@@ -138,9 +138,9 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
       <div className="lp-stars" aria-hidden="true">{Array.from({ length: 33 }, (_, i) => <i key={i} style={{ left: `${(i * 37 + 8) % 99}%`, top: `${(i * 23 + 9) % 94}%`, opacity: 0.2 + (i % 4) * 0.13, width: i % 5 === 0 ? 3 : 2, height: i % 5 === 0 ? 3 : 2 }} />)}</div>
       <header className="lp-header"><nav className="lp-nav" aria-label="Navegação da página inicial">
         <LandingBrand />
-        <div className="lp-nav-links"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#perguntas">Perguntas frequentes</a></div>
+        <div className="lp-nav-links"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#planos">Planos</a><a href="#perguntas">Perguntas frequentes</a></div>
         <div className="lp-nav-actions"><button className="lp-login" onClick={onLogin}>Entrar</button><button className="lp-button lp-nav-cta" onClick={onRegister}>Ir para o Prospecta</button><button className="lp-menu" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="lp-mobile-nav" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}>{menuOpen ? <X size={22} /> : <Menu size={22} />}</button></div>
-        {menuOpen && <div className="lp-mobile-nav" id="lp-mobile-nav"><a href="#como-funciona" onClick={closeMenu}>Como funciona</a><a href="#recursos" onClick={closeMenu}>Recursos</a><a href="#perguntas" onClick={closeMenu}>Perguntas frequentes</a><button className="lp-mobile-login" onClick={() => { closeMenu(); onLogin(); }}>Entrar</button><button className="lp-mobile-cta" onClick={() => { closeMenu(); onRegister(); }}>Ir para o Prospecta <ArrowRight size={16} /></button></div>}
+        {menuOpen && <div className="lp-mobile-nav" id="lp-mobile-nav"><a href="#como-funciona" onClick={closeMenu}>Como funciona</a><a href="#recursos" onClick={closeMenu}>Recursos</a><a href="#planos" onClick={closeMenu}>Planos</a><a href="#perguntas" onClick={closeMenu}>Perguntas frequentes</a><button className="lp-mobile-login" onClick={() => { closeMenu(); onLogin(); }}>Entrar</button><button className="lp-mobile-cta" onClick={() => { closeMenu(); onRegister(); }}>Ir para o Prospecta <ArrowRight size={16} /></button></div>}
       </nav></header>
 
       <section className="lp-hero" aria-labelledby="lp-title">
@@ -299,6 +299,76 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
       <section className="lp-audience lp-reveal"><span className="lp-section-kicker">O SEU SERVIÇO TEM LUGAR AQUI</span><h2>Feito para quem vende<br />serviços a empresas.</h2><p>Freelancers, consultores e pequenas agências podem usar a Prospecta para organizar a procura de novos clientes.</p><div>{['Criação de sites', 'Redes sociais', 'Design', 'Marketing', 'Fotografia', 'Vídeo', 'Consultoria', 'Menus digitais'].map(item => <span key={item}>{item}</span>)}</div></section>
 
       <section className="lp-country-section lp-reveal"><div><Globe2 size={24} /><div><h3>Do Rovuma ao Maputo.</h3><p>Escolha onde quer encontrar oportunidades. A disponibilidade de informação varia por fonte e localidade.</p></div></div><div className="lp-provinces">{PROVINCES.map(province => <span key={province}><MapPin size={11} />{province}</span>)}</div></section>
+
+      <section className="lp-section lp-pricing lp-reveal" id="planos">
+        <div className="lp-section-heading lp-pricing-heading">
+          <span className="lp-section-kicker">PLANOS ACESSÍVEIS E SEM COMPLICAÇÕES</span>
+          <h2>Invista no seu motor de prospecção</h2>
+          <p>Encontre mais empresas, envie abordagens em simultâneo no WhatsApp e feche contratos de alto valor.</p>
+          <div className="lp-deadline-notice">
+            <span className="lp-deadline-dot" />
+            <div>
+              <strong>Aviso aos utilizadores:</strong> Todos os utilizadores devem ativar o seu plano até ao dia <b>{PLAN_DEADLINE_DISPLAY}</b> para garantir a continuidade dos serviços e acesso às novas funcionalidades.
+            </div>
+          </div>
+        </div>
+
+        <div className="lp-pricing-grid">
+          {/* Plano Essencial */}
+          <article className="lp-plan-card">
+            <div className="lp-plan-top">
+              <span className="lp-plan-tag">Pra começar</span>
+              <h3>{PLANS.essential.name}</h3>
+              <p className="lp-plan-tagline">{PLANS.essential.tagline}</p>
+              <div className="lp-plan-price-wrap">
+                <span className="lp-plan-val">{PLANS.essential.priceMt} MT</span>
+                <span className="lp-plan-period">{PLANS.essential.period}</span>
+              </div>
+              <div className="lp-plan-methods">M-Pesa · e-Mola · Cartão · Lojou Pay</div>
+              <a href={PLANS.essential.lojouCheckoutUrl} target="_blank" rel="noopener noreferrer" className="lp-button lp-plan-button">
+                Assinar Essential <ArrowRight size={16} />
+              </a>
+            </div>
+            <div className="lp-plan-features-wrap">
+              <span className="lp-plan-feature-header">O QUE ESTÁ INCLUÍDO:</span>
+              <ul className="lp-plan-features">
+                {PLANS.essential.features.map(f => (
+                  <li key={f}><Check size={16} /><span>{f}</span></li>
+                ))}
+              </ul>
+            </div>
+          </article>
+
+          {/* Plano Pro */}
+          <article className="lp-plan-card is-popular">
+            <div className="lp-plan-badge-top">MAIS POPULAR · ALTA ESCALA</div>
+            <div className="lp-plan-top">
+              <span className="lp-plan-tag is-pro-tag">Para agências & prestadores</span>
+              <h3>{PLANS.pro.name}</h3>
+              <p className="lp-plan-tagline">{PLANS.pro.tagline}</p>
+              <div className="lp-plan-price-wrap">
+                {PLANS.pro.originalPriceMt && (
+                  <span className="lp-plan-strikethrough">{PLANS.pro.originalPriceMt} MT</span>
+                )}
+                <span className="lp-plan-val lp-pro-val">{PLANS.pro.priceMt} MT</span>
+                <span className="lp-plan-period">{PLANS.pro.period}</span>
+              </div>
+              <div className="lp-plan-methods">M-Pesa · e-Mola · Cartão · Lojou Pay</div>
+              <a href={PLANS.pro.lojouCheckoutUrl} target="_blank" rel="noopener noreferrer" className="lp-button lp-primary lp-plan-button">
+                Assinar Pro <ArrowRight size={16} />
+              </a>
+            </div>
+            <div className="lp-plan-features-wrap">
+              <span className="lp-plan-feature-header">TUDO DO ESSENCIAL E MAIS:</span>
+              <ul className="lp-plan-features">
+                {PLANS.pro.features.map(f => (
+                  <li key={f}><Check size={16} /><span>{f}</span></li>
+                ))}
+              </ul>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section className="lp-section lp-faq lp-reveal" id="perguntas"><div className="lp-section-heading"><span className="lp-section-kicker">ANTES DA PRIMEIRA CONVERSA</span><h2>Perguntas frequentes</h2><p>O essencial para começar com clareza.</p></div><div className="lp-faq-list">{faqs.map((faq, index) => <article key={faq.question} className={`lp-reveal ${openFaq === index ? 'is-open' : ''}`}><h3><button id={`lp-faq-question-${index}`} aria-expanded={openFaq === index} aria-controls={`lp-faq-answer-${index}`} onClick={() => setOpenFaq(openFaq === index ? null : index)}>{faq.question}<ChevronDown size={18} /></button></h3><div id={`lp-faq-answer-${index}`} role="region" aria-labelledby={`lp-faq-question-${index}`} hidden={openFaq !== index}><p>{faq.answer}</p></div></article>)}</div></section>
 

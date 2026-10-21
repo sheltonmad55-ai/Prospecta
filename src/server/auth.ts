@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from
 import { createClient } from '@supabase/supabase-js';
 import { db, id, now, transaction } from './db.ts';
 import { mode } from './providers.ts';
-import type { Credits, Profile, User } from '../lib/contracts.ts';
+import { PLAN_DEADLINE_ISO, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription } from '../lib/contracts.ts';
 
 export class AppError extends Error {
   status: number;
@@ -114,6 +114,54 @@ export function credits(workspaceId: string): Credits {
   }
 }
 
+export function getUserSubscription(userId: string): UserSubscription {
+  try {
+    const sub = db().prepare(`
+      SELECT plan, status, expires_at as expiresAt, months
+      FROM subscriptions
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(userId) as { plan: PlanType; status: SubscriptionStatus; expiresAt: string; months: number } | undefined;
+
+    if (sub) {
+      const isExpired = sub.expiresAt && new Date(sub.expiresAt).getTime() < Date.now();
+      return {
+        plan: sub.plan,
+        status: isExpired ? 'expired' : sub.status,
+        expiresAt: sub.expiresAt,
+        months: sub.months
+      };
+    }
+  } catch {}
+  return {
+    plan: 'free',
+    status: 'trial',
+    expiresAt: PLAN_DEADLINE_ISO,
+    months: 0
+  };
+}
+
+export function setUserSubscription(userId: string, plan: PlanType, months = 1): UserSubscription {
+  const startsAt = now();
+  const expires = new Date();
+  expires.setMonth(expires.getMonth() + Math.max(1, months));
+  const expiresAt = expires.toISOString();
+  const subId = id();
+
+  db().prepare(`
+    INSERT INTO subscriptions (id, user_id, plan, status, months, starts_at, expires_at, created_at, updated_at)
+    VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)
+  `).run(subId, userId, plan, months, startsAt, expiresAt, startsAt, startsAt);
+
+  return {
+    plan,
+    status: 'active',
+    expiresAt,
+    months
+  };
+}
+
 export function userById(userId: string): User | null {
   try {
     const row = db().prepare(`
@@ -150,7 +198,8 @@ export function userById(userId: string): User | null {
       workspaceId,
       role: (row.role || 'owner') as User['role'],
       profile: parsedProfile,
-      credits: credits(workspaceId)
+      credits: credits(workspaceId),
+      subscription: getUserSubscription(row.id)
     };
   } catch {
     return null;

@@ -2,7 +2,7 @@ import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, getUserSubscription, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, setUserSubscription, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
 import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase, syncSearchesFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
@@ -217,7 +217,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(route==='searches' && method==='POST') {
    rateLimit('search:'+user.id,20,60000);
    const filters=z.object({
-     province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).optional().default(''),
+     country:z.string().optional().default('MZ'),
+     province:z.string().optional().default(''),
      locality:z.string().trim().max(120).optional().default(''),
      category:z.string().max(120).optional().default(''),
      service:z.string().max(120).default('Criação de websites'),
@@ -267,10 +268,11 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({business:biz,analysis:getAnalysis(user,bId),lead:listLeads(user).find(l=>l.businessId===bId)||null});
   }
   if(path[0]==='businesses' && path[1] && path[2]==='phone' && (method==='POST' || method==='PUT')) {
-   const data=z.object({phone:z.string().min(8).max(30)}).parse(input);
-   const valid=validPhone(data.phone);
-   if(!valid) throw new AppError('Indique um número moçambicano válido, com +258.');
+   const data=z.object({phone:z.string().min(6).max(30),country:z.string().optional()}).parse(input);
    const biz=getBusiness(path[1],user);
+   const countryCode = data.country || biz.country || 'MZ';
+   const valid=validPhone(data.phone, countryCode);
+   if(!valid) throw new AppError('Indique um número telefónico válido (ex: formato local ou internacional com +).');
    biz.phone=valid;
    biz.evidence.push({ id: `${biz.id}-tel-sync`, field: 'phone', value: valid, source: 'Contacto Confirmado', observedAt: now() });
    db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(biz.id, JSON.stringify(biz), 'live', now());
@@ -315,21 +317,126 @@ async function handler(request:Request,context:Context):Promise<Response> {
    const row=db().prepare("SELECT id FROM privacy_requests WHERE id=? AND workspace_id=? AND type='export'").get(path[1],user.workspaceId);if(!row)throw new AppError('Exportação não encontrada.',404);
    return reply({profile:{name:user.name,email:user.email,...user.profile},opportunities:listLeads(user),usage:db().prepare('SELECT kind,units,description,created_at FROM credit_entries WHERE workspace_id=?').all(user.workspaceId),analyses:db().prepare('SELECT data,draft,created_at FROM analyses WHERE workspace_id=?').all(user.workspaceId),suppressions:db().prepare('SELECT business_id,reason,created_at FROM suppressions WHERE workspace_id=?').all(user.workspaceId),exportedAt:now()},200,{'Content-Disposition':'attachment; filename="prospecta-exportacao.json"'});
   }
+  if(path[0]==='whatsapp') {
+    const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'http://127.0.0.1:5050';
+    if(path[1]==='status' && method==='GET') {
+      try {
+        const res = await fetch(`${gatewayUrl}/status`, { signal: AbortSignal.timeout(2500) });
+        const json = await res.json();
+        return reply(json, 200);
+      } catch {
+        return reply({ ok: false, connected: false, status: 'offline', gatewayUrl }, 200);
+      }
+    }
+    if(path[1]==='send' && method==='POST') {
+      const data = z.object({ phone: z.string().min(6), message: z.string().min(1).max(6000) }).parse(input);
+      try {
+        const res = await fetch(`${gatewayUrl}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+          signal: AbortSignal.timeout(15000)
+        });
+        const json = await res.json();
+        if (!res.ok) throw new AppError(json.error || 'Falha ao enviar mensagem via WhatsApp.', res.status);
+        return reply(json, 200);
+      } catch(err) {
+        if (err instanceof AppError) throw err;
+        throw new AppError('Não foi possível conectar ao motor WhatsApp Baileys. Certifique-se de que iniciou `npm run whatsapp`.', 503);
+      }
+    }
+  }
   if(path[0]==='admin') {
-   if(user.role!=='admin')throw new AppError('Acesso reservado à administração.',403);
-   if(route==='admin' && method==='GET')return reply({workspaces:db().prepare('SELECT w.id,u.name,u.email FROM workspaces w JOIN users u ON w.user_id=u.id').all(),jobs:db().prepare('SELECT id,kind,status,attempts,error,created_at as createdAt FROM jobs ORDER BY created_at DESC LIMIT 30').all(),requests:db().prepare('SELECT * FROM privacy_requests ORDER BY created_at DESC LIMIT 50').all(),corrections:db().prepare('SELECT * FROM corrections ORDER BY created_at DESC LIMIT 50').all(),mode:mode()});
-   if(route==='admin/import' && method==='POST') {
-    const data=z.object({csv:z.string().min(1).max(400000),source:z.string().min(3).max(150),authorized:z.literal(true)}).parse(input);const rows=parseCsv(data.csv,data.source);
-    transaction(()=>{for(const b of rows)db().prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(b.id,JSON.stringify(b),'authorized-csv',now());audit(user,'businesses.import',String(rows.length));});return reply({imported:rows.length});
-   }
-   if(route==='admin/grant' && method==='POST') {const data=z.object({workspaceId:z.string(),units:z.number().int().min(1).max(10000),reason:z.string().min(3).max(300)}).parse(input);grant(user,data.workspaceId,data.units,data.reason);return reply({ok:true});}
-   if(path[1]==='jobs' && path[3]==='retry' && method==='POST')throw new AppError('A análise falhada libertou o crédito. Inicie uma nova análise na ficha da empresa.');
-   if(path[1]==='corrections' && path[3]==='complete' && method==='POST'){db().prepare("UPDATE corrections SET status='reviewed' WHERE id=?").run(path[2]);audit(user,'correction.reviewed',path[2]);return reply({ok:true});}
-   if(path[1]==='privacy' && path[3]==='complete' && method==='POST') {
-    const row=db().prepare('SELECT * FROM privacy_requests WHERE id=?').get(path[2]) as {workspace_id:string,type:string}|undefined;if(!row)throw new AppError('Pedido não encontrado.',404);
-    if(row.type==='delete')transaction(()=>{const owner=db().prepare('SELECT user_id FROM workspaces WHERE id=?').get(row.workspace_id) as {user_id:string};db().prepare('DELETE FROM users WHERE id=?').run(owner.user_id);audit(user,'privacy.deleted',path[2]);});
-    else db().prepare("UPDATE privacy_requests SET status='completed',completed_at=? WHERE id=?").run(now(),path[2]);return reply({ok:true});
-   }
+    if(user.role!=='admin')throw new AppError('Acesso reservado à administração.',403);
+    if(route==='admin' && method==='GET') {
+      const allUsers = db().prepare(`
+        SELECT u.id, u.name, u.email, u.role, u.created_at as createdAt, COALESCE(w.id, u.id) as workspaceId
+        FROM users u
+        LEFT JOIN workspaces w ON (w.user_id = u.id OR w.id = u.id)
+        ORDER BY u.created_at DESC
+      `).all() as { id: string; name: string; email: string; role: string; createdAt: string; workspaceId: string }[];
+
+      const userList = allUsers.map(u => {
+        const sub = getUserSubscription(u.id);
+        const cr = credits(u.workspaceId);
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          createdAt: u.createdAt,
+          workspaceId: u.workspaceId,
+          credits: cr,
+          subscription: sub
+        };
+      });
+
+      const totalUsers = userList.length;
+      const paidUsers = userList.filter(u => u.subscription.plan !== 'free' && u.subscription.status === 'active').length;
+      const freeUsers = totalUsers - paidUsers;
+      const totalCredits = userList.reduce((acc, u) => acc + (u.credits.available || 0), 0);
+
+      return reply({
+        metrics: { totalUsers, paidUsers, freeUsers, totalCredits },
+        users: userList,
+        workspaces: db().prepare('SELECT w.id,u.name,u.email FROM workspaces w JOIN users u ON w.user_id=u.id').all(),
+        jobs: db().prepare('SELECT id,kind,status,attempts,error,created_at as createdAt FROM jobs ORDER BY created_at DESC LIMIT 30').all(),
+        requests: db().prepare('SELECT * FROM privacy_requests ORDER BY created_at DESC LIMIT 50').all(),
+        corrections: db().prepare('SELECT * FROM corrections ORDER BY created_at DESC LIMIT 50').all(),
+        mode: mode()
+      });
+    }
+
+    if(route==='admin/subscription' && method==='POST') {
+      const data = z.object({
+        userId: z.string(),
+        plan: z.enum(['free', 'essential', 'pro']),
+        months: z.number().int().min(1).max(36).default(1),
+        grantPlanCredits: z.boolean().optional()
+      }).parse(input);
+
+      const targetUser = db().prepare('SELECT id, name FROM users WHERE id=?').get(data.userId);
+      if (!targetUser) throw new AppError('Utilizador não encontrado.', 404);
+
+      const sub = setUserSubscription(data.userId, data.plan, data.months);
+      if (data.grantPlanCredits && (data.plan === 'essential' || data.plan === 'pro')) {
+        const creditsToAdd = data.plan === 'essential' ? 150 * data.months : 450 * data.months;
+        const ws = db().prepare('SELECT id FROM workspaces WHERE user_id=? OR id=?').get(data.userId, data.userId) as { id: string } | undefined;
+        if (ws) {
+          grant(user, ws.id, creditsToAdd, `Ativação Plano ${data.plan === 'essential' ? 'Essencial' : 'Pro'} (${data.months} mês/meses)`);
+        }
+      }
+      audit(user, 'subscription.update', `${data.userId}:${data.plan}:${data.months}`);
+      return reply({ ok: true, subscription: sub });
+    }
+
+    if(route==='admin/import' && method==='POST') {
+      const data=z.object({csv:z.string().min(1).max(400000),source:z.string().min(3).max(150),authorized:z.literal(true)}).parse(input);const rows=parseCsv(data.csv,data.source);
+      transaction(()=>{for(const b of rows)db().prepare('INSERT INTO businesses VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(b.id,JSON.stringify(b),'authorized-csv',now());audit(user,'businesses.import',String(rows.length));});return reply({imported:rows.length});
+    }
+    if(route==='admin/grant' && method==='POST') {
+      const data=z.object({
+        workspaceId:z.string().optional(),
+        userId:z.string().optional(),
+        units:z.number().int().min(1).max(50000),
+        reason:z.string().min(3).max(300)
+      }).parse(input);
+      let targetWs = data.workspaceId;
+      if (!targetWs && data.userId) {
+        const ws = db().prepare('SELECT id FROM workspaces WHERE user_id=? OR id=?').get(data.userId, data.userId) as { id: string } | undefined;
+        targetWs = ws?.id || data.userId;
+      }
+      if (!targetWs) throw new AppError('Espaço de trabalho ou utilizador não encontrado.', 404);
+      grant(user,targetWs,data.units,data.reason);
+      return reply({ok:true});
+    }
+    if(path[1]==='jobs' && path[3]==='retry' && method==='POST')throw new AppError('A análise falhada libertou o crédito. Inicie uma nova análise na ficha da empresa.');
+    if(path[1]==='corrections' && path[3]==='complete' && method==='POST'){db().prepare("UPDATE corrections SET status='reviewed' WHERE id=?").run(path[2]);audit(user,'correction.reviewed',path[2]);return reply({ok:true});}
+    if(path[1]==='privacy' && path[3]==='complete' && method==='POST') {
+      const row=db().prepare('SELECT * FROM privacy_requests WHERE id=?').get(path[2]) as {workspace_id:string,type:string}|undefined;if(!row)throw new AppError('Pedido não encontrado.',404);
+      if(row.type==='delete')transaction(()=>{const owner=db().prepare('SELECT user_id FROM workspaces WHERE id=?').get(row.workspace_id) as {user_id:string};db().prepare('DELETE FROM users WHERE id=?').run(owner.user_id);audit(user,'privacy.deleted',path[2]);});
+      else db().prepare("UPDATE privacy_requests SET status='completed',completed_at=? WHERE id=?").run(now(),path[2]);return reply({ok:true});
+    }
   }
   throw new AppError('Página ou operação não encontrada.',404);
  } catch(error) {

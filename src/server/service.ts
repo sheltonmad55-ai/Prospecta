@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Activity, Analysis, Business, Evidence, Job, Lead, SearchFilters, SearchResult, SearchTask, User } from '../lib/contracts.ts';
-import { PROVINCES, STAGES } from '../lib/contracts.ts';
+import { PROVINCES, STAGES, getCountryByCode, isLikelyWhatsApp } from '../lib/contracts.ts';
 import { db, id, now, transaction } from './db.ts';
 import { analyse, fetchDataset, mode, normalize, validPhone } from './providers.ts';
 import { AppError, audit, credits, hash, supabaseConfigured, supabaseAdmin } from './auth.ts';
@@ -28,12 +28,16 @@ export function matchTextFlexible(target: string, query: string): boolean {
 
 export function businessMatchesFilter(b: Business, filters: SearchFilters): boolean {
  if (filters.phone === 'with_phone' && !b.phone) return false;
+ if (filters.phone === 'without_phone' && b.phone) return false;
+ if (filters.phone === 'with_whatsapp' && (!b.phone || !isLikelyWhatsApp(b.phone, filters.country || b.country || 'MZ'))) return false;
+ if (filters.phone === 'without_whatsapp' && (b.phone && isLikelyWhatsApp(b.phone, filters.country || b.country || 'MZ'))) return false;
  if (filters.website === 'without_website' && b.website) return false;
  if (filters.website === 'with_website' && !b.website) return false;
  if (filters.instagram === 'with_instagram' && !b.instagram) return false;
  if (filters.instagram === 'without_instagram' && b.instagram) return false;
 
- if (filters.province && b.province !== filters.province) return false;
+ if (filters.country && b.country && b.country !== filters.country) return false;
+ if (filters.province && normalize(b.province) !== normalize(filters.province)) return false;
  if (filters.category && b.category !== filters.category) return false;
  if (filters.locality && !normalize(b.locality).includes(normalize(filters.locality))) return false;
 
@@ -144,7 +148,9 @@ export function saveLead(user:User,businessId:string) {
   return saved;
 }
 export function startSearch(user:User,filters:SearchFilters):SearchResult {
- const tasks:SearchTask[]=(filters.province? [filters.province]:[...PROVINCES]).map(province=>({province,status:'queued',count:0}));
+ const country = filters.country || 'MZ';
+ const provincesList = filters.province ? [filters.province] : (country === 'MZ' ? [...PROVINCES] : getCountryByCode(country).provinces.slice(0, 8));
+ const tasks:SearchTask[]=provincesList.map(province=>({province,status:'queued',count:0}));
  const searchId=id();const timestamp=now();
  transaction(()=>{
   db().prepare('INSERT INTO searches VALUES(?,?,?,?,?,?,?,?,?)').run(searchId,user.workspaceId,JSON.stringify(filters),JSON.stringify(tasks),'[]','queued',mode(),timestamp,timestamp);
@@ -158,7 +164,9 @@ export function startSearch(user:User,filters:SearchFilters):SearchResult {
  return readSearch(user,searchId);
 }
 export async function startSearchAsync(user:User,filters:SearchFilters):Promise<SearchResult> {
- const tasks:SearchTask[]=(filters.province? [filters.province]:[...PROVINCES]).map(province=>({province,status:'queued',count:0}));
+ const country = filters.country || 'MZ';
+ const provincesList = filters.province ? [filters.province] : (country === 'MZ' ? [...PROVINCES] : getCountryByCode(country).provinces.slice(0, 8));
+ const tasks:SearchTask[]=provincesList.map(province=>({province,status:'queued',count:0}));
  const searchId=id();const timestamp=now();
  transaction(()=>{
   db().prepare('INSERT INTO searches VALUES(?,?,?,?,?,?,?,?,?)').run(searchId,user.workspaceId,JSON.stringify(filters),JSON.stringify(tasks),'[]','queued',mode(),timestamp,timestamp);
@@ -369,22 +377,25 @@ async function processSearch(row:Row) {
   businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
 
   if(row.mode==='live') {
-   if(filters.niche || filters.cities) {
+   if(filters.niche || filters.cities || (filters.country && filters.country !== 'MZ')) {
     try {
-     await sweepRealBusinesses(filters.niche || '', filters.cities || '');
-     sourceRows=db().prepare("SELECT data FROM businesses WHERE source_key<>'demo' AND id NOT LIKE 'b-%'").all() as {data:string}[];
-     businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
+     await sweepRealBusinesses(filters.niche || '', filters.cities || '', filters.country || 'MZ', filters.province || '');
+     const liveRows=db().prepare("SELECT data FROM businesses WHERE source_key<>'demo' AND id NOT LIKE 'b-%'").all() as {data:string}[];
+     if (liveRows.length > 0) {
+      sourceRows = liveRows;
+      businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
+     }
     } catch {
      // Gracefully keep existing businesses
     }
    }
   } else {
-   if(filters.niche || filters.cities) {
+   if(filters.niche || filters.cities || (filters.country && filters.country !== 'MZ')) {
     const matches=businesses.filter(b=>businessMatchesFilter(b,filters));
     if(matches.length<2) {
      try {
-      await sweepRealBusinesses(filters.niche || '', filters.cities || '');
-      sourceRows=db().prepare("SELECT data FROM businesses WHERE id NOT LIKE 'b-%'").all() as {data:string}[];
+      await sweepRealBusinesses(filters.niche || '', filters.cities || '', filters.country || 'MZ', filters.province || '');
+      sourceRows=db().prepare("SELECT data FROM businesses").all() as {data:string}[];
       businesses = deduplicateBiz(sourceRows.map(b=>JSON.parse(b.data)));
      } catch {}
     }
@@ -397,7 +408,7 @@ async function processSearch(row:Row) {
  const matched:string[][]=[];let budget=filters.budget||11;
  for(const task of tasks) {
   if(budget--<=0){task.status='limited';matched.push([]);continue;}
-  const results=businesses.filter(b=>b.province===task.province && businessMatchesFilter(b,filters));
+  const results=businesses.filter(b=>(!task.province || task.province === 'Todos' || b.province===task.province) && businessMatchesFilter(b,filters));
   task.status='succeeded';task.count=results.length;matched.push(results.map(b=>b.id));
  }
  const seenOrderNames = new Set<string>();

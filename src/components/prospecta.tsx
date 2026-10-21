@@ -2,29 +2,62 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  ArrowDownLeft, ArrowRight, ArrowUpRight, Bookmark, Building2, CalendarDays,
+  AlertTriangle, ArrowDownLeft, ArrowRight, ArrowUpRight, Bookmark, Building2, CalendarDays,
   Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock3,
   Compass, Copy, Database, Download, ExternalLink, FileText, Globe2,
   LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Plus,
   Radar, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
-  Wallet, X
+  Users, Wallet, X
 } from 'lucide-react';
 import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
 import {
-  PROVINCES, SERVICES, STAGES, isMozambiqueMobile, isMozambiqueLandline,
+  PROVINCES, SERVICES, STAGES, COUNTRIES, getCountryByCode, isLikelyWhatsApp,
+  isMozambiqueMobile, isMozambiqueLandline,
   getMetaAdLibraryUrl, getRecommendedPricing,
+  PLANS, PLAN_DEADLINE_ISO, PLAN_DEADLINE_DISPLAY,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
-  type VaultScript
+  type VaultScript, type CountryOption, type PlanType, type SubscriptionStatus
 } from '@/lib/contracts';
 
 type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
-type AdminData = { workspaces: { id: string; name: string; email: string }[]; jobs: { id: string; status: string; attempts: number; error: string | null }[]; requests: PrivacyRequest[]; corrections: { id: string; note: string; status: string }[] };
+
+type AdminUserItem = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  workspaceId: string;
+  credits: { available: number; reserved: number; spent: number };
+  subscription: {
+    plan: PlanType;
+    status: SubscriptionStatus;
+    expiresAt: string | null;
+    months?: number;
+  };
+};
+
+type AdminMetrics = {
+  totalUsers: number;
+  paidUsers: number;
+  freeUsers: number;
+  totalCredits: number;
+};
+
+type AdminData = {
+  metrics?: AdminMetrics;
+  users?: AdminUserItem[];
+  workspaces: { id: string; name: string; email: string }[];
+  jobs: { id: string; status: string; attempts: number; error: string | null }[];
+  requests: PrivacyRequest[];
+  corrections: { id: string; note: string; status: string }[];
+};
 type PrivacyRequest = { id: string; type: string; status: string; created_at?: string };
 
-function getGoogleMapsUrl(name: string, locality: string, province?: string): string {
-  const query = [name, locality, province, 'Moçambique'].filter(Boolean).join(', ');
+function getGoogleMapsUrl(name: string, locality: string, province?: string, countryName = 'Moçambique'): string {
+  const query = [name, locality, province, countryName].filter(Boolean).join(', ');
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
 }
 
@@ -271,6 +304,66 @@ function adaptScriptTemplate(
   return result;
 }
 
+function interpolateMessage(
+  template: string,
+  biz: Business,
+  userName = '',
+  serviceName = ''
+): string {
+  const bizName = biz.name || 'Empresa';
+  const niche = biz.category || biz.activity || 'negócio';
+  const city = biz.city || biz.locality || 'região';
+  const province = biz.province || '';
+  const country = biz.country || 'MZ';
+  const countryObj = getCountryByCode(country);
+  const countryName = countryObj ? countryObj.name : 'Moçambique';
+  const score = biz.opportunityScore != null ? String(biz.opportunityScore) : '85';
+  const phone = biz.phone || '';
+
+  return template
+    .replace(/\{nome_empresa\}|\{\{empresa\}\}|\{empresa\}/gi, bizName)
+    .replace(/\{cidade\}|\{\{cidade\}\}/gi, city)
+    .replace(/\{provincia\}|\{\{provincia\}\}|\{província\}|\{\{província\}\}/gi, province)
+    .replace(/\{pais\}|\{\{pais\}\}|\{país\}|\{\{país\}\}/gi, countryName)
+    .replace(/\{nicho\}|\{\{nicho\}\}|\{categoria\}|\{\{categoria\}\}/gi, niche)
+    .replace(/\{servico\}|\{\{servico\}\}|\{serviço\}|\{\{serviço\}\}/gi, serviceName || 'presença digital e captação de clientes')
+    .replace(/\{responsavel\}|\{\{responsavel\}\}|\{responsável\}|\{\{responsável\}\}|\{nome\}|\{\{nome\}\}/gi, userName || 'Chelton')
+    .replace(/\{telefone\}|\{\{telefone\}\}/gi, phone)
+    .replace(/\{score\}|\{\{score\}\}/gi, score);
+}
+
+function exportBusinessesToCsv(businesses: Business[], filename = 'empresas_sem_whatsapp.csv') {
+  if (!businesses || businesses.length === 0) return;
+  const headers = ['Nome', 'Telefone', 'WhatsApp Provável', 'Nicho/Categoria', 'Cidade', 'Província', 'País', 'Score', 'Website', 'Endereço'];
+  const rows = businesses.map(b => {
+    const isWa = isLikelyWhatsApp(b.phone, b.country || 'MZ');
+    const country = getCountryByCode(b.country || 'MZ')?.name || b.country || 'Moçambique';
+    return [
+      `"${(b.name || '').replace(/"/g, '""')}"`,
+      `"${(b.phone || '').replace(/"/g, '""')}"`,
+      isWa ? 'Sim' : 'Não',
+      `"${(b.category || b.activity || '').replace(/"/g, '""')}"`,
+      `"${(b.city || b.locality || '').replace(/"/g, '""')}"`,
+      `"${(b.province || '').replace(/"/g, '""')}"`,
+      `"${country.replace(/"/g, '""')}"`,
+      b.opportunityScore || 0,
+      `"${(b.website || '').replace(/"/g, '""')}"`,
+      `"${(b.address || '').replace(/"/g, '""')}"`
+    ].join(',');
+  });
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Bom dia';
@@ -394,8 +487,78 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
-  const [filters, setFilters] = useState<SearchFilters>({ niche: '', cities: '', phone: 'all', website: 'all', instagram: 'all', province: '', locality: '', category: '', service: SERVICES[0], budget: 11 });
+  const [filters, setFilters] = useState<SearchFilters>({ niche: '', cities: '', province: '', country: 'MZ', phone: 'all', website: 'all', instagram: 'all', locality: '', category: '', service: SERVICES[0], budget: 11 });
   const [pastSearches, setPastSearches] = useState<SearchResult[]>([]);
+  const [selectedBizIds, setSelectedBizIds] = useState<string[]>([]);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkTemplate, setBulkTemplate] = useState('Olá, equipa do(a) {nome_empresa}! Tudo bem?\n\nO meu nome é {responsavel}, sou especialista em {servico} em {cidade}.\n\nEstive a analisar empresas de {nicho} na vossa zona e notei o vosso trabalho de excelência.\n\nFaz sentido enviar-vos uma proposta rápida e sem compromisso para trazer novos clientes para o vosso WhatsApp este mês?\n\nUm abraço,\n{responsavel}');
+  const [bulkPreviewIndex, setBulkPreviewIndex] = useState(0);
+  const [bulkDispatchStatus, setBulkDispatchStatus] = useState<string | null>(null);
+  const [resultsSubTab, setResultsSubTab] = useState<'all' | 'with_whatsapp' | 'no_whatsapp'>('all');
+  const [inlinePhoneBizId, setInlinePhoneBizId] = useState<string | null>(null);
+  const [inlinePhoneVal, setInlinePhoneVal] = useState('');
+  const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string } | null>(null);
+  const [bulkDispatchRunning, setBulkDispatchRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentName: string; status: 'idle' | 'sending' | 'waiting' | 'done' | 'error'; errorCount: number }>({ current: 0, total: 0, currentName: '', status: 'idle', errorCount: 0 });
+  const [safeIntervalSec, setSafeIntervalSec] = useState<number>(10);
+  const cancelBulkDispatchRef = useRef(false);
+
+  const checkWhatsAppStatus = useCallback(async () => {
+    try {
+      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string }>('whatsapp/status');
+      setWaServiceStatus({ connected: !!res.connected, user: res.user, status: res.status });
+      return res;
+    } catch {
+      setWaServiceStatus({ connected: false, status: 'offline' });
+      return { connected: false, status: 'offline' };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isBulkModalOpen) {
+      checkWhatsAppStatus();
+    }
+  }, [isBulkModalOpen, checkWhatsAppStatus]);
+
+  const startBackgroundDispatch = async (withWaList: Business[]) => {
+    if (withWaList.length === 0) return;
+    cancelBulkDispatchRef.current = false;
+    setBulkDispatchRunning(true);
+    setBulkProgress({ current: 0, total: withWaList.length, currentName: withWaList[0].name, status: 'sending', errorCount: 0 });
+
+    let sentCount = 0;
+    let errCount = 0;
+
+    for (let i = 0; i < withWaList.length; i++) {
+      if (cancelBulkDispatchRef.current) {
+        notify('Disparo em lote cancelado.', true);
+        break;
+      }
+      const b = withWaList[i];
+      const interpolated = interpolateMessage(bulkTemplate, b, user?.name || 'Chelton', filters.service || user?.profile.service);
+      setBulkProgress(prev => ({ ...prev, current: i + 1, currentName: b.name, status: 'sending' }));
+
+      try {
+        await post('whatsapp/send', { phone: b.phone, message: interpolated });
+        sentCount++;
+      } catch (err: any) {
+        errCount++;
+        console.error(`Falha no envio para ${b.name}:`, err);
+      }
+
+      if (i < withWaList.length - 1 && !cancelBulkDispatchRef.current) {
+        setBulkProgress(prev => ({ ...prev, status: 'waiting', errorCount: errCount }));
+        for (let s = safeIntervalSec; s > 0; s--) {
+          if (cancelBulkDispatchRef.current) break;
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+    }
+
+    setBulkDispatchRunning(false);
+    setBulkProgress(prev => ({ ...prev, status: 'done', errorCount: errCount }));
+    notify(`Disparo concluído: ${sentCount} enviados${errCount > 0 ? `, ${errCount} falhas` : ''}.`);
+  };
   const [business, setBusiness] = useState<Business | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -425,6 +588,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [vaultScripts, setVaultScripts] = useState<VaultScript[]>([]);
   const [vaultCategory, setVaultCategory] = useState<string>('all');
   const [vaultSearch, setVaultSearch] = useState<string>('');
+  const [showPlansModal, setShowPlansModal] = useState(false);
+  const [adminSelectedUserId, setAdminSelectedUserId] = useState<string>('');
   const activeBusiness = useRef<string | null>(null);
 
   useEffect(() => { activeBusiness.current = business?.id || null; }, [business?.id]);
@@ -1056,10 +1221,61 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           </div>
           <div className="topbar-right">
             <span className="country"><span className="country-dot" /> Moçambique</span>
+            <button className="balance" onClick={() => setShowPlansModal(true)} style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}>
+              <Wallet size={13} /> {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? (user.subscription.plan === 'pro' ? 'Plano Pro' : 'Plano Essencial') : 'Planos'}
+            </button>
             <button className="balance" onClick={() => navigate('account')}><Sparkles size={14} />{user.credits.available} créditos</button>
             <span className="avatar small">{user.name.slice(0, 1)}</span>
           </div>
         </header>
+
+        {/* ══ URGENCY DEADLINE BANNER ══════════════════════ */}
+        <div className="plan-deadline-banner" role="banner" style={{
+          background: 'linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%)',
+          borderBottom: '1px solid #fde68a',
+          padding: '10px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '14px',
+          flexWrap: 'wrap',
+          boxShadow: '0 2px 8px rgba(245, 158, 11, 0.06)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#78350f' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              background: '#fde68a',
+              color: '#d97706',
+              flexShrink: 0
+            }}>
+              <AlertTriangle size={15} />
+            </span>
+            <span>
+              <strong>Prazo de Ativação do Plano:</strong> Todos os utilizadores devem escolher um plano até <b>{PLAN_DEADLINE_DISPLAY}</b> para garantir o funcionamento contínuo.
+            </span>
+            {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? (
+              <span style={{ background: '#dcfce7', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
+                Plano {user.subscription.plan === 'pro' ? 'Pro' : 'Essencial'} Ativo
+              </span>
+            ) : (
+              <span style={{ background: '#fee2e2', color: '#991b1b', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
+                Modo Demonstração
+              </span>
+            )}
+          </div>
+          <button
+            className="button compact"
+            onClick={() => setShowPlansModal(true)}
+            style={{ background: '#d97706', borderColor: '#b45309', color: '#ffffff', fontSize: '12px', fontWeight: 650, padding: '7px 14px' }}
+          >
+            <Sparkles size={13} /> Ver Planos & Ativar
+          </button>
+        </div>
 
         <main id="main" className="workspace">
 
@@ -1246,22 +1462,73 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <form onSubmit={e => { e.preventDefault(); doSearch(); }}>
                     <div className="filter-heading">
                       <span><Radar size={17} /> Nova busca</span>
-                      <button type="button" className="text-button muted" onClick={() => setFilters({ niche: '', cities: '', phone: 'all', website: 'all', instagram: 'all', province: '', locality: '', category: '', service: user.profile.service, budget: 11 })}>Limpar campos</button>
+                      <button type="button" className="text-button muted" onClick={() => setFilters({ niche: '', cities: '', phone: 'all', website: 'all', instagram: 'all', province: '', country: 'MZ', locality: '', category: '', service: user.profile.service, budget: 11 })}>Limpar campos</button>
                     </div>
-                    <div className="radar-row-1">
+                    <div className="radar-row-geo">
+                      {/* 1. Nicho */}
                       <label className="field-group">
-                        <span className="field-label">Nicho</span>
-                        <input value={filters.niche || ''} onChange={e => setFilters({ ...filters, niche: e.target.value })} placeholder="Ex.: Clínicas odontológicas, Restaurantes, Salões" />
+                        <span className="field-label">1. Nicho</span>
+                        <input
+                          value={filters.niche || ''}
+                          onChange={e => setFilters({ ...filters, niche: e.target.value })}
+                          placeholder="Ex.: Clínicas odontológicas, Restaurantes, Salões"
+                        />
                       </label>
+
+                      {/* 2. Cidade */}
                       <label className="field-group">
-                        <span className="field-label">Cidades (até 5, separadas por vírgula)</span>
-                        <input value={filters.cities || ''} onChange={e => setFilters({ ...filters, cities: e.target.value })} placeholder="Maputo, Matola, Beira" />
+                        <span className="field-label">2. Cidade(s)</span>
+                        <input
+                          value={filters.cities || ''}
+                          onChange={e => setFilters({ ...filters, cities: e.target.value })}
+                          placeholder={
+                            (filters.country || 'MZ') === 'MZ' ? 'Maputo, Matola, Beira' :
+                            filters.country === 'AO' ? 'Luanda, Benguela, Lubango' :
+                            filters.country === 'PT' ? 'Lisboa, Porto, Braga' :
+                            filters.country === 'BR' ? 'São Paulo, Rio de Janeiro' :
+                            'Cidade(s) separadas por vírgula'
+                          }
+                        />
+                      </label>
+
+                      {/* 3. Província / Região */}
+                      <label className="field-group">
+                        <span className="field-label">3. Província / Região</span>
+                        <select
+                          value={filters.province || ''}
+                          onChange={e => setFilters({ ...filters, province: e.target.value })}
+                        >
+                          <option value="">Todas as províncias / regiões</option>
+                          {getCountryByCode(filters.country || 'MZ').provinces.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {/* 4. País */}
+                      <label className="field-group">
+                        <span className="field-label">4. País</span>
+                        <select
+                          value={filters.country || 'MZ'}
+                          onChange={e => {
+                            const newCountry = e.target.value;
+                            setFilters({ ...filters, country: newCountry, province: '' });
+                          }}
+                        >
+                          {COUNTRIES.map(c => (
+                            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                          ))}
+                        </select>
                       </label>
                     </div>
+
                     <div className="radar-row-2">
-                      <label className="field-group"><span className="field-label">Telefone</span>
+                      <label className="field-group"><span className="field-label">Telefone / WhatsApp</span>
                         <select value={filters.phone || 'all'} onChange={e => setFilters({ ...filters, phone: e.target.value })}>
-                          <option value="all">Todos</option><option value="with_phone">Com telefone/WhatsApp</option>
+                          <option value="all">Todos os contactos</option>
+                          <option value="with_whatsapp">Com WhatsApp provável</option>
+                          <option value="without_whatsapp">Sem WhatsApp (Contacto manual)</option>
+                          <option value="with_phone">Qualquer telefone</option>
                         </select>
                       </label>
                       <label className="field-group"><span className="field-label">Website</span>
@@ -1349,7 +1616,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <div className="results-heading">
                     <div>
                       <h2>{searchResult.total} empresas encontradas <Pill>Fonte autorizada</Pill></h2>
-                      <p>{[searchResult.filters.niche, searchResult.filters.cities].filter(Boolean).join(' — ') || [searchResult.filters.province, searchResult.filters.locality].filter(Boolean).join(' · ') || 'Todo Moçambique'} · Página {searchResult.page} de {searchResult.pages}</p>
+                      <p>{[searchResult.filters.niche, searchResult.filters.cities].filter(Boolean).join(' — ') || [searchResult.filters.province, searchResult.filters.locality].filter(Boolean).join(' · ') || (getCountryByCode(searchResult.filters.country || 'MZ')?.name || 'Moçambique')} · Página {searchResult.page} de {searchResult.pages}</p>
                     </div>
                     <span className="muted micro">{searchResult.status === 'succeeded' ? 'Consulta concluída' : searchResult.status === 'partial' ? 'Consulta parcial' : searchResult.status === 'failed' ? 'Falha na consulta' : 'A consultar as zonas…'}</span>
                   </div>
@@ -1368,9 +1635,248 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       seenNames.add(k);
                       return true;
                     });
-                    return uniqueResults.length
-                      ? <div className="business-grid">{uniqueResults.map(b => <BusinessCard key={b.id} business={b} busy={busy} onView={() => run(() => loadBusiness(b.id, 'business', b))} onSave={() => saveBusiness(b)} onUpdatePhone={(phone) => handleUpdateBusinessPhone(b.id, phone)} />)}</div>
-                      : <section className="panel"><Empty icon={<Search size={30} />} title={searchResult.status === 'failed' ? 'Não foi possível consultar a fonte.' : 'Não encontrámos resultados nesta consulta.'} description={searchResult.tasks.find(t => t.error)?.error || 'Experimente outro nicho ou cidade.'}><button className="button outline" onClick={() => doSearch()}>Tentar novamente</button></Empty></section>;
+                    const currentCountryCode = searchResult.filters.country || 'MZ';
+                    const withWaList = uniqueResults.filter(b => isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
+                    const noWaList = uniqueResults.filter(b => !isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
+                    const displayedResults =
+                      resultsSubTab === 'with_whatsapp' ? withWaList :
+                      resultsSubTab === 'no_whatsapp' ? noWaList :
+                      uniqueResults;
+
+                    const allDisplayedSelected = displayedResults.length > 0 && displayedResults.every(b => selectedBizIds.includes(b.id));
+
+                    return (
+                      <>
+                        {/* Subtabs for filtering / reports */}
+                        <div className="results-subtabs">
+                          <button
+                            type="button"
+                            className={cls('results-subtab', resultsSubTab === 'all' && 'active')}
+                            onClick={() => setResultsSubTab('all')}
+                          >
+                            <Building2 size={15} /> Todas <span className="badge">{uniqueResults.length}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={cls('results-subtab', resultsSubTab === 'with_whatsapp' && 'active')}
+                            onClick={() => setResultsSubTab('with_whatsapp')}
+                          >
+                            <MessageCircle size={15} /> Com WhatsApp <span className="badge">{withWaList.length}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={cls('results-subtab', resultsSubTab === 'no_whatsapp' && 'active')}
+                            onClick={() => setResultsSubTab('no_whatsapp')}
+                          >
+                            <Phone size={15} /> Sem WhatsApp (Manual) <span className="badge">{noWaList.length}</span>
+                          </button>
+
+                          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="text-button"
+                              style={{ fontSize: 12 }}
+                              onClick={() => {
+                                const currentIds = displayedResults.map(b => b.id);
+                                if (allDisplayedSelected) {
+                                  setSelectedBizIds(prev => prev.filter(id => !currentIds.includes(id)));
+                                } else {
+                                  setSelectedBizIds(prev => Array.from(new Set([...prev, ...currentIds])));
+                                }
+                              }}
+                            >
+                              {allDisplayedSelected ? 'Desmarcar lista' : `Selecionar visíveis (${displayedResults.length})`}
+                            </button>
+                            {resultsSubTab === 'no_whatsapp' && noWaList.length > 0 && (
+                              <button
+                                type="button"
+                                className="button outline compact"
+                                style={{ fontSize: 11, padding: '4px 10px' }}
+                                onClick={() => exportBusinessesToCsv(noWaList, `prospecta_sem_whatsapp_${searchResult.filters.niche || 'leads'}.csv`)}
+                              >
+                                <Download size={13} /> Exportar CSV
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* If in 'no_whatsapp' mode: dedicated report table */}
+                        {resultsSubTab === 'no_whatsapp' ? (
+                          noWaList.length === 0 ? (
+                            <section className="panel">
+                              <Empty
+                                icon={<CheckCheck size={28} style={{ color: '#25D366' }} />}
+                                title="Excelente! Todas as empresas desta busca têm WhatsApp móvel."
+                                description="Pode avançar diretamente para o disparo em lote ou abordagem individual."
+                              />
+                            </section>
+                          ) : (
+                            <div className="no-wa-table-container">
+                              <div style={{ padding: '12px 16px', background: 'rgba(234, 179, 8, 0.08)', borderBottom: '1px solid var(--navy-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fef08a' }}>
+                                  <AlertTriangle size={16} />
+                                  <span><b>{noWaList.length}</b> empresas sem WhatsApp móvel detectado. Insira o contacto manualmente ou ligue para o fixo.</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="button outline compact"
+                                  onClick={() => exportBusinessesToCsv(noWaList, `prospecta_sem_whatsapp_${searchResult.filters.niche || 'leads'}.csv`)}
+                                >
+                                  <Download size={13} /> Descarregar Lista CSV
+                                </button>
+                              </div>
+                              <table className="no-wa-table">
+                                <thead>
+                                  <tr>
+                                    <th style={{ width: 40, textAlign: 'center' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={allDisplayedSelected}
+                                        onChange={() => {
+                                          const currentIds = noWaList.map(b => b.id);
+                                          if (allDisplayedSelected) setSelectedBizIds(prev => prev.filter(id => !currentIds.includes(id)));
+                                          else setSelectedBizIds(prev => Array.from(new Set([...prev, ...currentIds])));
+                                        }}
+                                      />
+                                    </th>
+                                    <th>Empresa</th>
+                                    <th>Localidade</th>
+                                    <th>Contacto Actual</th>
+                                    <th>Score</th>
+                                    <th>Registar WhatsApp Manual</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {noWaList.map(b => {
+                                    const isEditing = inlinePhoneBizId === b.id;
+                                    const cObj = getCountryByCode(b.country || currentCountryCode);
+                                    return (
+                                      <tr key={b.id}>
+                                        <td style={{ textAlign: 'center' }}>
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedBizIds.includes(b.id)}
+                                            onChange={() => setSelectedBizIds(prev => prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id])}
+                                          />
+                                        </td>
+                                        <td>
+                                          <strong style={{ color: '#F8FAFC', display: 'block' }}>{b.name}</strong>
+                                          <small style={{ color: '#94A3B8' }}>{b.category || b.activity}</small>
+                                        </td>
+                                        <td>
+                                          <span>{b.locality || b.city || b.province}</span>
+                                          <small style={{ display: 'block', color: '#64748B' }}>{cObj.flag} {cObj.name}</small>
+                                        </td>
+                                        <td>
+                                          {b.phone ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(234, 179, 8, 0.12)', color: '#facc15', padding: '3px 8px', borderRadius: 6, fontSize: 12 }}>
+                                              <Phone size={12} /> {formatPhone(b.phone) || b.phone} (Fixo)
+                                            </span>
+                                          ) : (
+                                            <span style={{ color: '#EF4444', fontSize: 12 }}>Sem telefone</span>
+                                          )}
+                                        </td>
+                                        <td>
+                                          <span style={{ fontWeight: 700, color: '#38BDF8', fontSize: 13 }}>{b.opportunityScore || 85}</span>
+                                        </td>
+                                        <td>
+                                          {isEditing ? (
+                                            <div className="no-wa-input-row">
+                                              <input
+                                                type="text"
+                                                className="no-wa-input"
+                                                value={inlinePhoneVal}
+                                                placeholder={cObj.code === 'MZ' ? '+258 84...' : '+...'}
+                                                autoFocus
+                                                onChange={e => setInlinePhoneVal(e.target.value)}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter') {
+                                                    handleUpdateBusinessPhone(b.id, inlinePhoneVal);
+                                                    setInlinePhoneBizId(null);
+                                                    notify('Contacto guardado com sucesso!');
+                                                  } else if (e.key === 'Escape') {
+                                                    setInlinePhoneBizId(null);
+                                                  }
+                                                }}
+                                              />
+                                              <button
+                                                type="button"
+                                                className="button compact"
+                                                style={{ padding: '5px 10px', fontSize: 11 }}
+                                                onClick={() => {
+                                                  handleUpdateBusinessPhone(b.id, inlinePhoneVal);
+                                                  setInlinePhoneBizId(null);
+                                                  notify('Contacto guardado com sucesso!');
+                                                }}
+                                              >
+                                                Salvar
+                                              </button>
+                                              <IconButton label="Cancelar" onClick={() => setInlinePhoneBizId(null)}><X size={14} /></IconButton>
+                                            </div>
+                                          ) : (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                              <button
+                                                type="button"
+                                                className="text-button"
+                                                style={{ fontSize: 12, color: '#60A5FA', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                                onClick={() => {
+                                                  setInlinePhoneBizId(b.id);
+                                                  setInlinePhoneVal(b.phone || '');
+                                                }}
+                                              >
+                                                <Plus size={13} /> {b.phone ? 'Inserir WhatsApp' : 'Adicionar contacto'}
+                                              </button>
+                                              <a
+                                                href={getGoogleMapsUrl(b.name, b.locality, b.province, cObj.name)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="card-map-action"
+                                                style={{ margin: 0, padding: '3px 7px', fontSize: 11 }}
+                                                title="Verificar telefone no perfil Google Maps"
+                                              >
+                                                <MapPin size={11} /> Maps
+                                              </a>
+                                            </div>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )
+                        ) : (
+                          /* Grid view */
+                          displayedResults.length ? (
+                            <div className="business-grid">
+                              {displayedResults.map(b => (
+                                <BusinessCard
+                                  key={b.id}
+                                  business={b}
+                                  busy={busy}
+                                  selected={selectedBizIds.includes(b.id)}
+                                  onToggleSelect={() => setSelectedBizIds(prev => prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id])}
+                                  onView={() => run(() => loadBusiness(b.id, 'business', b))}
+                                  onSave={() => saveBusiness(b)}
+                                  onUpdatePhone={(phone) => handleUpdateBusinessPhone(b.id, phone)}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <section className="panel">
+                              <Empty
+                                icon={<Search size={30} />}
+                                title={searchResult.status === 'failed' ? 'Não foi possível consultar a fonte.' : 'Nenhuma empresa encontrada com este filtro.'}
+                                description="Alterne para a aba 'Todas' ou experimente outro nicho/cidade."
+                              >
+                                <button className="button outline" onClick={() => setResultsSubTab('all')}>Ver todas as empresas</button>
+                              </Empty>
+                            </section>
+                          )
+                        )}
+                      </>
+                    );
                   })()}
                   <div className="pagination">
                     <span>{searchResult.total} resultados nesta fonte · Não é um inventário completo</span>
@@ -1380,6 +1886,302 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <IconButton label="Página seguinte" onClick={() => searchResult.page < searchResult.pages && doSearch(searchResult.page + 1)}><ChevronRight size={18} /></IconButton>
                     </div>
                   </div>
+
+                  {/* STICKY BULK ACTION BAR */}
+                  {selectedBizIds.length > 0 && (
+                    <div className="bulk-action-bar">
+                      <div className="bulk-action-info">
+                        <span className="bulk-badge">{selectedBizIds.length}</span>
+                        <span>empresa{selectedBizIds.length > 1 ? 's' : ''} selecionada{selectedBizIds.length > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="bulk-action-buttons">
+                        <button
+                          type="button"
+                          className="button outline compact"
+                          style={{ fontSize: 12 }}
+                          onClick={() => setSelectedBizIds([])}
+                        >
+                          Limpar seleção
+                        </button>
+                        <button
+                          type="button"
+                          className="button compact"
+                          style={{ background: '#25D366', color: '#000', fontWeight: 700, fontSize: 13 }}
+                          onClick={() => {
+                            setBulkPreviewIndex(0);
+                            setIsBulkModalOpen(true);
+                          }}
+                        >
+                          <MessageCircle size={16} /> Disparo em lote ({selectedBizIds.length})
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MODAL DE DISPARO EM LOTE COM PREVIEW INDIVIDUALIZADO */}
+                  {isBulkModalOpen && (() => {
+                    const selectedBusinesses = (searchResult?.results || []).filter(b => selectedBizIds.includes(b.id));
+                    const currentCountryCode = searchResult?.filters.country || 'MZ';
+                    const withWaList = selectedBusinesses.filter(b => isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
+                    const withoutWaList = selectedBusinesses.filter(b => !isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
+                    const currentBiz = withWaList[bulkPreviewIndex] || withWaList[0];
+                    const interpolatedPreview = currentBiz ? interpolateMessage(bulkTemplate, currentBiz, user?.name || 'Chelton', filters.service || user?.profile.service) : '';
+
+                    const insertVar = (variable: string) => {
+                      setBulkTemplate(prev => prev + ' ' + variable);
+                    };
+
+                    return (
+                      <div className="bulk-modal-overlay" onClick={() => setIsBulkModalOpen(false)}>
+                        <div className="bulk-modal-content" onClick={e => e.stopPropagation()}>
+                          <div className="bulk-modal-header">
+                            <div>
+                              <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <MessageCircle size={20} color="#25D366" /> Disparo em Lote Personalizado
+                              </h2>
+                              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                                Cada mensagem substitui automaticamente o nome real da empresa e detalhes individuais.
+                              </p>
+                            </div>
+                            <IconButton label="Fechar modal" onClick={() => setIsBulkModalOpen(false)}>
+                              <X size={18} />
+                            </IconButton>
+                          </div>
+
+                          {/* Baileys Service Status Banner */}
+                          <div style={{
+                            background: waServiceStatus?.connected ? 'rgba(37, 211, 102, 0.12)' : 'rgba(234, 179, 8, 0.1)',
+                            border: `1px solid ${waServiceStatus?.connected ? 'rgba(37, 211, 102, 0.35)' : 'rgba(234, 179, 8, 0.3)'}`,
+                            borderRadius: 10,
+                            padding: '10px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: 14,
+                            flexWrap: 'wrap',
+                            gap: 10
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: waServiceStatus?.connected ? '#25D366' : '#FACC15', fontWeight: 600 }}>
+                              {waServiceStatus?.connected ? <CircleCheck size={16} /> : <AlertTriangle size={16} />}
+                              <span>
+                                {waServiceStatus?.connected
+                                  ? `Motor Baileys Ativo: +${waServiceStatus.user || 'Conectado'} (Disparo 100% automático pronto)`
+                                  : 'Motor Baileys não conectado (Inicie `npm run whatsapp` e leia o QR Code)'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              {!waServiceStatus?.connected && (
+                                <a
+                                  href="http://localhost:5050"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="button compact"
+                                  style={{ background: '#25D366', color: '#000', fontSize: 11, padding: '4px 10px', textDecoration: 'none', fontWeight: 700 }}
+                                >
+                                  Ler QR Code (5050)
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                className="text-button"
+                                style={{ fontSize: 11, color: '#93C5FD' }}
+                                onClick={checkWhatsAppStatus}
+                              >
+                                Verificar conexão
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Status summary pills */}
+                          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+                            <span className="pill" style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', border: '1px solid rgba(37, 211, 102, 0.3)' }}>
+                              <CheckCheck size={14} /> {withWaList.length} prontas com WhatsApp
+                            </span>
+                            {withoutWaList.length > 0 && (
+                              <span className="pill" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#FACC15', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                                <AlertTriangle size={14} /> {withoutWaList.length} sem WhatsApp (ignorado no disparo automático)
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Variáveis dinâmicas inseríveis */}
+                          <div style={{ marginBottom: 8 }}>
+                            <label style={{ fontSize: 12, color: '#CBD5E1', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                              Variáveis dinâmicas (clique para inserir no modelo):
+                            </label>
+                            <div className="bulk-variables-bar">
+                              <button type="button" className="variable-pill" onClick={() => insertVar('{nome_empresa}')}>
+                                + &#123;nome_empresa&#125;
+                              </button>
+                              <button type="button" className="variable-pill" onClick={() => insertVar('{cidade}')}>
+                                + &#123;cidade&#125;
+                              </button>
+                              <button type="button" className="variable-pill" onClick={() => insertVar('{nicho}')}>
+                                + &#123;nicho&#125;
+                              </button>
+                              <button type="button" className="variable-pill" onClick={() => insertVar('{servico}')}>
+                                + &#123;servico&#125;
+                              </button>
+                              <button type="button" className="variable-pill" onClick={() => insertVar('{responsavel}')}>
+                                + &#123;responsavel&#125;
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Editor do modelo */}
+                          <label style={{ fontSize: 12, color: '#CBD5E1', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                            Modelo da mensagem para todos os leads:
+                          </label>
+                          <textarea
+                            className="message-editor"
+                            style={{ height: 110, fontSize: 13, marginBottom: 14 }}
+                            value={bulkTemplate}
+                            onChange={e => setBulkTemplate(e.target.value)}
+                            placeholder="Escreva a mensagem usando {nome_empresa} para personalizar..."
+                          />
+
+                          {/* Live Individualized Preview Box */}
+                          {withWaList.length > 0 && currentBiz ? (
+                            <div className="whatsapp-preview-box">
+                              <div className="bulk-preview-nav">
+                                <span>
+                                  Pré-visualização individualizada: <b>{bulkPreviewIndex + 1} de {withWaList.length}</b> ({currentBiz.name})
+                                </span>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <IconButton
+                                    label="Empresa anterior"
+                                    onClick={() => setBulkPreviewIndex(prev => (prev > 0 ? prev - 1 : withWaList.length - 1))}
+                                  >
+                                    <ChevronLeft size={16} />
+                                  </IconButton>
+                                  <IconButton
+                                    label="Próxima empresa"
+                                    onClick={() => setBulkPreviewIndex(prev => (prev < withWaList.length - 1 ? prev + 1 : 0))}
+                                  >
+                                    <ChevronRight size={16} />
+                                  </IconButton>
+                                </div>
+                              </div>
+                              <div className="whatsapp-bubble">
+                                {interpolatedPreview}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 11, color: '#94A3B8' }}>
+                                <span>Destinatário: <b>{currentBiz.name}</b> · {currentBiz.phone}</span>
+                                <button
+                                  type="button"
+                                  className="text-button"
+                                  style={{ fontSize: 11, color: '#25D366' }}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(interpolatedPreview);
+                                    notify(`Mensagem personalizada para "${currentBiz.name}" copiada!`);
+                                  }}
+                                >
+                                  <Copy size={12} /> Copiar este texto individual
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ padding: 16, textAlign: 'center', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 10, border: '1px dashed rgba(239, 68, 68, 0.3)', margin: '14px 0' }}>
+                              <p style={{ color: '#fca5a5', margin: 0, fontSize: 13 }}>
+                                Nenhuma das empresas selecionadas possui número de WhatsApp registado.
+                              </p>
+                              <small style={{ color: '#94a3b8' }}>
+                                Registe os números manualmente na aba &quot;Sem WhatsApp&quot; ou selecione empresas com contacto móvel.
+                              </small>
+                            </div>
+                          )}
+
+                          {/* Modal Footer & Actions */}
+                          {bulkDispatchRunning ? (
+                            <div style={{ marginTop: 16, borderTop: '1px solid var(--navy-border)', paddingTop: 16 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13 }}>
+                                <span>
+                                  A disparar <b>{bulkProgress.current} de {bulkProgress.total}</b>: <span style={{ color: '#60A5FA' }}>{bulkProgress.currentName}</span>
+                                </span>
+                                <span style={{ fontSize: 12, color: bulkProgress.status === 'waiting' ? '#FACC15' : '#25D366' }}>
+                                  {bulkProgress.status === 'waiting' ? `Aguardando intervalo seguro (${safeIntervalSec}s)...` : 'Enviando pelo Baileys...'}
+                                </span>
+                              </div>
+                              <div style={{ width: '100%', height: 8, background: 'rgba(255, 255, 255, 0.1)', borderRadius: 4, overflow: 'hidden', marginBottom: 14 }}>
+                                <div style={{
+                                  width: `${Math.round((bulkProgress.current / (bulkProgress.total || 1)) * 100)}%`,
+                                  height: '100%',
+                                  background: '#25D366',
+                                  transition: 'width 0.3s ease'
+                                }} />
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  className="button outline compact"
+                                  style={{ color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                  onClick={() => {
+                                    cancelBulkDispatchRef.current = true;
+                                    setBulkDispatchRunning(false);
+                                  }}
+                                >
+                                  Interromper disparo
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, borderTop: '1px solid var(--navy-border)', paddingTop: 16, flexWrap: 'wrap', gap: 12 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94A3B8' }}>
+                                <span>Intervalo anti-bloqueio:</span>
+                                <select
+                                  value={safeIntervalSec}
+                                  onChange={e => setSafeIntervalSec(Number(e.target.value))}
+                                  style={{ padding: '3px 8px', fontSize: 12, background: 'var(--navy-surface-alt)', color: '#FFFFFF', border: '1px solid var(--navy-border)', borderRadius: 6 }}
+                                >
+                                  <option value={8}>8 segundos (Rápido)</option>
+                                  <option value={10}>10 segundos (Recomendado)</option>
+                                  <option value={15}>15 segundos (Mais seguro)</option>
+                                  <option value={20}>20 segundos (Conservador)</option>
+                                </select>
+                              </div>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="button outline compact"
+                                  onClick={() => setIsBulkModalOpen(false)}
+                                >
+                                  Fechar
+                                </button>
+                                {withWaList.length > 0 && waServiceStatus?.connected && (
+                                  <button
+                                    type="button"
+                                    className="button compact"
+                                    style={{ background: '#25D366', color: '#000', fontWeight: 800 }}
+                                    onClick={() => startBackgroundDispatch(withWaList)}
+                                  >
+                                    <Send size={15} /> Disparar para {withWaList.length} leads (Baileys)
+                                  </button>
+                                )}
+                                {withWaList.length > 0 && currentBiz && (
+                                  <button
+                                    type="button"
+                                    className="button outline compact"
+                                    style={{ borderColor: '#25D366', color: '#25D366' }}
+                                    onClick={() => {
+                                      const cleanPhone = (currentBiz.phone || '').replace(/\D/g, '');
+                                      const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(interpolatedPreview)}`;
+                                      window.open(url, '_blank');
+                                      notify(`WhatsApp Web aberto para ${currentBiz.name} (${bulkPreviewIndex + 1}/${withWaList.length})!`);
+                                      if (bulkPreviewIndex < withWaList.length - 1) {
+                                        setBulkPreviewIndex(prev => prev + 1);
+                                      }
+                                    }}
+                                  >
+                                    <ExternalLink size={14} /> Abrir WhatsApp Web ({bulkPreviewIndex + 1}/{withWaList.length})
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <>
@@ -2186,12 +2988,266 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           {user.profile.onboarded && view === 'admin' && user.role === 'admin' && (
             <>
               <div className="page-heading">
-                <div><div className="eyebrow"><ShieldCheck size={14} /> ADMINISTRAÇÃO DO PILOTO</div><h1>Qualidade antes de quantidade.</h1><p>Importações autorizadas, operações e pedidos de dados.</p></div>
-                <Pill tone="amber">Administrador</Pill>
+                <div>
+                  <div className="eyebrow"><ShieldCheck size={14} /> PAINEL DO ADMINISTRADOR · CONTROLE SAAS</div>
+                  <h1>Gestão de Utilizadores, Planos e Quotas</h1>
+                  <p>Acompanhe utilizadores registados, atribua planos (Essencial e Pro) e controle créditos de prospecção.</p>
+                </div>
+                <Pill tone="amber">Super Administrador</Pill>
               </div>
+
+              {/* Métricas Globais */}
+              <div className="summary-grid" style={{ marginBottom: 24 }}>
+                <div className="summary-tile">
+                  <div className="summary-icon blue"><Users size={20} /></div>
+                  <div className="summary-info">
+                    <span className="summary-label">TOTAL DE UTILIZADORES</span>
+                    <strong className="summary-number">{admin?.metrics?.totalUsers ?? admin?.users?.length ?? admin?.workspaces?.length ?? 0}</strong>
+                    <span className="summary-detail">Contas criadas na plataforma</span>
+                  </div>
+                </div>
+
+                <div className="summary-tile">
+                  <div className="summary-icon green"><Sparkles size={20} /></div>
+                  <div className="summary-info">
+                    <span className="summary-label">COM PLANO ATIVO</span>
+                    <strong className="summary-number">{admin?.metrics?.paidUsers ?? 0}</strong>
+                    <span className="summary-detail">Essencial (197 MT) ou Pro (347 MT)</span>
+                  </div>
+                </div>
+
+                <div className="summary-tile">
+                  <div className="summary-icon amber"><Clock3 size={20} /></div>
+                  <div className="summary-info">
+                    <span className="summary-label">PLANO GRÁTIS / DEMO</span>
+                    <strong className="summary-number">{admin?.metrics?.freeUsers ?? 0}</strong>
+                    <span className="summary-detail">Prazo limite até 22/10 às 19h</span>
+                  </div>
+                </div>
+
+                <div className="summary-tile">
+                  <div className="summary-icon purple"><Wallet size={20} /></div>
+                  <div className="summary-info">
+                    <span className="summary-label">TOTAL DE CRÉDITOS EM SALDO</span>
+                    <strong className="summary-number">{admin?.metrics?.totalCredits ?? 0}</strong>
+                    <span className="summary-detail">Quota disponível para prospecção</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela de Utilizadores & Planos */}
+              <section className="panel content" style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: 18 }}>Utilizadores e Subscrições</h2>
+                    <p className="muted" style={{ margin: '4px 0 0' }}>Lista completa de clientes registados, respetivos planos e quotas.</p>
+                  </div>
+                  <button className="button outline compact" onClick={async () => {
+                    const r = await api<AdminData>('admin');
+                    setAdmin(r);
+                    notify('Dados atualizados.');
+                  }}>
+                    Atualizar Lista
+                  </button>
+                </div>
+
+                <div className="no-wa-table-container">
+                  <table className="no-wa-table">
+                    <thead>
+                      <tr>
+                        <th>Nome & Email</th>
+                        <th>Tipo</th>
+                        <th>Plano Atual</th>
+                        <th>Estado</th>
+                        <th>Validade</th>
+                        <th>Créditos</th>
+                        <th style={{ textAlign: 'right' }}>Ação Rápida</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {admin?.users && admin.users.length > 0 ? (
+                        admin.users.map(u => (
+                          <tr key={u.id} style={{ background: adminSelectedUserId === u.id ? 'rgba(59, 130, 246, 0.08)' : undefined }}>
+                            <td>
+                              <strong>{u.name}</strong>
+                              <small style={{ display: 'block', color: 'var(--muted)', fontSize: 11 }}>{u.email}</small>
+                            </td>
+                            <td>
+                              <Pill tone={u.role === 'admin' ? 'amber' : 'gray'}>{u.role}</Pill>
+                            </td>
+                            <td>
+                              {u.subscription?.plan === 'pro' ? (
+                                <Pill tone="green">Prospecta Pro (347 MT)</Pill>
+                              ) : u.subscription?.plan === 'essential' ? (
+                                <Pill tone="blue">Prospecta Essencial (197 MT)</Pill>
+                              ) : (
+                                <Pill tone="gray">Gratuito / Trial</Pill>
+                              )}
+                            </td>
+                            <td>
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: u.subscription?.status === 'active' ? '#10b981' : u.subscription?.status === 'expired' ? '#ef4444' : '#f59e0b'
+                              }}>
+                                {u.subscription?.status === 'active' ? '● Ativo' : u.subscription?.status === 'expired' ? '● Expirado' : '● Em Teste'}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: 12 }}>
+                              {u.subscription?.expiresAt ? date(u.subscription.expiresAt) : 'Até 22/10/2026'}
+                            </td>
+                            <td>
+                              <strong style={{ color: '#2563eb' }}>{u.credits?.available ?? 0}</strong>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                className="button outline compact"
+                                onClick={() => {
+                                  setAdminSelectedUserId(u.id);
+                                  notify(`Utilizador "${u.name}" selecionado para gestão.`);
+                                }}
+                              >
+                                Selecionar
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--muted)' }}>
+                            Nenhum utilizador encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* Formulários de Gestão: Plano & Quota Manual */}
               <div className="detail-grid">
+                {/* Atribuição de Plano */}
                 <section className="panel content">
-                  <h2>Importar empresas por CSV</h2><p className="muted">Até 500 linhas. Colunas: name, category, province, locality, sourceId, phone, website, countryCode.</p>
+                  <h2>Atribuir ou Alterar Plano</h2>
+                  <p className="muted">Selecione o utilizador, defina o plano (Essencial ou Pro) e a validade em meses.</p>
+                  <form onSubmit={e => {
+                    e.preventDefault();
+                    const form = new FormData(e.currentTarget);
+                    const targetUserId = form.get('userId') as string;
+                    const planChoice = form.get('plan') as 'free' | 'essential' | 'pro';
+                    const months = Number(form.get('months')) || 1;
+                    const grantPlanCredits = form.get('grantPlanCredits') === 'on';
+
+                    run(async () => {
+                      await post('admin/subscription', {
+                        userId: targetUserId,
+                        plan: planChoice,
+                        months,
+                        grantPlanCredits
+                      });
+                      const r = await api<AdminData>('admin');
+                      setAdmin(r);
+                      await refreshUser();
+                      notify(`Plano ${planChoice === 'pro' ? 'Pro' : planChoice === 'essential' ? 'Essencial' : 'Grátis'} atribuído por ${months} mês(es)!`);
+                    });
+                  }}>
+                    <label>
+                      Utilizador
+                      <select name="userId" value={adminSelectedUserId} onChange={e => setAdminSelectedUserId(e.target.value)} required>
+                        <option value="">Selecione um utilizador...</option>
+                        {admin?.users?.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} · {u.email} ({u.subscription?.plan === 'pro' ? 'Pro' : u.subscription?.plan === 'essential' ? 'Essencial' : 'Grátis'})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      Plano a Atribuir
+                      <select name="plan" defaultValue="pro" required>
+                        <option value="pro">Prospecta Pro · 347 MT/mês (Alta escala, disparos múltiplos, CRM)</option>
+                        <option value="essential">Prospecta Essencial · 197 MT/mês (150 créditos, pesquisas)</option>
+                        <option value="free">Gratuito / Demonstração (Até 22/10/2026)</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Duração da Assinatura
+                      <select name="months" defaultValue={1} required>
+                        <option value={1}>1 Mês de Acesso</option>
+                        <option value={2}>2 Meses</option>
+                        <option value={3}>3 Meses (Trimestral)</option>
+                        <option value={6}>6 Meses (Semestral)</option>
+                        <option value={12}>12 Meses (Anual)</option>
+                        <option value={24}>24 Meses</option>
+                      </select>
+                    </label>
+
+                    <label className="checkbox" style={{ marginTop: 8 }}>
+                      <input name="grantPlanCredits" type="checkbox" defaultChecked />
+                      Creditar automaticamente quota mensal do plano (150 ou 450 créditos x meses)
+                    </label>
+
+                    <button className="button" disabled={busy} style={{ marginTop: 12 }}>
+                      <Sparkles size={16} /> Gravar e Ativar Plano
+                    </button>
+                  </form>
+                </section>
+
+                {/* Atribuição de Quota Manual */}
+                <section className="panel content">
+                  <h2>Adicionar Quota de Créditos</h2>
+                  <p className="muted">Credite saldo avulso de prospecção para qualquer utilizador manualmente.</p>
+                  <form onSubmit={e => {
+                    e.preventDefault();
+                    const form = new FormData(e.currentTarget);
+                    const targetUserId = form.get('userId') as string;
+                    const units = Number(form.get('units'));
+                    const reason = String(form.get('reason'));
+
+                    run(async () => {
+                      await post('admin/grant', { userId: targetUserId, units, reason });
+                      const r = await api<AdminData>('admin');
+                      setAdmin(r);
+                      await refreshUser();
+                      notify(`${units} créditos adicionados ao utilizador com sucesso.`);
+                    });
+                  }}>
+                    <label>
+                      Utilizador
+                      <select name="userId" value={adminSelectedUserId} onChange={e => setAdminSelectedUserId(e.target.value)} required>
+                        <option value="">Selecione um utilizador...</option>
+                        {admin?.users?.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} · {u.email} ({u.credits?.available ?? 0} créditos atuais)
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      Quantidade de Créditos a Adicionar
+                      <input name="units" type="number" min={1} max={50000} defaultValue={100} required />
+                    </label>
+
+                    <label>
+                      Motivo / Referência de Pagamento
+                      <input name="reason" required minLength={3} placeholder="Ex.: Pagamento M-Pesa manual / Recarga Lojou" />
+                    </label>
+
+                    <button className="button outline" disabled={busy} style={{ marginTop: 12 }}>
+                      <Plus size={16} /> Adicionar Créditos
+                    </button>
+                  </form>
+                </section>
+              </div>
+
+              {/* Importação CSV & Outras Funções */}
+              <div className="detail-grid" style={{ marginTop: 24 }}>
+                <section className="panel content">
+                  <h2>Importar empresas por CSV</h2>
+                  <p className="muted">Até 500 linhas. Colunas: name, category, province, locality, sourceId, phone, website, countryCode.</p>
                   <form onSubmit={e => { e.preventDefault(); const form = new FormData(e.currentTarget); run(async () => { const r = await post<{ imported: number }>('admin/import', { csv: form.get('csv'), source: form.get('source'), authorized: form.get('authorized') === 'on' }); notify(`${r.imported} empresas importadas.`); }); }}>
                     <label>Origem dos dados<input name="source" required minLength={3} placeholder="Nome da fonte autorizada" /></label>
                     <label>Conteúdo CSV<textarea name="csv" rows={7} required placeholder={'name,category,province,locality,sourceId,phone,website,countryCode\nEmpresa Exemplo,Restauração,Sofala,Beira,ref-01,,,MZ'} /></label>
@@ -2199,18 +3255,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <button className="button" disabled={busy}><Database size={16} /> Validar e importar</button>
                   </form>
                 </section>
+
                 <section className="panel content">
-                  <h2>Atribuir créditos do piloto</h2>
-                  <form onSubmit={e => { e.preventDefault(); const form = new FormData(e.currentTarget); run(async () => { await post('admin/grant', { workspaceId: form.get('workspaceId'), units: Number(form.get('units')), reason: form.get('reason') }); await refreshUser(); notify('Créditos atribuídos e registados.'); }); }}>
-                    <label>Espaço de trabalho<select name="workspaceId">{admin?.workspaces.map(w => <option key={w.id} value={w.id}>{w.name} · {w.email}</option>)}</select></label>
-                    <label>Quantidade<input name="units" type="number" min={1} max={10000} defaultValue={10} required /></label>
-                    <label>Motivo<input name="reason" required minLength={3} placeholder="Ex.: extensão do piloto" /></label>
-                    <button className="button outline" disabled={busy}><Plus size={16} /> Atribuir créditos</button>
-                  </form>
+                  <h2>Tarefas de análise</h2>
+                  {admin?.jobs.length ? <div className="admin-rows">{admin.jobs.map(j => <div key={j.id}><code>{j.id.slice(0, 8)}</code><Pill tone={j.status === 'failed' ? 'red' : 'blue'}>{j.status}</Pill><span>{j.attempts} tentativa(s)</span><small>{j.error || '—'}</small></div>)}</div> : <p className="muted">Nenhuma tarefa de análise criada.</p>}
+                  <p className="micro">Após falha definitiva, a reserva é libertada.</p>
                 </section>
               </div>
-              <section className="panel content"><h2>Tarefas de análise</h2>{admin?.jobs.length ? <div className="admin-rows">{admin.jobs.map(j => <div key={j.id}><code>{j.id.slice(0, 8)}</code><Pill tone={j.status === 'failed' ? 'red' : 'blue'}>{j.status}</Pill><span>{j.attempts} tentativa(s)</span><small>{j.error || '—'}</small></div>)}</div> : <p className="muted">Nenhuma tarefa de análise criada.</p>}<p className="micro">Após falha definitiva, a reserva é libertada.</p></section>
-              <section className="panel content"><h2>Pedidos de privacidade</h2>{admin?.requests.length ? admin.requests.map(r => (<div className="privacy-row" key={r.id}><span>{r.type} · {r.status} · {r.id.slice(0, 8)}</span><button className="button outline compact" disabled={busy} onClick={() => { if (window.confirm(r.type === 'delete' ? 'Eliminar definitivamente?' : 'Concluir este pedido?')) run(async () => { await post('admin/privacy/' + r.id + '/complete'); const remaining = await refreshUser(); if (remaining) setAdmin(await api<AdminData>('admin')); notify('Pedido processado.'); }); }}>Processar</button></div>)) : <p className="muted">Sem pedidos registados.</p>}</section>
+
+              <section className="panel content" style={{ marginTop: 24 }}><h2>Pedidos de privacidade</h2>{admin?.requests.length ? admin.requests.map(r => (<div className="privacy-row" key={r.id}><span>{r.type} · {r.status} · {r.id.slice(0, 8)}</span><button className="button outline compact" disabled={busy} onClick={() => { if (window.confirm(r.type === 'delete' ? 'Eliminar definitivamente?' : 'Concluir este pedido?')) run(async () => { await post('admin/privacy/' + r.id + '/complete'); const remaining = await refreshUser(); if (remaining) setAdmin(await api<AdminData>('admin')); notify('Pedido processado.'); }); }}>Processar</button></div>)) : <p className="muted">Sem pedidos registados.</p>}</section>
               <section className="panel content"><h2>Correcções de informação</h2>{admin?.corrections.length ? admin.corrections.map(c => (<div className="privacy-row" key={c.id}><span>{c.note} · {c.status}</span>{c.status === 'pending' && <button className="button outline compact" onClick={() => run(async () => { await post('admin/corrections/' + c.id + '/complete'); setAdmin(await api<AdminData>('admin')); notify('Correcção marcada como revista.'); })}>Marcar como revista</button>}</div>)) : <p className="muted">Sem correcções pendentes.</p>}</section>
             </>
           )}
@@ -2242,6 +3295,116 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             <button className="button outline full" onClick={() => run(async () => { await loadBusiness(selectedLead.businessId, 'business', selectedLead.business); })}>Ver ficha da empresa <ArrowRight size={16} /></button>
             <h3>Histórico</h3>
             <div className="activity-list">{selectedLead.activities.map(a => <div key={a.id}><span className="activity-dot" /><div><p>{a.note}</p><small>{date(a.createdAt)}</small></div></div>)}</div>
+          </section>
+        </div>
+      )}
+
+      {/* ══ MODAL DE PLANOS E ASSINATURA LOJOU ══════════════ */}
+      {showPlansModal && (
+        <div className="modal-backdrop" onClick={() => setShowPlansModal(false)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="plans-title" className="lead-drawer" style={{ maxWidth: 840, width: '92vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="row">
+              <Pill tone="amber">UPGRADE DE PLANO · PROSPECTA</Pill>
+              <IconButton label="Fechar planos" onClick={() => setShowPlansModal(false)}><X size={20} /></IconButton>
+            </div>
+            
+            <h2 id="plans-title" style={{ marginTop: 8 }}>Invista no seu motor de prospecção</h2>
+            <p className="muted">Encontre mais empresas, envie abordagens em simultâneo e feche contratos de alto valor.</p>
+
+            <div style={{
+              background: '#fef3c7',
+              border: '1px solid #fde68a',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              margin: '16px 0 20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+              <div style={{ fontSize: '13px', color: '#92400e' }}>
+                <strong>Aviso de Prazo:</strong> Todos os utilizadores devem escolher um plano até <b>{PLAN_DEADLINE_DISPLAY}</b> para garantir o funcionamento contínuo.
+              </div>
+            </div>
+
+            <div className="detail-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+              {/* Card Essencial */}
+              <div className="panel content" style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10 }}>Pra começar</span>
+                <h3 style={{ fontSize: 20, margin: '0 0 4px' }}>{PLANS.essential.name}</h3>
+                <p className="muted" style={{ fontSize: 13, minHeight: 38 }}>{PLANS.essential.tagline}</p>
+                <div style={{ margin: '14px 0 10px', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 32, fontWeight: 800 }}>{PLANS.essential.priceMt} MT</span>
+                  <span style={{ fontSize: 14, color: 'var(--muted)' }}>{PLANS.essential.period}</span>
+                </div>
+                <div style={{ fontSize: 11, background: 'var(--navy-surface-alt)', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
+                  M-Pesa · e-Mola · Cartão · Lojou Pay
+                </div>
+                <a
+                  href={PLANS.essential.lojouCheckoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="button"
+                  style={{ textDecoration: 'none', justifyContent: 'center' }}
+                >
+                  Assinar Essencial (197 MT) <ArrowRight size={15} />
+                </a>
+                <div style={{ marginTop: 18, borderTop: '1px solid var(--navy-border)', paddingTop: 14, flex: 1 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', letterSpacing: 1 }}>O QUE INCLUI:</span>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                    {PLANS.essential.features.map(f => (
+                      <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Card Pro */}
+              <div className="panel content" style={{ display: 'flex', flexDirection: 'column', borderColor: '#3b82f6', borderWidth: 2, position: 'relative' }}>
+                <span className="fact-pill" style={{ width: 'max-content', marginBottom: 10, background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                  Mais popular · Alta escala
+                </span>
+                <h3 style={{ fontSize: 20, margin: '0 0 4px' }}>{PLANS.pro.name}</h3>
+                <p className="muted" style={{ fontSize: 13, minHeight: 38 }}>{PLANS.pro.tagline}</p>
+                <div style={{ margin: '14px 0 10px', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  {PLANS.pro.originalPriceMt && (
+                    <span style={{ fontSize: 15, color: 'var(--muted)', textDecoration: 'line-through' }}>{PLANS.pro.originalPriceMt} MT</span>
+                  )}
+                  <span style={{ fontSize: 32, fontWeight: 800, color: '#2563eb' }}>{PLANS.pro.priceMt} MT</span>
+                  <span style={{ fontSize: 14, color: 'var(--muted)' }}>{PLANS.pro.period}</span>
+                </div>
+                <div style={{ fontSize: 11, background: '#eff6ff', color: '#1e40af', padding: '6px 10px', borderRadius: 6, marginBottom: 16, textAlign: 'center' }}>
+                  M-Pesa · e-Mola · Cartão · Lojou Pay
+                </div>
+                <a
+                  href={PLANS.pro.lojouCheckoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="button"
+                  style={{ textDecoration: 'none', justifyContent: 'center', background: '#2563eb' }}
+                >
+                  Assinar Pro (347 MT) <ArrowRight size={15} />
+                </a>
+                <div style={{ marginTop: 18, borderTop: '1px solid var(--navy-border)', paddingTop: 14, flex: 1 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', letterSpacing: 1 }}>TUDO DO ESSENCIAL E MAIS:</span>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                    {PLANS.pro.features.map(f => (
+                      <li key={f} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 20, padding: 12, background: 'var(--navy-surface-alt)', borderRadius: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
+              🛡️ Pagamento seguro via <b>Lojou</b>. Aceita M-Pesa e e-Mola (Moçambique) e Cartões Visa/Mastercard internacionais.
+            </div>
           </section>
         </div>
       )}
@@ -2290,13 +3453,25 @@ function getPhoneBadgeLabel(phone: string): string {
   return formatted;
 }
 
-function BusinessCard({ business: b, busy, onView, onSave, onUpdatePhone }: { business: Business; busy: boolean; onView: () => void; onSave: () => void; onUpdatePhone?: (phone: string) => void }) {
+function BusinessCard({ business: b, busy, selected, onToggleSelect, onView, onSave, onUpdatePhone }: { business: Business; busy: boolean; selected?: boolean; onToggleSelect?: () => void; onView: () => void; onSave: () => void; onUpdatePhone?: (phone: string) => void }) {
+  const isWa = isLikelyWhatsApp(b.phone, b.country || 'MZ');
+  const countryObj = getCountryByCode(b.country);
   return (
-    <article className="business-card">
+    <article className={cls('business-card', selected && 'selected')}>
+      {onToggleSelect && (
+        <input
+          type="checkbox"
+          className="card-checkbox"
+          checked={!!selected}
+          aria-label={`Selecionar ${b.name}`}
+          onClick={e => e.stopPropagation()}
+          onChange={onToggleSelect}
+        />
+      )}
       <div className="row">
         <span className="business-icon"><Building2 size={23} /></span>
         <div className="card-tags">
-          <Pill tone="blue">Fonte autorizada</Pill>
+          <Pill tone="blue">{countryObj.flag} {b.country && b.country !== 'MZ' ? countryObj.name : 'Fonte autorizada'}</Pill>
           <IconButton label={b.saved ? 'Empresa guardada' : 'Guardar ' + b.name} onClick={onSave}>{b.saved ? <Bookmark fill="currentColor" size={18} /> : <Bookmark size={18} />}</IconButton>
         </div>
       </div>
@@ -2309,10 +3484,10 @@ function BusinessCard({ business: b, busy, onView, onSave, onUpdatePhone }: { bu
             type="button"
             className="fact-pill fact-phone-none"
             style={{ cursor: 'pointer', background: 'rgba(239, 68, 68, 0.12)', border: '1px dashed rgba(239, 68, 68, 0.45)', color: '#fca5a5' }}
-            title="Encontrou o número no Google Maps? Clique para registar."
+            title="Encontrou o número? Clique para registar."
             onClick={(e) => {
               e.stopPropagation();
-              const phoneInput = window.prompt(`Inserir número do Google Maps para "${b.name}" (ex: 84 123 4567):`);
+              const phoneInput = window.prompt(`Inserir contacto para "${b.name}" (com DDI ou formato local):`);
               if (phoneInput && onUpdatePhone) {
                 onUpdatePhone(phoneInput);
               }
@@ -2320,8 +3495,18 @@ function BusinessCard({ business: b, busy, onView, onSave, onUpdatePhone }: { bu
           >
             <Phone size={13} /> + Inserir contacto
           </button>
+        ) : isWa ? (
+          <span className="fact-pill fact-phone" style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', borderColor: 'rgba(37, 211, 102, 0.3)' }}>
+            <MessageCircle size={13} /><b>{formatPhone(b.phone) || b.phone} (WhatsApp)</b>
+          </span>
         ) : (
-          <span className="fact-pill fact-phone"><Phone size={13} /><b>{getPhoneBadgeLabel(b.phone)}</b></span>
+          <span className="fact-pill" style={{ background: 'rgba(234, 179, 8, 0.12)', color: '#facc15', border: '1px solid rgba(234, 179, 8, 0.3)' }} title="Telefone fixo. Clique para adicionar WhatsApp móvel se tiver encontrado." onClick={(e) => {
+            e.stopPropagation();
+            const phoneInput = window.prompt(`Atualizar com WhatsApp móvel para "${b.name}":`, b.phone || '');
+            if (phoneInput && onUpdatePhone) onUpdatePhone(phoneInput);
+          }}>
+            <Phone size={13} /><b>{formatPhone(b.phone) || b.phone} (Fixo)</b>
+          </span>
         )}
         <span className={cls('fact-pill', b.website ? 'fact-web' : 'fact-web-none')}><Globe2 size={13} />{b.website ? 'Com website' : 'Sem website'}</span>
         {b.instagram && <span className="fact-pill fact-ig"><Sparkles size={13} /><b>{b.instagram}</b></span>}
@@ -2331,7 +3516,7 @@ function BusinessCard({ business: b, busy, onView, onSave, onUpdatePhone }: { bu
         <button className="card-action" onClick={onView} disabled={busy}>Ver empresa e possibilidades <ArrowUpRight size={17} /></button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%' }}>
           <a
-            href={getGoogleMapsUrl(b.name, b.locality, b.province)}
+            href={getGoogleMapsUrl(b.name, b.locality, b.province, countryObj.name)}
             target="_blank"
             rel="noopener noreferrer"
             className="card-map-action"
@@ -2342,7 +3527,7 @@ function BusinessCard({ business: b, busy, onView, onSave, onUpdatePhone }: { bu
             <MapPin size={13} /> Maps <ExternalLink size={11} />
           </a>
           <a
-            href={getMetaAdLibraryUrl(b.name)}
+            href={getMetaAdLibraryUrl(b.name, b.country || 'MZ')}
             target="_blank"
             rel="noopener noreferrer"
             className="card-map-action"

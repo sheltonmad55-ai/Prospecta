@@ -7,6 +7,7 @@
     "dev": "node --env-file-if-exists=.env.local scripts/dev.mjs",
     "build": "next build --webpack",
     "start": "node --env-file-if-exists=.env.local scripts/start.mjs",
+    "whatsapp": "node scripts/whatsapp-service.mjs",
     "worker": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/worker.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",
@@ -20,9 +21,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "libphonenumber-js": "1.13.15",
     "lucide-react": "1.57.0",
     "next": "16.4.2",
+    "pino": "^10.4.0",
+    "qrcode": "^1.5.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "4.6.7"

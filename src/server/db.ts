@@ -35,9 +35,11 @@ export function db() {
     CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY,count INTEGER NOT NULL,reset_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS oauth_flows(token_hash TEXT PRIMARY KEY,storage TEXT NOT NULL,intent TEXT NOT NULL CHECK(intent IN ('login','register')),marketing INTEGER NOT NULL,expires_at TEXT NOT NULL,used INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS user_consents(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,terms_version TEXT NOT NULL,marketing INTEGER NOT NULL,source TEXT NOT NULL,accepted_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS subscriptions(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,plan TEXT NOT NULL CHECK(plan IN ('free','essential','pro')),status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','expired','canceled')),months INTEGER NOT NULL DEFAULT 1,starts_at TEXT NOT NULL,expires_at TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_jobs_ready ON jobs(status,next_run_at);
     CREATE INDEX IF NOT EXISTS idx_leads_workspace ON leads(workspace_id,stage,next_action_at);
     CREATE INDEX IF NOT EXISTS idx_analysis_workspace ON analyses(workspace_id,business_id,input_hash);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id, status);
     INSERT OR IGNORE INTO migrations VALUES(1,datetime('now'));
     INSERT OR IGNORE INTO migrations VALUES(2,datetime('now'));
   `);

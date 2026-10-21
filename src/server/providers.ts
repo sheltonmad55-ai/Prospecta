@@ -7,7 +7,15 @@ import { buildVaultPromptMatrix } from './vault-scripts.ts';
 
 export const mode = () => 'live' as const;
 export const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-export function validPhone(value:string) {const number=parsePhoneNumberFromString(value,'MZ');return number?.isValid() && number.country==='MZ' ? number.number : null;}
+export function validPhone(value: string, defaultCountry = 'MZ') {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const isIntl = trimmed.startsWith('+');
+  const number = parsePhoneNumberFromString(trimmed, isIntl ? undefined : (defaultCountry.toUpperCase() as import('libphonenumber-js').CountryCode));
+  if (!number?.isValid()) return null;
+  if (!isIntl && defaultCountry === 'MZ' && number.country !== 'MZ') return null;
+  return number.number;
+}
 const coerceStr=(max:number)=>z.union([z.string(),z.number(),z.boolean()]).transform(v=>String(v)).pipe(z.string().max(max));
 export const analysisSchema = z.object({
   facts:z.array(z.object({text:coerceStr(500),evidenceIds:z.array(z.string()).min(1)})).max(12),

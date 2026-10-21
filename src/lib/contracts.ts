@@ -14,7 +14,27 @@ export const SERVICES = [
 export type Stage = typeof STAGES[number];
 export interface Credits { available: number; reserved: number; spent: number }
 export interface Profile { service: string; pitch: string; province: string; phone: string; nationwide: boolean; onboarded: boolean }
-export interface User { id: string; name: string; email: string; workspaceId: string; role: 'owner' | 'admin'; profile: Profile; credits: Credits }
+
+export type PlanType = 'free' | 'essential' | 'pro';
+export type SubscriptionStatus = 'active' | 'expired' | 'trial' | 'canceled';
+
+export interface UserSubscription {
+  plan: PlanType;
+  status: SubscriptionStatus;
+  expiresAt: string | null;
+  months?: number;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  workspaceId: string;
+  role: 'owner' | 'admin';
+  profile: Profile;
+  credits: Credits;
+  subscription?: UserSubscription;
+}
 export interface Evidence { id: string; field: string; value: string; source: string; observedAt: string }
 export function getMozambiqueLocalDigits(phone: string | null | undefined): string {
   if (!phone) return '';
@@ -53,15 +73,96 @@ export function getMozambiquePhoneKind(phone: string | null | undefined): Mozamb
   return 'unknown';
 }
 
-/**
- * Gera URL direto para verificação na Biblioteca de Anúncios do Meta para Moçambique
- */
-export function getMetaAdLibraryUrl(businessName: string): string {
-  return `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=MZ&q=${encodeURIComponent(businessName.trim())}`;
+export interface CountryOption {
+  code: string;
+  name: string;
+  flag: string;
+  ddi: string;
+  provinces: string[];
 }
 
-export interface Business { id: string; name: string; category: string; province: string; locality: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean; phoneType?: 'mobile' | 'landline' | null; hasActiveAds?: boolean; }
-export interface SearchFilters { province?: string; locality?: string; category?: string; service: string; budget?: number; niche?: string; cities?: string; phone?: string; website?: string; instagram?: string }
+export const COUNTRIES: CountryOption[] = [
+  {
+    code: 'MZ',
+    name: 'Moçambique',
+    flag: '🇲🇿',
+    ddi: '+258',
+    provinces: ['Maputo Cidade', 'Maputo Província', 'Gaza', 'Inhambane', 'Sofala', 'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa']
+  },
+  {
+    code: 'AO',
+    name: 'Angola',
+    flag: '🇦🇴',
+    ddi: '+244',
+    provinces: ['Luanda', 'Benguela', 'Huambo', 'Huíla', 'Cabinda', 'Cuanza Sul', 'Cuanza Norte', 'Uíge', 'Zaire', 'Malanje', 'Namibe', 'Lunda Norte', 'Lunda Sul', 'Moxico', 'Bié', 'Cuando Cubango', 'Cunene', 'Bengo']
+  },
+  {
+    code: 'PT',
+    name: 'Portugal',
+    flag: '🇵🇹',
+    ddi: '+351',
+    provinces: ['Lisboa', 'Porto', 'Braga', 'Setúbal', 'Aveiro', 'Faro', 'Coimbra', 'Leiria', 'Santarém', 'Viseu', 'Viana do Castelo', 'Vila Real', 'Castelo Branco', 'Évora', 'Guarda', 'Beja', 'Bragança', 'Portalegre', 'Madeira', 'Açores']
+  },
+  {
+    code: 'BR',
+    name: 'Brasil',
+    flag: '🇧🇷',
+    ddi: '+55',
+    provinces: ['São Paulo', 'Rio de Janeiro', 'Minas Gerais', 'Bahia', 'Paraná', 'Rio Grande do Sul', 'Santa Catarina', 'Pernambuco', 'Ceará', 'Goiás', 'Distrito Federal', 'Espírito Santo', 'Mato Grosso', 'Pará', 'Amazonas']
+  },
+  {
+    code: 'ZA',
+    name: 'África do Sul',
+    flag: '🇿🇦',
+    ddi: '+27',
+    provinces: ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape']
+  },
+  {
+    code: 'CV',
+    name: 'Cabo Verde',
+    flag: '🇨🇻',
+    ddi: '+238',
+    provinces: ['Santiago', 'São Vicente', 'Sal', 'Boa Vista', 'Santo Antão', 'Fogo', 'São Nicolau', 'Maio', 'Brava']
+  }
+];
+
+export function getCountryByCode(code?: string): CountryOption {
+  const c = (code || 'MZ').toUpperCase();
+  return COUNTRIES.find(x => x.code === c) || COUNTRIES[0];
+}
+
+export function isLikelyWhatsApp(phone: string | null | undefined, countryCode = 'MZ'): boolean {
+  if (!phone) return false;
+  const cleaned = phone.trim();
+  if (countryCode === 'MZ' || cleaned.startsWith('+258')) {
+    return isMozambiqueMobile(cleaned);
+  }
+  const digits = cleaned.replace(/\D/g, '');
+  if (cleaned.startsWith('+351') || countryCode === 'PT') {
+    const local = digits.startsWith('351') ? digits.slice(3) : digits;
+    return local.length === 9 && /^9/.test(local);
+  }
+  if (cleaned.startsWith('+244') || countryCode === 'AO') {
+    const local = digits.startsWith('244') ? digits.slice(3) : digits;
+    return local.length === 9 && /^9/.test(local);
+  }
+  if (cleaned.startsWith('+55') || countryCode === 'BR') {
+    const local = digits.startsWith('55') ? digits.slice(2) : digits;
+    return (local.length === 11 && local[2] === '9') || (local.length === 10 && local[2] >= '7');
+  }
+  return digits.length >= 8;
+}
+
+/**
+ * Gera URL direto para verificação na Biblioteca de Anúncios do Meta para Moçambique ou país selecionado
+ */
+export function getMetaAdLibraryUrl(businessName: string, countryCode = 'MZ'): string {
+  const cc = (countryCode || 'MZ').toUpperCase();
+  return `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${cc}&q=${encodeURIComponent(businessName.trim())}`;
+}
+
+export interface Business { id: string; name: string; category: string; province: string; locality: string; country?: string; description: string; phone: string | null; website: string | null; instagram?: string | null; source: string; observedAt: string; isDemo: boolean; evidence: Evidence[]; saved?: boolean; suppressed?: boolean; phoneType?: 'mobile' | 'landline' | null; hasActiveAds?: boolean; city?: string; activity?: string; opportunityScore?: number; address?: string; }
+export interface SearchFilters { country?: string; province?: string; locality?: string; category?: string; service: string; budget?: number; niche?: string; cities?: string; phone?: string; website?: string; instagram?: string }
 export interface SearchTask { province: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'limited'; count: number; error?: string }
 export interface SearchResult { id: string; status: 'queued' | 'running' | 'succeeded' | 'partial' | 'failed'; filters: SearchFilters; tasks: SearchTask[]; results: Business[]; allResults?: Business[]; total: number; page: number; pages: number; createdAt: string; mode: 'demo' | 'live' }
 export interface Analysis { id: string; businessId: string; facts: {text: string; evidenceIds: string[]}[]; hypotheses: string[]; recommendedService: string; reason: string; missingData: string[]; draftMessage: string; confidence: string; mode: 'demo' | 'live'; createdAt: string }
@@ -221,3 +322,73 @@ export function getRecommendedPricing(service: string, nicheOrCategory = ''): Pr
     formattedRange: isHighTicket ? '10.000 – 22.000 MT' : isSmallLocal ? '4.000 – 9.000 MT' : '7.000 – 15.000 MT'
   };
 }
+
+export const PLAN_DEADLINE_ISO = '2026-10-22T19:00:00+02:00';
+export const PLAN_DEADLINE_DISPLAY = '22 de Outubro de 2026 às 19:00 (Horário de Moçambique)';
+
+export interface PlanDefinition {
+  id: 'essential' | 'pro';
+  name: string;
+  tagline: string;
+  priceMt: number;
+  originalPriceMt?: number;
+  period: string;
+  badge?: string;
+  popular?: boolean;
+  creditsPerMonth: number;
+  leadsPerSearch: number;
+  features: string[];
+  lojouCheckoutUrl: string;
+  paymentMethods: string[];
+}
+
+export const PLANS: Record<'essential' | 'pro', PlanDefinition> = {
+  essential: {
+    id: 'essential',
+    name: 'Prospecta Essencial',
+    tagline: 'Pra quem está a começar a prospectar e quer fechar os seus primeiros clientes.',
+    priceMt: 197,
+    period: '/mês',
+    creditsPerMonth: 150,
+    leadsPerSearch: 10,
+    features: [
+      '150 créditos de prospecção por mês',
+      'Até 10 leads por pesquisa',
+      'Pesquisas em Moçambique e no exterior',
+      'Diagnóstico comercial profundo de cada empresa',
+      'Agente de Vendas com IA (abordagens de alta conversão)',
+      'Acesso ao Cofre de Scripts de Prospecção',
+      'Disparo de WhatsApp individual (Motor Baileys Gratuito)',
+      'Relatório "Sem WhatsApp" com preenchimento manual e CSV',
+      'Suporte via comunidade'
+    ],
+    lojouCheckoutUrl: 'https://lojou.com/pay/prospecta-essencial',
+    paymentMethods: ['M-Pesa', 'e-Mola', 'Cartão Visa/Mastercard', 'Lojou']
+  },
+  pro: {
+    id: 'pro',
+    name: 'Prospecta Pro',
+    tagline: 'Pra quem prospecta e vende com frequência e quer máxima escala.',
+    priceMt: 347,
+    originalPriceMt: 497,
+    period: '/mês',
+    badge: 'Mais popular',
+    popular: true,
+    creditsPerMonth: 450,
+    leadsPerSearch: 30,
+    features: [
+      '450 créditos de prospecção por mês',
+      'Até 30 leads por pesquisa (Alta escala)',
+      'Pesquisas Internacionais completas (Moçambique, Angola, Portugal, Brasil, África do Sul, Cabo Verde)',
+      'Disparo em Massa Simultâneo com injeção automática de {nome_empresa}',
+      'Proteção e cadência inteligente anti-bloqueio no WhatsApp',
+      'Análise profunda com verificação na Biblioteca de Anúncios Meta',
+      'Acesso Ilimitado ao Cofre de Scripts + Gerador Gemini IA Pro',
+      'Histórico completo de prospecção e CRM Kanban',
+      'Exportação CSV ilimitada para equipas e fechamentos',
+      'Suporte prioritário via WhatsApp'
+    ],
+    lojouCheckoutUrl: 'https://lojou.com/pay/prospecta-pro',
+    paymentMethods: ['M-Pesa', 'e-Mola', 'Cartão Visa/Mastercard', 'Lojou']
+  }
+};

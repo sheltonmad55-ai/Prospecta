@@ -1728,3 +1728,287 @@ label span {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ========================================================
+   RADAR GEOGRAPHIC 4-FIELD LAYOUT & BULK DISPATCH SYSTEM
+   ======================================================== */
+
+.radar-row-geo {
+  display: grid;
+  grid-template-columns: 1.3fr 1.1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .radar-row-geo {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .radar-row-geo {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Results subtabs */
+.results-subtabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 14px;
+  border-bottom: 1px solid var(--navy-border);
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.results-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.results-subtab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.results-subtab.active {
+  color: #FFFFFF;
+  background: var(--navy-surface-alt);
+  border-color: var(--navy-border-hover);
+}
+
+.results-subtab .badge {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.results-subtab.active .badge {
+  background: var(--navy-blue);
+  color: #FFFFFF;
+}
+
+/* Bulk Selection Sticky Bar */
+.bulk-action-bar {
+  position: sticky;
+  bottom: 24px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(13, 27, 46, 0.95);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 24px rgba(24, 119, 242, 0.2);
+  border-radius: 14px;
+  margin-top: 20px;
+  animation: slideUp 0.25s ease-out;
+  flex-wrap: wrap;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.bulk-action-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #E2E8F0;
+}
+
+.bulk-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--navy-blue);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Card Checkbox */
+.card-checkbox {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 5;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--navy-blue);
+}
+
+.business-card {
+  position: relative;
+  padding-left: 42px !important;
+}
+
+/* No-WhatsApp Table */
+.no-wa-table-container {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--navy-border);
+  background: var(--navy-surface);
+  margin-top: 12px;
+}
+
+.no-wa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.no-wa-table th {
+  background: var(--navy-surface-alt);
+  color: #94A3B8;
+  padding: 12px 14px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--navy-border);
+}
+
+.no-wa-table td {
+  padding: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.no-wa-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.no-wa-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.no-wa-input {
+  background: var(--navy-surface-alt) !important;
+  border: 1px solid var(--navy-border) !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  width: 160px;
+}
+
+/* Bulk Dispatch Modal */
+.bulk-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.bulk-modal-content {
+  background: var(--navy-surface);
+  border: 1px solid var(--navy-border-hover);
+  border-radius: 16px;
+  max-width: 780px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  padding: 24px;
+  color: #FFFFFF;
+}
+
+.bulk-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--navy-border);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.bulk-variables-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.variable-pill {
+  background: rgba(24, 119, 242, 0.15);
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  color: #93C5FD;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.variable-pill:hover {
+  background: rgba(24, 119, 242, 0.3);
+  color: #FFFFFF;
+}
+
+.whatsapp-preview-box {
+  background: #0B141A;
+  border: 1px solid #202C33;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  position: relative;
+}
+
+.whatsapp-bubble {
+  background: #005C4B;
+  color: #E9EDEF;
+  border-radius: 10px 10px 2px 10px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-width: 90%;
+  margin-left: auto;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+
+.bulk-preview-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  color: #94A3B8;
+}
+
