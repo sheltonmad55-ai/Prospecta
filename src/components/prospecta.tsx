@@ -498,8 +498,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [inlinePhoneBizId, setInlinePhoneBizId] = useState<string | null>(null);
   const [inlinePhoneVal, setInlinePhoneVal] = useState('');
   const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string; qrDataUrl?: string } | null>(null);
+  const [waQrLoading, setWaQrLoading] = useState(false);
   const [waTestPhone, setWaTestPhone] = useState('847404158');
-  const [waTestMessage, setWaTestMessage] = useState('Olá! Teste de integração do WhatsApp Baileys com a Prospecta SaaS concluído com sucesso 🚀');
+  const [waTestMessage, setWaTestMessage] = useState('Olá! Teste de integração do WhatsApp com a Prospecta SaaS concluído com sucesso 🚀');
   const [waTestSending, setWaTestSending] = useState(false);
   const [integrationSource, setIntegrationSource] = useState<'search' | 'leads'>('search');
   const [integrationFilter, setIntegrationFilter] = useState<'all' | 'with_wa' | 'no_wa'>('all');
@@ -507,6 +508,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentName: string; status: 'idle' | 'sending' | 'waiting' | 'done' | 'error'; errorCount: number }>({ current: 0, total: 0, currentName: '', status: 'idle', errorCount: 0 });
   const [safeIntervalSec, setSafeIntervalSec] = useState<number>(10);
   const cancelBulkDispatchRef = useRef(false);
+
+  const notify = useCallback((message: string, error = false) => setToast({ message, error }), []);
 
   const checkWhatsAppStatus = useCallback(async () => {
     try {
@@ -519,13 +522,41 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     }
   }, []);
 
+  const fetchWhatsAppQr = useCallback(async () => {
+    setWaQrLoading(true);
+    try {
+      const res = await api<{ ok: boolean; connected?: boolean; user?: string | null; status?: string; qrDataUrl?: string }>('whatsapp/qr');
+      if (res.connected) {
+        setWaServiceStatus({ connected: true, user: res.user, status: 'connected', qrDataUrl: undefined });
+        notify('WhatsApp conectado com sucesso!');
+      } else if (res.qrDataUrl) {
+        setWaServiceStatus({ connected: false, qrDataUrl: res.qrDataUrl, status: 'waiting_qr', user: undefined });
+      } else {
+        setWaServiceStatus(prev => ({
+          connected: !!prev?.connected,
+          user: prev?.user,
+          status: res.status || 'connecting',
+          qrDataUrl: prev?.qrDataUrl
+        }));
+      }
+    } catch (err: any) {
+      console.warn('[WhatsApp QR error]:', err);
+    } finally {
+      setWaQrLoading(false);
+    }
+  }, [notify]);
+
   useEffect(() => {
     if (view === 'integrations' || isBulkModalOpen) {
-      checkWhatsAppStatus();
+      checkWhatsAppStatus().then(res => {
+        if (!res?.connected && !('qrDataUrl' in res && res.qrDataUrl)) {
+          fetchWhatsAppQr();
+        }
+      });
       const interval = setInterval(checkWhatsAppStatus, 4000);
       return () => clearInterval(interval);
     }
-  }, [view, isBulkModalOpen, checkWhatsAppStatus]);
+  }, [view, isBulkModalOpen, checkWhatsAppStatus, fetchWhatsAppQr]);
 
   const startBackgroundDispatch = async (withWaList: Business[]) => {
     if (withWaList.length === 0) return;
@@ -608,8 +639,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     setVaultScripts([]);
   }, []);
 
-  const notify = useCallback((message: string, error = false) => setToast({ message, error }), []);
-
   const loadDailyOpportunities = useCallback(async (day = 0) => {
     try {
       const res = await api<{ opportunities: Array<Business & { stars?: number; initial?: string; color?: string }> }>('opportunities?day=' + day);
@@ -657,13 +686,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const handleResetWhatsApp = useCallback(async () => {
     if (!window.confirm('Pretende desconectar o WhatsApp e gerar um novo QR Code?')) return;
     try {
-      await post('whatsapp/logout');
-      notify('Sessão reiniciada. A gerar novo QR Code...');
-      setTimeout(checkWhatsAppStatus, 1500);
+      await post('whatsapp/disconnect');
+      notify('Sessão desconectada. A gerar novo QR Code...');
+      setWaServiceStatus({ connected: false, status: 'connecting', qrDataUrl: undefined, user: undefined });
+      setTimeout(fetchWhatsAppQr, 800);
     } catch (err: any) {
-      notify(err.message || 'Falha ao reiniciar sessão WhatsApp.', true);
+      notify(err.message || 'Falha ao desconectar sessão WhatsApp.', true);
     }
-  }, [checkWhatsAppStatus, notify]);
+  }, [fetchWhatsAppQr, notify]);
 
   const exportNoWhatsAppCsv = useCallback((list: Business[]) => {
     if (list.length === 0) {
@@ -2175,7 +2205,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             </IconButton>
                           </div>
 
-                          {/* Baileys Service Status Banner */}
+                          {/* WhatsApp Status Banner */}
                           <div style={{
                             background: waServiceStatus?.connected ? 'rgba(37, 211, 102, 0.12)' : 'rgba(234, 179, 8, 0.1)',
                             border: `1px solid ${waServiceStatus?.connected ? 'rgba(37, 211, 102, 0.35)' : 'rgba(234, 179, 8, 0.3)'}`,
@@ -2192,21 +2222,20 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                               {waServiceStatus?.connected ? <CircleCheck size={16} /> : <AlertTriangle size={16} />}
                               <span>
                                 {waServiceStatus?.connected
-                                  ? `Motor Baileys Ativo: +${waServiceStatus.user || 'Conectado'} (Disparo 100% automático pronto)`
-                                  : 'Motor Baileys não conectado (Inicie `npm run whatsapp` e leia o QR Code)'}
+                                  ? `WhatsApp Ativo: +${waServiceStatus.user || 'Conectado'} (Disparo 100% automático pronto)`
+                                  : 'WhatsApp não conectado (Leia o QR Code na aba Integrações)'}
                               </span>
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                               {!waServiceStatus?.connected && (
-                                <a
-                                  href="http://localhost:5050"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
                                   className="button compact"
-                                  style={{ background: '#25D366', color: '#000', fontSize: 11, padding: '4px 10px', textDecoration: 'none', fontWeight: 700 }}
+                                  style={{ background: '#25D366', color: '#000', fontSize: 11, padding: '4px 10px', fontWeight: 700 }}
+                                  onClick={() => setView('integrations')}
                                 >
-                                  Ler QR Code (5050)
-                                </a>
+                                  Ler QR Code
+                                </button>
                               )}
                               <button
                                 type="button"
@@ -2573,7 +2602,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 <div className="page-heading">
                   <div>
                     <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <MessageCircle size={14} /> AUTOMAÇÃO DE DISPAROS <Pill tone="green">MOTOR BAILEYS</Pill>
+                      <MessageCircle size={14} /> AUTOMAÇÃO DE DISPAROS
                     </div>
                     <h1>Central de Integrações & WhatsApp.</h1>
                     <p>Disparos automáticos em massa com mensagens personalizadas, anti-bloqueio e auditoria de contactos.</p>
@@ -2599,18 +2628,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   </div>
                 </div>
 
-                {/* ══ 1. PAINEL DE CONEXÃO WHATSAPP BAILEYS ══ */}
+                {/* ══ 1. PAINEL DE CONEXÃO WHATSAPP ══ */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 18, marginBottom: 24 }}>
-                  {/* Status & Gateway */}
+                  {/* Status & Controls */}
                   <div className="panel" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <MessageCircle size={18} color="#25D366" />
-                        Motor WhatsApp Baileys
+                        Conexão WhatsApp
                       </h3>
                       {waServiceStatus?.connected ? (
                         <span style={{ background: 'rgba(34, 197, 94, 0.18)', border: '1px solid rgba(34, 197, 94, 0.4)', color: '#4ADE80', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
-                          🟢 ONLINE · +{waServiceStatus.user || '847404158'}
+                          🟢 ONLINE · +{waServiceStatus.user || 'Conectado'}
                         </span>
                       ) : waServiceStatus?.status === 'waiting_qr' ? (
                         <span style={{ background: 'rgba(234, 179, 8, 0.18)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#FACC15', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
@@ -2623,12 +2652,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       )}
                     </div>
                     <p style={{ margin: 0, fontSize: 13, color: '#94A3B8', lineHeight: 1.5 }}>
-                      Serviço autónomo nativo via WebSockets na porta 5050. Sem intermediários, sem custos de API oficial e com total privacidade nos seus envios.
+                      Conexão direta e segura via WhatsApp. Sem intermediários, sem custos de API oficial e com total privacidade nos seus envios.
                     </p>
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 'auto' }}>
-                      <a href="http://localhost:5050" target="_blank" rel="noopener noreferrer" className="button secondary" style={{ fontSize: 12, textDecoration: 'none' }}>
-                        <ExternalLink size={14} /> Abrir Gateway (Porta 5050)
-                      </a>
+                      <button className="button secondary" onClick={fetchWhatsAppQr} style={{ fontSize: 12 }}>
+                        <RefreshCw size={14} /> Atualizar QR Code
+                      </button>
                       <button className="button secondary" onClick={handleResetWhatsApp} style={{ fontSize: 12, color: '#FCA5A5' }}>
                         Desconectar / Reset
                       </button>

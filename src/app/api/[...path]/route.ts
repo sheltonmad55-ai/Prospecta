@@ -9,6 +9,7 @@ import { parseCsv } from '../../../server/import.ts';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '../../../server/google-oauth.ts';
 import { getAllVaultScripts, getVaultScriptsByCategory, searchVaultScripts, VAULT_CATEGORIES } from '../../../server/vault-scripts.ts';
 import { getDailyOpportunities } from '../../../server/real-businesses.ts';
+import { disconnectWhatsApp, getWhatsAppQr, getWhatsAppStatus, sendWhatsAppMessage } from '../../../server/whatsapp.ts';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -321,41 +322,22 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({profile:{name:user.name,email:user.email,...user.profile},opportunities:listLeads(user),usage:db().prepare('SELECT kind,units,description,created_at FROM credit_entries WHERE workspace_id=?').all(user.workspaceId),analyses:db().prepare('SELECT data,draft,created_at FROM analyses WHERE workspace_id=?').all(user.workspaceId),suppressions:db().prepare('SELECT business_id,reason,created_at FROM suppressions WHERE workspace_id=?').all(user.workspaceId),exportedAt:now()},200,{'Content-Disposition':'attachment; filename="prospecta-exportacao.json"'});
   }
   if(path[0]==='whatsapp') {
-    const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'http://127.0.0.1:5050';
-    if(path[1]==='status' && method==='GET') {
-      try {
-        const res = await fetch(`${gatewayUrl}/status`, { signal: AbortSignal.timeout(2500) });
-        const json = await res.json();
-        return reply(json, 200);
-      } catch {
-        return reply({ ok: false, connected: false, status: 'offline', gatewayUrl }, 200);
-      }
+    if(path[1]==='qr' && (method==='GET' || method==='POST')) {
+      const res = await getWhatsAppQr(user.id);
+      return reply(res, 200);
+    }
+    if(path[1]==='status' && (method==='GET' || method==='POST')) {
+      const res = await getWhatsAppStatus(user.id);
+      return reply(res, 200);
     }
     if(path[1]==='send' && method==='POST') {
       const data = z.object({ phone: z.string().min(6), message: z.string().min(1).max(6000) }).parse(input);
-      try {
-        const res = await fetch(`${gatewayUrl}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-          signal: AbortSignal.timeout(15000)
-        });
-        const json = await res.json();
-        if (!res.ok) throw new AppError(json.error || 'Falha ao enviar mensagem via WhatsApp.', res.status);
-        return reply(json, 200);
-      } catch(err) {
-        if (err instanceof AppError) throw err;
-        throw new AppError('Não foi possível conectar ao motor WhatsApp Baileys. Certifique-se de que iniciou `npm run whatsapp`.', 503);
-      }
+      const res = await sendWhatsAppMessage(user.id, data.phone, data.message);
+      return reply(res, 200);
     }
-    if(path[1]==='logout' && method==='POST') {
-      try {
-        const res = await fetch(`${gatewayUrl}/logout`, { method: 'POST', signal: AbortSignal.timeout(5000) });
-        const json = await res.json();
-        return reply(json, 200);
-      } catch(err: any) {
-        return reply({ ok: false, error: err.message || 'Falha ao reiniciar sessão WhatsApp.' }, 500);
-      }
+    if((path[1]==='disconnect' || path[1]==='logout') && method==='POST') {
+      const res = await disconnectWhatsApp(user.id);
+      return reply(res, 200);
     }
   }
   if(path[0]==='admin') {
