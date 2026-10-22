@@ -402,7 +402,7 @@ export const PLANS: Record<'essential' | 'pro', PlanDefinition> = {
       'Relatório "Sem WhatsApp" com preenchimento manual e CSV',
       'Suporte via comunidade'
     ],
-    lojouCheckoutUrl: 'https://lojou.com/pay/prospecta-essencial',
+    lojouCheckoutUrl: 'https://pay.lojou.app/0tCdP',
     paymentMethods: ['M-Pesa', 'e-Mola', 'Cartão Visa/Mastercard', 'Lojou']
   },
   pro: {
@@ -428,7 +428,7 @@ export const PLANS: Record<'essential' | 'pro', PlanDefinition> = {
       'Exportação CSV ilimitada para equipas e fechamentos',
       'Suporte prioritário via WhatsApp'
     ],
-    lojouCheckoutUrl: 'https://lojou.com/pay/prospecta-pro',
+    lojouCheckoutUrl: 'https://pay.lojou.app/Z4Uvt',
     paymentMethods: ['M-Pesa', 'e-Mola', 'Cartão Visa/Mastercard', 'Lojou']
   }
 };
