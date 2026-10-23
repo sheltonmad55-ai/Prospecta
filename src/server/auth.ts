@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from
 import { createClient } from '@supabase/supabase-js';
 import { db, id, now, transaction } from './db.ts';
 import { mode } from './providers.ts';
-import { PLAN_DEADLINE_ISO, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription } from '../lib/contracts.ts';
+import { PLANS_ACTIVE, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription } from '../lib/contracts.ts';
 
 export class AppError extends Error {
   status: number;
@@ -67,6 +67,39 @@ export function supabaseAdmin() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
   if (!url || !serviceKey) return null;
   return createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+export async function syncAllUsersFromSupabase(): Promise<number> {
+  if (!supabaseConfigured()) return 0;
+  try {
+    const client = supabaseAdmin();
+    if (!client) return 0;
+    if (client.auth && client.auth.admin && typeof client.auth.admin.listUsers === 'function') {
+      const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (!error && data && Array.isArray(data.users)) {
+        for (const u of data.users) {
+          const rawEmail = (u.email || '').toLowerCase().trim();
+          const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com';
+          const role = isAdminEmail ? 'admin' : (u.app_metadata?.role || u.user_metadata?.role || 'owner');
+          const name = u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Utilizador';
+          db().prepare(`
+            INSERT INTO users(id, name, email, password_hash, role, marketing, created_at)
+            VALUES(?, ?, ?, ?, ?, 0, ?)
+            ON CONFLICT(id) DO UPDATE SET email=excluded.email, role=excluded.role
+          `).run(u.id, name, rawEmail, 'supabase-auth-managed', role, u.created_at || now());
+
+          db().prepare(`
+            INSERT OR IGNORE INTO workspaces(id, user_id, profile, created_at)
+            VALUES(?, ?, '{}', ?)
+          `).run(u.id, u.id, u.created_at || now());
+        }
+        return data.users.length;
+      }
+    }
+  } catch (err) {
+    console.warn('[syncAllUsersFromSupabase warning]:', err);
+  }
+  return 0;
 }
 
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'prospecta-stateless-session-key-v1';
@@ -136,8 +169,8 @@ export function getUserSubscription(userId: string): UserSubscription {
   } catch {}
   return {
     plan: 'free',
-    status: 'trial',
-    expiresAt: PLAN_DEADLINE_ISO,
+    status: 'expired',
+    expiresAt: '',
     months: 0
   };
 }

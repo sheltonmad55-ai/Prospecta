@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ArrowRight, ArrowUpRight, AtSign, Bookmark, Building2, CalendarDays, Check, ChevronDown, Compass, Copy, Database, FileText, Globe2, LoaderCircle, MapPin, Menu, MessageCircle, Radar, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
-import { PROVINCES, COUNTRIES, PLANS, PLAN_DEADLINE_DISPLAY } from '@/lib/contracts';
+import { PROVINCES, COUNTRIES, PLANS } from '@/lib/contracts';
 import './landing.css';
 
 export const ROTATING_SERVICES = [
@@ -324,13 +324,7 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
         <div className="lp-section-heading lp-pricing-heading">
           <span className="lp-section-kicker">PLANOS ACESSÍVEIS E SEM COMPLICAÇÕES</span>
           <h2>Invista no seu motor de prospecção</h2>
-          <p>Encontre mais empresas, envie abordagens em simultâneo no WhatsApp e feche contratos de alto valor.</p>
-          <div className="lp-deadline-notice">
-            <span className="lp-deadline-dot" />
-            <div>
-              <strong>Aviso aos utilizadores:</strong> Todos os utilizadores devem ativar o seu plano até ao dia <b>{PLAN_DEADLINE_DISPLAY}</b> para garantir a continuidade dos serviços e acesso às novas funcionalidades.
-            </div>
-          </div>
+          <p>Encontre mais empresas qualificadas, aborde com IA de alta conversão e feche contratos de alto valor.</p>
         </div>
 
         <div className="lp-pricing-grid">
@@ -356,9 +350,10 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
                 <li><Check size={16} /><span>Até <strong>10 leads por busca</strong></span></li>
                 <li><Check size={16} /><span>5 leads novos por dia</span></li>
                 <li><Check size={16} /><span>Agente de Vendas com IA</span></li>
-                <li><Check size={16} /><span>Análise de cada empresa</span></li>
-                <li><Check size={16} /><span>Portfólio com até 3 modelos</span></li>
+                <li><Check size={16} /><span>Diagnóstico comercial de cada empresa</span></li>
+                <li><Check size={16} /><span>Cofre de Scripts de Fechamento</span></li>
                 <li><Check size={16} /><span>Pesquisas em Moçambique e CPLP</span></li>
+                <li><Check size={16} /><span>Exportação de relatórios em CSV</span></li>
               </ul>
             </div>
           </article>
@@ -369,7 +364,6 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
               <div className="lp-plan-header-row">
                 <h3>{PLANS.pro.name}</h3>
                 <div className="lp-plan-badges-inline">
-                  <span className="lp-badge-black-friday">Black Friday</span>
                   <span className="lp-badge-popular">Mais popular</span>
                 </div>
               </div>
@@ -380,8 +374,8 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
                   <span className="lp-plan-strikethrough">{PLANS.pro.originalPriceMt} MT</span>
                 )}
               </div>
-              <p className="lp-plan-sub-offer">Depois, {PLANS.pro.originalPriceMt || '497'} MT/mês. Oferta até 22/10.</p>
-              <div className="lp-plan-methods">PIX · M-Pesa · e-Mola · Cartão · Lojou Pay</div>
+              <p className="lp-plan-sub-offer">Depois, {PLANS.pro.originalPriceMt || '497'} MT/mês nos meses seguintes.</p>
+              <div className="lp-plan-methods">M-Pesa · e-Mola · Cartão Visa/Mastercard · Lojou Pay</div>
               <p className="lp-plan-tagline">{PLANS.pro.tagline}</p>
               <a href={PLANS.pro.lojouCheckoutUrl} target="_blank" rel="noopener noreferrer" className="lp-button lp-primary lp-plan-button lp-pro-glow-btn">
                 ASSINAR PRO
@@ -391,12 +385,12 @@ export default function Landing({ busy, onRegister, onLogin }: LandingProps) {
               <ul className="lp-plan-features">
                 <li><Check size={16} /><span><strong>450 créditos</strong> por mês</span></li>
                 <li><Check size={16} /><span>Até <strong>30 leads por busca</strong> (Alta escala)</span></li>
-                <li><Check size={16} /><span>Tudo do Grátis & Essencial</span></li>
-                <li><Check size={16} /><span><strong>Disparo em Massa WhatsApp</strong> (com {'{nome_empresa}'})</span></li>
-                <li><Check size={16} /><span><strong>Análise profunda</strong> de cada empresa</span></li>
+                <li><Check size={16} /><span>Tudo do Plano Essencial</span></li>
+                <li><Check size={16} /><span><strong>Exportação CSV ilimitada</strong> de oportunidades</span></li>
+                <li><Check size={16} /><span><strong>Disparo em Massa Inteligente</strong> (Brevemente)</span></li>
+                <li><Check size={16} /><span><strong>Análise profunda</strong> com verificação de Anúncios Meta</span></li>
                 <li><Check size={16} /><span><strong>Agente de Vendas com IA</strong> (Gemini Pro)</span></li>
                 <li><Check size={16} /><span>Histórico completo & <strong>CRM Kanban</strong></span></li>
-                <li><Check size={16} /><span>Relatório <strong>"Sem WhatsApp"</strong> com edição manual</span></li>
                 <li><Check size={16} /><span>Pesquisas completas em toda a <strong>CPLP & PALOP</strong></span></li>
                 <li><Check size={16} /><span>Suporte prioritário via WhatsApp</span></li>
               </ul>

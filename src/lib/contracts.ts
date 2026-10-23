@@ -363,8 +363,7 @@ export function getRecommendedPricing(service: string, nicheOrCategory = ''): Pr
   };
 }
 
-export const PLAN_DEADLINE_ISO = '2026-10-22T19:00:00+02:00';
-export const PLAN_DEADLINE_DISPLAY = '22 de Outubro de 2026 às 19:00 (Horário de Moçambique)';
+export const PLANS_ACTIVE = true;
 
 export interface PlanDefinition {
   id: 'essential' | 'pro';
@@ -398,7 +397,7 @@ export const PLANS: Record<'essential' | 'pro', PlanDefinition> = {
       'Diagnóstico comercial profundo de cada empresa',
       'Agente de Vendas com IA (abordagens de alta conversão)',
       'Acesso ao Cofre de Scripts de Prospecção',
-      'Disparo de WhatsApp individual (Motor Baileys Gratuito)',
+      'Disparo de WhatsApp individual (Directo / Web)',
       'Relatório "Sem WhatsApp" com preenchimento manual e CSV',
       'Suporte via comunidade'
     ],
@@ -420,7 +419,7 @@ export const PLANS: Record<'essential' | 'pro', PlanDefinition> = {
       '450 créditos de prospecção por mês',
       'Até 30 leads por pesquisa (Alta escala)',
       'Pesquisas Internacionais completas (Moçambique, Angola, Portugal, Brasil, África do Sul, Cabo Verde)',
-      'Disparo em Massa Simultâneo com injeção automática de {nome_empresa}',
+      'Disparo em Massa Inteligente (Brevemente)',
       'Proteção e cadência inteligente anti-bloqueio no WhatsApp',
       'Análise profunda com verificação na Biblioteca de Anúncios Meta',
       'Acesso Ilimitado ao Cofre de Scripts + Gerador Gemini IA Pro',
@@ -432,3 +431,24 @@ export const PLANS: Record<'essential' | 'pro', PlanDefinition> = {
     paymentMethods: ['M-Pesa', 'e-Mola', 'Cartão Visa/Mastercard', 'Lojou']
   }
 };
+
+export function hasActivePaidPlan(user: User | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (!user.subscription) return false;
+  const isPaid = user.subscription.plan === 'essential' || user.subscription.plan === 'pro';
+  if (!isPaid) return false;
+  if (user.subscription.status !== 'active') return false;
+  if (user.subscription.expiresAt && new Date(user.subscription.expiresAt).getTime() < Date.now()) {
+    return false;
+  }
+  return true;
+}
+
+export function getPlanMaxLeads(user: User | null | undefined): number {
+  if (!user) return 10;
+  if (user.role === 'admin') return 50;
+  if (user.subscription?.plan === 'pro') return PLANS.pro.leadsPerSearch;
+  if (user.subscription?.plan === 'essential') return PLANS.essential.leadsPerSearch;
+  return 10;
+}

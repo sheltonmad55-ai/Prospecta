@@ -1,8 +1,8 @@
 import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
-import { PROVINCES, STAGES } from '../../../lib/contracts.ts';
+import { PROVINCES, STAGES, hasActivePaidPlan, getPlanMaxLeads } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, getUserSubscription, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, setUserSubscription, supabase, supabaseConfigured, userById } from '../../../server/auth.ts';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, getUserSubscription, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, setUserSubscription, supabase, supabaseConfigured, syncAllUsersFromSupabase, userById } from '../../../server/auth.ts';
 import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase, syncSearchesFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
@@ -219,6 +219,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(route==='locations' && method==='GET')return reply({locations:db().prepare('SELECT * FROM locations').all(),catalogue:'Unidades de primeiro nível; localidades pesquisáveis por texto. Não é um catálogo completo de distritos.'});
   if(route==='searches' && method==='GET') { await syncSearchesFromSupabase(user); return reply({searches:listSearches(user)}); }
   if(route==='searches' && method==='POST') {
+   if (!hasActivePaidPlan(user)) throw new AppError('Subscrição necessária para pesquisar empresas. Active o Plano Essencial ou Pro na página de planos.', 403);
    rateLimit('search:'+user.id,20,60000);
    const filters=z.object({
      country:z.string().optional().default('MZ'),
@@ -343,6 +344,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(path[0]==='admin') {
     if(user.role!=='admin')throw new AppError('Acesso reservado à administração.',403);
     if(route==='admin' && method==='GET') {
+      try { await syncAllUsersFromSupabase(); } catch {}
       const allUsers = db().prepare(`
         SELECT u.id, u.name, u.email, u.role, u.created_at as createdAt, COALESCE(w.id, u.id) as workspaceId
         FROM users u
@@ -353,6 +355,15 @@ async function handler(request:Request,context:Context):Promise<Response> {
       const userList = allUsers.map(u => {
         const sub = getUserSubscription(u.id);
         const cr = credits(u.workspaceId);
+        let searchesCount = 0;
+        let leadsCount = 0;
+        let analysesCount = 0;
+        try {
+          searchesCount = (db().prepare('SELECT count(*) as c FROM searches WHERE workspace_id=?').get(u.workspaceId) as { c: number })?.c || 0;
+          leadsCount = (db().prepare('SELECT count(*) as c FROM leads WHERE workspace_id=?').get(u.workspaceId) as { c: number })?.c || 0;
+          analysesCount = (db().prepare('SELECT count(*) as c FROM analyses WHERE workspace_id=?').get(u.workspaceId) as { c: number })?.c || 0;
+        } catch {}
+
         return {
           id: u.id,
           name: u.name,
@@ -361,17 +372,24 @@ async function handler(request:Request,context:Context):Promise<Response> {
           createdAt: u.createdAt,
           workspaceId: u.workspaceId,
           credits: cr,
-          subscription: sub
+          subscription: sub,
+          activity: {
+            searchesCount,
+            leadsCount,
+            analysesCount
+          }
         };
       });
 
       const totalUsers = userList.length;
-      const paidUsers = userList.filter(u => u.subscription.plan !== 'free' && u.subscription.status === 'active').length;
+      const essentialUsers = userList.filter(u => u.subscription.plan === 'essential' && u.subscription.status === 'active').length;
+      const proUsers = userList.filter(u => u.subscription.plan === 'pro' && u.subscription.status === 'active').length;
+      const paidUsers = essentialUsers + proUsers;
       const freeUsers = totalUsers - paidUsers;
       const totalCredits = userList.reduce((acc, u) => acc + (u.credits.available || 0), 0);
 
       return reply({
-        metrics: { totalUsers, paidUsers, freeUsers, totalCredits },
+        metrics: { totalUsers, paidUsers, essentialUsers, proUsers, freeUsers, totalCredits },
         users: userList,
         workspaces: db().prepare('SELECT w.id,u.name,u.email FROM workspaces w JOIN users u ON w.user_id=u.id').all(),
         jobs: db().prepare('SELECT id,kind,status,attempts,error,created_at as createdAt FROM jobs ORDER BY created_at DESC LIMIT 30').all(),

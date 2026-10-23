@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Activity, Analysis, Business, Evidence, Job, Lead, SearchFilters, SearchResult, SearchTask, User } from '../lib/contracts.ts';
-import { PROVINCES, STAGES, getCountryByCode, isLikelyWhatsApp } from '../lib/contracts.ts';
+import { PROVINCES, STAGES, getCountryByCode, isLikelyWhatsApp, getPlanMaxLeads } from '../lib/contracts.ts';
 import { db, id, now, transaction } from './db.ts';
 import { analyse, fetchDataset, mode, normalize, validPhone } from './providers.ts';
 import { AppError, audit, credits, hash, supabaseConfigured, supabaseAdmin } from './auth.ts';
@@ -197,17 +197,19 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
    allBiz.push(biz);
   } catch {}
  }
- const pages=Math.max(1,Math.ceil(allBiz.length/8));
+ const maxAllowed = getPlanMaxLeads(user);
+ const boundedBiz = allBiz.slice(0, maxAllowed);
+ const pages=Math.max(1,Math.ceil(boundedBiz.length/8));
  const safePage=Math.min(Math.max(1,page),pages);
- const results = allBiz.slice((safePage-1)*8, safePage*8);
+ const results = boundedBiz.slice((safePage-1)*8, safePage*8);
  return {
   id:searchId,
   status:row.status as SearchResult['status'],
   filters:JSON.parse(String(row.filters)),
   tasks:JSON.parse(String(row.tasks)),
   results,
-  allResults: allBiz,
-  total:allBiz.length,
+  allResults: boundedBiz,
+  total:boundedBiz.length,
   page:safePage,
   pages,
   createdAt:String(row.created_at),

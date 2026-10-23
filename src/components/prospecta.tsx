@@ -15,7 +15,7 @@ import {
   PROVINCES, SERVICES, STAGES, COUNTRIES, getCountryByCode, isLikelyWhatsApp,
   isMozambiqueMobile, isMozambiqueLandline,
   getMetaAdLibraryUrl, getRecommendedPricing,
-  PLANS, PLAN_DEADLINE_ISO, PLAN_DEADLINE_DISPLAY,
+  PLANS, hasActivePaidPlan, getPlanMaxLeads,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
   type VaultScript, type CountryOption, type PlanType, type SubscriptionStatus
@@ -37,11 +37,18 @@ type AdminUserItem = {
     expiresAt: string | null;
     months?: number;
   };
+  activity?: {
+    searchesCount: number;
+    leadsCount: number;
+    analysesCount: number;
+  };
 };
 
 type AdminMetrics = {
   totalUsers: number;
   paidUsers: number;
+  essentialUsers?: number;
+  proUsers?: number;
   freeUsers: number;
   totalCredits: number;
 };
@@ -364,6 +371,42 @@ function exportBusinessesToCsv(businesses: Business[], filename = 'empresas_sem_
   URL.revokeObjectURL(url);
 }
 
+function exportLeadsToCsv(leadsToExport: Lead[], filename = 'prospecta_leads.csv') {
+  if (!leadsToExport || leadsToExport.length === 0) return;
+  const headers = ['Empresa', 'Telefone', 'WhatsApp Provável', 'Etapa', 'Próximo Passo', 'Data Agendada', 'Valor Proposto (MT)', 'Notas', 'Nicho/Categoria', 'Cidade', 'Província', 'País', 'Website'];
+  const rows = leadsToExport.map(l => {
+    const b = l.business;
+    const isWa = isLikelyWhatsApp(b?.phone, b?.country || 'MZ');
+    const country = getCountryByCode(b?.country || 'MZ')?.name || b?.country || 'Moçambique';
+    return [
+      `"${(b?.name || '').replace(/"/g, '""')}"`,
+      `"${(b?.phone || '').replace(/"/g, '""')}"`,
+      isWa ? 'Sim' : 'Não',
+      `"${(l.stage || 'Novo').replace(/"/g, '""')}"`,
+      `"${(l.nextAction || '').replace(/"/g, '""')}"`,
+      l.nextActionAt ? l.nextActionAt.slice(0, 10) : '',
+      l.amountMinor !== null && l.amountMinor !== undefined ? (l.amountMinor / 100).toFixed(2) : '',
+      `"${(l.note || '').replace(/"/g, '""')}"`,
+      `"${(b?.category || b?.activity || '').replace(/"/g, '""')}"`,
+      `"${(b?.locality || b?.city || '').replace(/"/g, '""')}"`,
+      `"${(b?.province || '').replace(/"/g, '""')}"`,
+      `"${country.replace(/"/g, '""')}"`,
+      `"${(b?.website || '').replace(/"/g, '""')}"`
+    ].join(',');
+  });
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Bom dia';
@@ -628,6 +671,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [vaultSearch, setVaultSearch] = useState<string>('');
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [adminSelectedUserId, setAdminSelectedUserId] = useState<string>('');
+  const [adminUserSearch, setAdminUserSearch] = useState<string>('');
   const activeBusiness = useRef<string | null>(null);
 
   useEffect(() => { activeBusiness.current = business?.id || null; }, [business?.id]);
@@ -814,6 +858,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
   useEffect(() => {
     let active = true;
+    const query = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
     api<{ user: User | null; mode: 'demo' | 'live'; token?: string }>('me').then(result => {
       if (!active) return;
       if (typeof window !== 'undefined' && result.token) {
@@ -862,13 +907,17 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         setProfile(currentUser.profile);
         if (currentUser.profile.service) setService(currentUser.profile.service);
       }
-      const query = new URLSearchParams(window.location.search);
       const isSheltonAdmin = currentUser && (currentUser.role === 'admin' || (currentUser.email && (currentUser.email.toLowerCase() === 'sheltonmad55@gmail.com' || currentUser.email.toLowerCase() === 'sheltonmad5@gmail.com')));
       if (currentUser && !query.get('reset')) {
         setAuth(null);
-        if (initialAuth) {
-          if (isSheltonAdmin) navigate('admin');
-          else navigate('opportunities');
+        if (isSheltonAdmin) {
+          navigate('admin');
+        } else if (!hasActivePaidPlan(currentUser)) {
+          if (typeof window !== 'undefined' && !window.location.hash.includes('planos')) {
+            window.location.href = '/#planos';
+          }
+        } else if (initialAuth) {
+          navigate('opportunities');
         }
       }
       if (query.get('auth') === 'recover') setAuth('recover');
@@ -996,8 +1045,13 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         setAuth(null);
         if (isAdmin) {
           navigate('admin');
-        } else {
+        } else if (hasActivePaidPlan(userToSet)) {
           navigate('opportunities');
+        } else {
+          notify('Bem-vindo! Ative o seu plano para desbloquear o acesso completo à sua conta.');
+          if (typeof window !== 'undefined') {
+            window.location.href = '/#planos';
+          }
         }
       }
     });
@@ -1240,7 +1294,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     { view: 'search' as View, label: 'Encontrar clientes', icon: Compass },
     { view: 'saved-searches' as View, label: 'Buscas salvas', icon: Search },
     { view: 'leads' as View, label: 'Leads salvos', icon: Bookmark },
-    { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: 'WhatsApp' },
+    { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: 'Brevemente' },
     { view: 'portfolio' as View, label: 'Portfólio', icon: FileText, beta: true },
     { view: 'vault' as View, label: 'Cofre', icon: ShieldCheck },
   ];
@@ -1274,22 +1328,42 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       <aside className={cls('sidebar', mobileMenu && 'open')}>
         <Brand />
 
-        <span className="nav-label">MENU</span>
-        <nav aria-label="Navegação principal">
-          {navMain.map(item => (
-            <button key={item.view} className={cls('nav-item', view === item.view && 'active')} onClick={() => navigate(item.view)}>
-              <item.icon size={19} />
-              <span>{item.label}</span>
-              {item.beta && <span className="nav-beta">BETA</span>}
-              {item.badge && <span className="nav-beta" style={{ background: 'rgba(37, 211, 102, 0.2)', color: '#4ADE80', border: '1px solid rgba(37, 211, 102, 0.4)', fontWeight: 800 }}>{item.badge}</span>}
-            </button>
-          ))}
-          {user.role === 'admin' && (
-            <button className={cls('nav-item', view === 'admin' && 'active')} onClick={() => navigate('admin')}>
-              <ShieldCheck size={19} /><span>Administração</span>
-            </button>
-          )}
-        </nav>
+        {user.role === 'admin' ? (
+          <>
+            <span className="nav-label">CONTROLE EXECUTIVO SAAS</span>
+            <nav aria-label="Painel de Administração">
+              <button className={cls('nav-item', view === 'admin' && 'active')} onClick={() => navigate('admin')}>
+                <ShieldCheck size={19} /><span>Painel do Administrador</span>
+              </button>
+            </nav>
+
+            <span className="nav-label" style={{ marginTop: 20 }}>VISUALIZAR COMO CLIENTE</span>
+            <nav aria-label="Navegação da plataforma">
+              {navMain.map(item => (
+                <button key={item.view} className={cls('nav-item', view === item.view && 'active')} onClick={() => navigate(item.view)}>
+                  <item.icon size={19} />
+                  <span>{item.label}</span>
+                  {item.beta && <span className="nav-beta">BETA</span>}
+                  {item.badge && <span className="nav-beta" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>{item.badge}</span>}
+                </button>
+              ))}
+            </nav>
+          </>
+        ) : (
+          <>
+            <span className="nav-label">MENU</span>
+            <nav aria-label="Navegação principal">
+              {navMain.map(item => (
+                <button key={item.view} className={cls('nav-item', view === item.view && 'active')} onClick={() => navigate(item.view)}>
+                  <item.icon size={19} />
+                  <span>{item.label}</span>
+                  {item.beta && <span className="nav-beta">BETA</span>}
+                  {item.badge && <span className="nav-beta" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>{item.badge}</span>}
+                </button>
+              ))}
+            </nav>
+          </>
+        )}
 
         <div className="sidebar-bottom">
           {/* Credits pill */}
@@ -1337,202 +1411,38 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           </div>
           <div className="topbar-right">
             <span className="country" title="Cobertura completa em toda a CPLP & PALOP"><span className="country-dot" /> CPLP & PALOP ({getCountryByCode(filters.country).flag} {getCountryByCode(filters.country).name})</span>
-            <button
-              className="balance"
-              onClick={() => setShowPlansModal(true)}
-              style={{
-                background: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
-                  ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%)'
-                  : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%)',
-                borderColor: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
-                  ? 'rgba(16, 185, 129, 0.45)'
-                  : 'rgba(245, 158, 11, 0.45)',
-                color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
-                  ? '#34D399'
-                  : '#FCD34D',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              <Sparkles size={13} style={{ color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? '#34D399' : '#FBBF24' }} />
-              {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
-                ? (user.subscription.plan === 'pro' ? 'Plano Pro Ativo' : 'Plano Essencial')
-                : 'Ver Planos (197 MT)'}
-            </button>
+            {user.role === 'admin' ? (
+              <span className="balance" style={{ background: 'rgba(245, 158, 11, 0.18)', borderColor: 'rgba(245, 158, 11, 0.45)', color: '#FBBF24', fontWeight: 800 }}>
+                <ShieldCheck size={14} /> Super Administrador
+              </span>
+            ) : (
+              <button
+                className="balance"
+                onClick={() => setShowPlansModal(true)}
+                style={{
+                  background: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%)'
+                    : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%)',
+                  borderColor: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                    ? 'rgba(16, 185, 129, 0.45)'
+                    : 'rgba(245, 158, 11, 0.45)',
+                  color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                    ? '#34D399'
+                    : '#FCD34D',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <Sparkles size={13} style={{ color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? '#34D399' : '#FBBF24' }} />
+                {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                  ? (user.subscription.plan === 'pro' ? '👑 Plano Pro Ativo' : '✨ Plano Essencial Ativo')
+                  : 'Ativar Plano'}
+              </button>
+            )}
             <button className="balance" onClick={() => navigate('account')}><Sparkles size={14} />{user.credits.available} créditos</button>
             <span className="avatar small">{user.name.slice(0, 1)}</span>
           </div>
         </header>
-
-        {/* ══ URGENCY & PERSUASIVE VALUE BANNER ══════════════════════ */}
-        <div className="plan-deadline-banner" role="banner" style={{
-          background: 'linear-gradient(135deg, rgba(13, 27, 46, 0.98) 0%, rgba(17, 34, 64, 0.96) 50%, rgba(15, 23, 42, 0.98) 100%)',
-          borderBottom: '1px solid rgba(59, 130, 246, 0.35)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
-          padding: '14px 28px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          {/* Top row: Urgency, Status, ROI Hook & Primary CTA */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.3) 100%)',
-                border: '1px solid rgba(245, 158, 11, 0.45)',
-                color: '#FBBF24',
-                flexShrink: 0
-              }}>
-                <AlertTriangle size={18} />
-              </span>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? (
-                    <span style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34D399', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
-                      PLANO {user.subscription.plan === 'pro' ? 'PRO' : 'ESSENCIAL'} ATIVO
-                    </span>
-                  ) : (
-                    <span style={{ background: 'rgba(239, 68, 68, 0.18)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#FCA5A5', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
-                      MODO DEMONSTRAÇÃO
-                    </span>
-                  )}
-                  <span style={{ color: '#FFFFFF', fontSize: '13.5px', fontWeight: 700 }}>
-                    Prazo de Ativação: até <span style={{ color: '#FDE047', textDecoration: 'underline', textUnderlineOffset: '3px' }}>{PLAN_DEADLINE_DISPLAY}</span>
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '12.5px', color: '#93C5FD' }}>
-                  <span style={{ color: '#FFFFFF', fontWeight: 650 }}>💼 Acelere seus fechos:</span> Com apenas <strong>1 contrato fechado (15.000 a 30.000 MT)</strong>, você já cobre mais de <strong>3 anos do Plano Pro (347 MT)</strong>!
-                </div>
-              </div>
-            </div>
-
-            <button
-              className="button"
-              onClick={() => setShowPlansModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
-                border: '1px solid #60A5FA',
-                color: '#FFFFFF',
-                fontSize: '13px',
-                fontWeight: 750,
-                padding: '9px 18px',
-                borderRadius: '8px',
-                boxShadow: '0 0 20px rgba(37, 99, 235, 0.45)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <Sparkles size={15} style={{ color: '#FDE047' }} />
-              <span>Ver Benefícios & Ativar Plano (197 MT)</span>
-              <ArrowRight size={14} />
-            </button>
-          </div>
-
-          {/* Bottom row: Interactive Benefits Pills */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            flexWrap: 'wrap',
-            paddingTop: '8px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)'
-          }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', letterSpacing: '0.8px', textTransform: 'uppercase', marginRight: '4px' }}>
-              Vantagens Exclusivas:
-            </span>
-
-            <div
-              onClick={() => setShowPlansModal(true)}
-              style={{
-                background: 'rgba(24, 119, 242, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12px',
-                color: '#E2E8F0',
-                cursor: 'pointer'
-              }}
-            >
-              <span style={{ color: '#22C55E' }}>⚡</span>
-              <strong style={{ color: '#FFFFFF' }}>Disparo em Massa WhatsApp</strong>
-              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Com nome individual da empresa)</span>
-            </div>
-
-            <div
-              onClick={() => setShowPlansModal(true)}
-              style={{
-                background: 'rgba(24, 119, 242, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12px',
-                color: '#E2E8F0',
-                cursor: 'pointer'
-              }}
-            >
-              <span>🌍</span>
-              <strong style={{ color: '#FFFFFF' }}>Busca Internacional</strong>
-              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Moçambique, Angola e Portugal)</span>
-            </div>
-
-            <div
-              onClick={() => setShowPlansModal(true)}
-              style={{
-                background: 'rgba(24, 119, 242, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12px',
-                color: '#E2E8F0',
-                cursor: 'pointer'
-              }}
-            >
-              <span>🎯</span>
-              <strong style={{ color: '#FFFFFF' }}>Detector Meta Ads</strong>
-              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Auditoria IA de empresas sem anúncios)</span>
-            </div>
-
-            <div
-              onClick={() => setShowPlansModal(true)}
-              style={{
-                background: 'rgba(24, 119, 242, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12px',
-                color: '#E2E8F0',
-                cursor: 'pointer'
-              }}
-            >
-              <span>🤖</span>
-              <strong style={{ color: '#FFFFFF' }}>IA Gemini Pro</strong>
-              <span style={{ color: '#93C5FD', fontSize: '11px' }}>(Pitches e scripts com 3x mais resposta)</span>
-            </div>
-          </div>
-        </div>
 
         <main id="main" className="workspace">
 
@@ -2169,7 +2079,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             setIsBulkModalOpen(true);
                           }}
                         >
-                          <MessageCircle size={16} /> Disparo em lote ({selectedBizIds.length})
+                          <MessageCircle size={16} /> Disparo em lote ({selectedBizIds.length}) · Brevemente
                         </button>
                       </div>
                     </div>
@@ -2203,6 +2113,22 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             <IconButton label="Fechar modal" onClick={() => setIsBulkModalOpen(false)}>
                               <X size={18} />
                             </IconButton>
+                          </div>
+
+                          <div style={{
+                            background: 'rgba(245, 158, 11, 0.14)',
+                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                            borderRadius: 10,
+                            padding: '10px 14px',
+                            marginBottom: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            color: '#FDE047',
+                            fontSize: 12.5
+                          }}>
+                            <Clock3 size={18} style={{ flexShrink: 0 }} />
+                            <span><strong>Disparos Automáticos via WhatsApp (Brevemente):</strong> A ligação via motor de disparo está em manutenção técnica. Pode pré-visualizar as mensagens personalizadas e usar o botão de envio individual para cada empresa sem qualquer limitação!</span>
                           </div>
 
                           {/* WhatsApp Status Banner */}
@@ -2509,7 +2435,24 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <h1>Cada conversa, no seu lugar.</h1>
                   <p>Acompanhe oportunidades e não perca o próximo passo.</p>
                 </div>
-                <button className="button" onClick={() => navigate('search')}><Plus size={17} /> Encontrar empresas</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    className="button outline"
+                    onClick={() => {
+                      const filtered = leads.filter(l => (!stageFilter || l.stage === stageFilter) && l.business.name.toLowerCase().includes(leadSearch.toLowerCase()));
+                      if (filtered.length === 0) {
+                        notify('Nenhuma oportunidade disponível para exportar.', true);
+                        return;
+                      }
+                      exportLeadsToCsv(filtered);
+                      notify(`${filtered.length} lead(s) exportado(s) em CSV com sucesso!`);
+                    }}
+                    title="Descarregar ficheiro CSV com as suas oportunidades"
+                  >
+                    <Download size={16} /> Exportar Leads (CSV)
+                  </button>
+                  <button className="button" onClick={() => navigate('search')}><Plus size={17} /> Encontrar empresas</button>
+                </div>
               </div>
               <div className="stage-filters">
                 <button className={!stageFilter ? 'active' : ''} onClick={() => setStageFilter('')}>Todas <b>{leads.length}</b></button>
@@ -2602,29 +2545,41 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 <div className="page-heading">
                   <div>
                     <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <MessageCircle size={14} /> AUTOMAÇÃO DE DISPAROS
+                      <MessageCircle size={14} /> AUTOMAÇÃO DE DISPAROS <Pill tone="amber">BREVEMENTE</Pill>
                     </div>
                     <h1>Central de Integrações & WhatsApp.</h1>
-                    <p>Disparos automáticos em massa com mensagens personalizadas, anti-bloqueio e auditoria de contactos.</p>
+                    <p>Disparos automáticos em massa com mensagens personalizadas. (Em actualização técnica para maior estabilidade).</p>
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <button className="button secondary" onClick={() => checkWhatsAppStatus()} title="Atualizar estado">
                       <RefreshCw size={15} /> Verificar Conexão
                     </button>
                     <button className="button" onClick={() => {
-                      const toSend = activeSourceList.filter(b => selectedBizIds.includes(b.id) && isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ'));
-                      if (toSend.length === 0) {
-                        if (withWaList.length > 0) {
-                          startBackgroundDispatch(withWaList);
-                        } else {
-                          notify('Nenhuma empresa com WhatsApp válido para disparo.', true);
-                        }
-                      } else {
-                        startBackgroundDispatch(toSend);
-                      }
-                    }} disabled={bulkDispatchRunning || withWaList.length === 0}>
-                      <Send size={15} /> Iniciar Disparo ({selectedWithWa > 0 ? selectedWithWa : withWaList.length})
+                      notify('Os disparos automáticos via WhatsApp estão em manutenção técnica e retornarão brevemente. Utilize o botão directo do WhatsApp de cada empresa para contacto imediato.', true);
+                    }}>
+                      <Send size={15} /> Iniciar Disparo · Brevemente
                     </button>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                  marginBottom: 20,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  color: '#FDE047',
+                  fontSize: 13
+                }}>
+                  <Clock3 size={20} style={{ flexShrink: 0 }} />
+                  <div>
+                    <strong>Integração de Disparos Automáticos em Atualização Técnica (Brevemente)</strong>
+                    <div style={{ color: '#CBD5E1', fontSize: 12, marginTop: 2 }}>
+                      A funcionalidade de disparos em lote está temporariamente a ser atualizada para evitar bloqueios e garantir maior taxa de entrega. O contacto manual via link direto do WhatsApp Web/Mobile permanece 100% disponível em todas as empresas!
+                    </div>
                   </div>
                 </div>
 
@@ -3803,65 +3758,85 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               <div className="page-heading">
                 <div>
                   <div className="eyebrow"><ShieldCheck size={14} /> PAINEL DO ADMINISTRADOR · CONTROLE SAAS</div>
-                  <h1>Gestão de Utilizadores, Planos e Quotas</h1>
-                  <p>Acompanhe utilizadores registados, atribua planos (Essencial e Pro) e controle créditos de prospecção.</p>
+                  <h1>Gestão Central do SaaS & Subscrições</h1>
+                  <p>Controle todos os utilizadores registados, monitore planos ativos (Essencial e Pro) e gerencie quotas.</p>
                 </div>
                 <Pill tone="amber">Super Administrador</Pill>
               </div>
 
-              {/* Métricas Globais */}
+              {/* Métricas Globais do SaaS */}
               <div className="summary-grid" style={{ marginBottom: 24 }}>
                 <div className="summary-tile">
                   <div className="summary-icon blue"><Users size={20} /></div>
                   <div className="summary-info">
                     <span className="summary-label">TOTAL DE UTILIZADORES</span>
-                    <strong className="summary-number">{admin?.metrics?.totalUsers ?? admin?.users?.length ?? admin?.workspaces?.length ?? 0}</strong>
-                    <span className="summary-detail">Contas criadas na plataforma</span>
+                    <strong className="summary-number">{admin?.metrics?.totalUsers ?? admin?.users?.length ?? 0}</strong>
+                    <span className="summary-detail">Contas reais registadas no SaaS</span>
                   </div>
                 </div>
 
                 <div className="summary-tile">
                   <div className="summary-icon green"><Sparkles size={20} /></div>
                   <div className="summary-info">
-                    <span className="summary-label">COM PLANO ATIVO</span>
-                    <strong className="summary-number">{admin?.metrics?.paidUsers ?? 0}</strong>
-                    <span className="summary-detail">Essencial (197 MT) ou Pro (347 MT)</span>
+                    <span className="summary-label">PRO ATIVO (347 MT)</span>
+                    <strong className="summary-number">{admin?.metrics?.proUsers ?? admin?.users?.filter(u => u.subscription?.plan === 'pro' && u.subscription?.status === 'active').length ?? 0}</strong>
+                    <span className="summary-detail">Clientes em escala alta</span>
+                  </div>
+                </div>
+
+                <div className="summary-tile">
+                  <div className="summary-icon blue"><Sparkles size={20} /></div>
+                  <div className="summary-info">
+                    <span className="summary-label">ESSENCIAL ATIVO (197 MT)</span>
+                    <strong className="summary-number">{admin?.metrics?.essentialUsers ?? admin?.users?.filter(u => u.subscription?.plan === 'essential' && u.subscription?.status === 'active').length ?? 0}</strong>
+                    <span className="summary-detail">Clientes no plano inicial</span>
                   </div>
                 </div>
 
                 <div className="summary-tile">
                   <div className="summary-icon amber"><Clock3 size={20} /></div>
                   <div className="summary-info">
-                    <span className="summary-label">PLANO GRÁTIS / DEMO</span>
-                    <strong className="summary-number">{admin?.metrics?.freeUsers ?? 0}</strong>
-                    <span className="summary-detail">Prazo limite até 22/10 às 19h</span>
+                    <span className="summary-label">SEM PLANO / EXPIRADOS</span>
+                    <strong className="summary-number">{admin?.metrics?.freeUsers ?? admin?.users?.filter(u => u.subscription?.plan === 'free' || u.subscription?.status === 'expired').length ?? 0}</strong>
+                    <span className="summary-detail">Aguardando ativação</span>
                   </div>
                 </div>
 
                 <div className="summary-tile">
                   <div className="summary-icon purple"><Wallet size={20} /></div>
                   <div className="summary-info">
-                    <span className="summary-label">TOTAL DE CRÉDITOS EM SALDO</span>
+                    <span className="summary-label">CRÉDITOS EM SALDO</span>
                     <strong className="summary-number">{admin?.metrics?.totalCredits ?? 0}</strong>
-                    <span className="summary-detail">Quota disponível para prospecção</span>
+                    <span className="summary-detail">Total distribuído no sistema</span>
                   </div>
                 </div>
               </div>
 
               {/* Tabela de Utilizadores & Planos */}
               <section className="panel content" style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 18 }}>Utilizadores e Subscrições</h2>
-                    <p className="muted" style={{ margin: '4px 0 0' }}>Lista completa de clientes registados, respetivos planos e quotas.</p>
+                    <h2 style={{ margin: 0, fontSize: 18 }}>Utilizadores e Subscrições ({admin?.users?.length || 0})</h2>
+                    <p className="muted" style={{ margin: '4px 0 0' }}>Lista auditada de clientes registados, respetivos planos, atividades e quotas.</p>
                   </div>
-                  <button className="button outline compact" onClick={async () => {
-                    const r = await api<AdminData>('admin');
-                    setAdmin(r);
-                    notify('Dados atualizados.');
-                  }}>
-                    Atualizar Lista
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <div className="inline-search" style={{ maxWidth: 260 }}>
+                      <Search size={15} />
+                      <input
+                        aria-label="Procurar utilizador"
+                        placeholder="Filtrar nome ou e-mail…"
+                        value={adminUserSearch}
+                        onChange={e => setAdminUserSearch(e.target.value)}
+                      />
+                    </div>
+                    <button className="button outline compact" onClick={async () => {
+                      const r = await api<AdminData>('admin');
+                      setAdmin(r);
+                      notify('Dados atualizados com sucesso.');
+                    }}>
+                      <RefreshCw size={14} /> Atualizar Lista
+                    </button>
+                  </div>
                 </div>
 
                 <div className="no-wa-table-container">
@@ -3872,62 +3847,101 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         <th>Tipo</th>
                         <th>Plano Atual</th>
                         <th>Estado</th>
+                        <th>Atividade</th>
                         <th>Validade</th>
                         <th>Créditos</th>
-                        <th style={{ textAlign: 'right' }}>Ação Rápida</th>
+                        <th style={{ textAlign: 'right' }}>Ações Rápidas</th>
                       </tr>
                     </thead>
                     <tbody>
                       {admin?.users && admin.users.length > 0 ? (
-                        admin.users.map(u => (
-                          <tr key={u.id} style={{ background: adminSelectedUserId === u.id ? 'rgba(59, 130, 246, 0.08)' : undefined }}>
-                            <td>
-                              <strong>{u.name}</strong>
-                              <small style={{ display: 'block', color: 'var(--muted)', fontSize: 11 }}>{u.email}</small>
-                            </td>
-                            <td>
-                              <Pill tone={u.role === 'admin' ? 'amber' : 'gray'}>{u.role}</Pill>
-                            </td>
-                            <td>
-                              {u.subscription?.plan === 'pro' ? (
-                                <Pill tone="green">Prospecta Pro (347 MT)</Pill>
-                              ) : u.subscription?.plan === 'essential' ? (
-                                <Pill tone="blue">Prospecta Essencial (197 MT)</Pill>
-                              ) : (
-                                <Pill tone="gray">Gratuito / Trial</Pill>
-                              )}
-                            </td>
-                            <td>
-                              <span style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: u.subscription?.status === 'active' ? '#10b981' : u.subscription?.status === 'expired' ? '#ef4444' : '#f59e0b'
-                              }}>
-                                {u.subscription?.status === 'active' ? '● Ativo' : u.subscription?.status === 'expired' ? '● Expirado' : '● Em Teste'}
-                              </span>
-                            </td>
-                            <td style={{ fontSize: 12 }}>
-                              {u.subscription?.expiresAt ? date(u.subscription.expiresAt) : 'Até 22/10/2026'}
-                            </td>
-                            <td>
-                              <strong style={{ color: '#2563eb' }}>{u.credits?.available ?? 0}</strong>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button
-                                className="button outline compact"
-                                onClick={() => {
-                                  setAdminSelectedUserId(u.id);
-                                  notify(`Utilizador "${u.name}" selecionado para gestão.`);
-                                }}
-                              >
-                                Selecionar
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        admin.users
+                          .filter(u => !adminUserSearch || u.name.toLowerCase().includes(adminUserSearch.toLowerCase()) || u.email.toLowerCase().includes(adminUserSearch.toLowerCase()))
+                          .map(u => (
+                            <tr key={u.id} style={{ background: adminSelectedUserId === u.id ? 'rgba(59, 130, 246, 0.08)' : undefined }}>
+                              <td>
+                                <strong>{u.name}</strong>
+                                <small style={{ display: 'block', color: 'var(--muted)', fontSize: 11 }}>{u.email}</small>
+                              </td>
+                              <td>
+                                <Pill tone={u.role === 'admin' ? 'amber' : 'gray'}>{u.role}</Pill>
+                              </td>
+                              <td>
+                                {u.subscription?.plan === 'pro' ? (
+                                  <Pill tone="green">Prospecta Pro (347 MT)</Pill>
+                                ) : u.subscription?.plan === 'essential' ? (
+                                  <Pill tone="blue">Prospecta Essencial (197 MT)</Pill>
+                                ) : (
+                                  <Pill tone="gray">Sem Plano Ativo</Pill>
+                                )}
+                              </td>
+                              <td>
+                                <span style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: u.subscription?.status === 'active' ? '#10b981' : '#ef4444'
+                                }}>
+                                  {u.subscription?.status === 'active' ? '● Ativo' : '● Inativo / Expirado'}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: 11.5 }}>
+                                {u.activity ? (
+                                  <span>{u.activity.searchesCount} buscas · {u.activity.leadsCount} leads · {u.activity.analysesCount} análises</span>
+                                ) : (
+                                  <span style={{ color: 'var(--muted)' }}>—</span>
+                                )}
+                              </td>
+                              <td style={{ fontSize: 12 }}>
+                                {u.subscription?.expiresAt ? date(u.subscription.expiresAt) : 'Sem validade'}
+                              </td>
+                              <td>
+                                <strong style={{ color: '#2563eb' }}>{u.credits?.available ?? 0}</strong>
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: 6 }}>
+                                  <button
+                                    className="button outline compact"
+                                    style={{ fontSize: 11, padding: '4px 8px' }}
+                                    title="Ativar 1 mês de Plano Pro (450 créditos)"
+                                    onClick={async () => {
+                                      await post('admin/subscription', { userId: u.id, plan: 'pro', months: 1, grantPlanCredits: true });
+                                      const r = await api<AdminData>('admin');
+                                      setAdmin(r);
+                                      notify(`Plano Pro ativado para ${u.name}!`);
+                                    }}
+                                  >
+                                    + Pro
+                                  </button>
+                                  <button
+                                    className="button outline compact"
+                                    style={{ fontSize: 11, padding: '4px 8px' }}
+                                    title="Ativar 1 mês de Plano Essencial (150 créditos)"
+                                    onClick={async () => {
+                                      await post('admin/subscription', { userId: u.id, plan: 'essential', months: 1, grantPlanCredits: true });
+                                      const r = await api<AdminData>('admin');
+                                      setAdmin(r);
+                                      notify(`Plano Essencial ativado para ${u.name}!`);
+                                    }}
+                                  >
+                                    + Essencial
+                                  </button>
+                                  <button
+                                    className="button outline compact"
+                                    style={{ fontSize: 11, padding: '4px 8px' }}
+                                    onClick={() => {
+                                      setAdminSelectedUserId(u.id);
+                                      notify(`Utilizador "${u.name}" selecionado para gestão.`);
+                                    }}
+                                  >
+                                    Gerir
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
                       ) : (
                         <tr>
-                          <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--muted)' }}>
+                          <td colSpan={8} style={{ textAlign: 'center', padding: '24px', color: 'var(--muted)' }}>
                             Nenhum utilizador encontrado.
                           </td>
                         </tr>
@@ -4124,28 +4138,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             <h2 id="plans-title" style={{ marginTop: 8 }}>Invista no seu motor de prospecção</h2>
             <p className="muted">Encontre mais empresas, envie abordagens em simultâneo e feche contratos de alto valor.</p>
 
-            {/* Modal Urgency & Deadline Banner */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(30, 58, 138, 0.22) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              borderRadius: '12px',
-              padding: '14px 18px',
-              margin: '16px 0 14px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px'
-            }}>
-              <div style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '6px', borderRadius: '8px', color: '#FBBF24', flexShrink: 0 }}>
-                <AlertTriangle size={18} />
-              </div>
-              <div style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: 1.5 }}>
-                <strong style={{ color: '#FDE047' }}>Prazo de Demonstração: até {PLAN_DEADLINE_DISPLAY}</strong>
-                <div style={{ color: '#CBD5E1', fontSize: '12px', marginTop: '2px' }}>
-                  Todos os utilizadores devem escolher um plano até o prazo para garantir o funcionamento contínuo e salvar suas oportunidades.
-                </div>
-              </div>
-            </div>
-
             {/* Modal ROI Persuasion Callout */}
             <div style={{
               background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(16, 185, 129, 0.12) 100%)',
@@ -4241,11 +4233,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   )}
                 </div>
                 <p style={{ margin: '0 0 10px', fontSize: 12, color: '#94A3B8' }}>
-                  Depois, {PLANS.pro.originalPriceMt || '497'} MT/mês. Oferta até 22/10.
+                  Depois, {PLANS.pro.originalPriceMt || '497'} MT/mês nos meses seguintes.
                 </p>
 
                 <div style={{ fontSize: 11, background: 'rgba(24, 119, 242, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#93C5FD', padding: '6px 10px', borderRadius: 6, marginBottom: 14, textAlign: 'center' }}>
-                  PIX · M-Pesa · e-Mola · Cartão · Lojou Pay
+                  M-Pesa · e-Mola · Cartão Visa/Mastercard · Lojou Pay
                 </div>
 
                 <p className="muted" style={{ fontSize: 12.5, minHeight: 32, margin: '0 0 14px', color: '#CBD5E1', lineHeight: 1.5 }}>
