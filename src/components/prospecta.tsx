@@ -25,6 +25,7 @@ type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 
 
 type AdminUserItem = {
   id: string;
+  whatsappConnected?: boolean;
   name: string;
   email: string;
   role: string;
@@ -771,6 +772,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [adminSelectedUserId, setAdminSelectedUserId] = useState<string>('');
   const [adminUserSearch, setAdminUserSearch] = useState<string>('');
+  const [adminStatusFilter, setAdminStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [adminSortOrder, setAdminSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [deleteModalUser, setDeleteModalUser] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [deleteEmailConfirm, setDeleteEmailConfirm] = useState<string>('');
+  const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
+  const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
   const activeBusiness = useRef<string | null>(null);
 
   useEffect(() => { activeBusiness.current = business?.id || null; }, [business?.id]);
@@ -1136,14 +1143,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       );
       const initial = query.get('view') as View | null;
       const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'integrations', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
-      if (isSheltonAdmin && (!initial || initial === 'opportunities' || initial === 'search')) {
+      if (isSheltonAdmin) {
         setView('admin');
       } else if (initial && validViews.includes(initial)) {
         setView(initial);
       } else if (query.get('view') === 'radar') {
         setView('search');
-      } else if (isSheltonAdmin) {
-        setView('admin');
       }
       if (currentUser && (query.get('error') || query.get('error_code') || query.get('error_description') || query.get('auth_error'))) {
         const targetView = (initial && validViews.includes(initial)) ? initial : (isSheltonAdmin ? 'admin' : 'opportunities');
@@ -1525,6 +1530,316 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     </div>
   );
 
+  const isUserAdmin = user.role === 'admin' || (user.email && (user.email.toLowerCase() === 'sheltonmad55@gmail.com' || user.email.toLowerCase() === 'sheltonmad5@gmail.com'));
+  const userHasActivePlan = isUserAdmin || hasActivePaidPlan(user);
+
+  // Se o utilizador não tiver plano ativo, mostra estritamente o ecrã de bloqueio
+  if (!userHasActivePlan) {
+    const supportWa = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP;
+    const cleanSupportWa = supportWa ? supportWa.replace(/\D/g, '') : '';
+    const supportMessage = encodeURIComponent(`Olá! Gostaria de ativar o meu plano na Prospecta SaaS. O meu e-mail de conta é: ${user.email}`);
+
+    return (
+      <div className="app" style={{ minHeight: '100vh', background: 'var(--bg-main, #0B0F19)' }}>
+        {toastUi}
+        
+        {/* Topo limpo do ecrã de bloqueio */}
+        <header style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 24px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(12px)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 40
+        }}>
+          <Brand />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              className="button outline compact"
+              onClick={() => setShowAccountModal(true)}
+              style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Settings2 size={15} /> Ver dados da conta
+            </button>
+            <button
+              className="button outline compact"
+              disabled={busy}
+              onClick={() => run(async () => {
+                if (typeof window !== 'undefined') localStorage.removeItem('prospecta_session_token');
+                await post('auth/logout'); resetWorkspace(); setUser(null); setAuth(null);
+              })}
+              style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6, color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+            >
+              <LogOut size={15} /> Terminar sessão
+            </button>
+          </div>
+        </header>
+
+        {/* Modal de visualização dos dados de conta para quem está sem plano */}
+        {showAccountModal && (
+          <div className="modal-backdrop">
+            <div className="modal-card" style={{ maxWidth: 440 }}>
+              <div className="modal-header">
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Settings2 size={18} /> Dados da Sua Conta
+                </h3>
+                <IconButton label="Fechar" onClick={() => setShowAccountModal(false)}><X size={16} /></IconButton>
+              </div>
+              <div className="modal-body" style={{ marginTop: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Nome</label>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{user.name}</div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>E-mail</label>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{user.email}</div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Estado do Plano</label>
+                    <div><Pill tone="gray">Sem plano ativo (0 créditos)</Pill></div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Serviço Comercial</label>
+                    <div style={{ fontSize: 13 }}>{user.profile?.service || 'Criação de websites'}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="button outline compact" onClick={() => setShowAccountModal(false)}>Fechar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Conteúdo Central do Paywall */}
+        <main style={{ maxWidth: 960, margin: '40px auto', padding: '0 20px 60px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#f87171',
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '0.05em',
+              marginBottom: 16
+            }}>
+              <ShieldCheck size={14} /> ACESSO RESTRITO A CLIENTES
+            </div>
+            <h1 style={{ fontSize: 'clamp(28px, 4vw, 38px)', fontWeight: 800, margin: '0 0 12px', letterSpacing: '-0.02em' }}>
+              Ative um plano para continuar
+            </h1>
+            <p style={{ color: 'var(--muted)', fontSize: 16, maxWidth: 600, margin: '0 auto', lineHeight: 1.5 }}>
+              A Prospecta SaaS é um motor comercial fechado. Para pesquisar empresas, guardar leads, gerar análises com IA e aceder ao WhatsApp, selecione o seu plano.
+            </p>
+          </div>
+
+          {/* Cards dos Planos Essencial e Pro */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: 24,
+            marginBottom: 32
+          }}>
+            {/* Plano Essencial */}
+            <div style={{
+              background: 'rgba(30, 41, 59, 0.7)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 16,
+              padding: 28,
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.3)'
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', marginBottom: 6 }}>
+                Plano Essencial
+              </div>
+              <div style={{ fontSize: 32, fontWeight: 800, margin: '6px 0 2px' }}>
+                197 MT <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>/mês</span>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.4 }}>
+                {PLANS.essential.tagline}
+              </p>
+
+              <a
+                href={PLANS.essential.lojouCheckoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button outline"
+                style={{
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  padding: '12px',
+                  marginBottom: 20,
+                  borderColor: '#3b82f6',
+                  color: '#60a5fa',
+                  borderRadius: 10
+                }}
+              >
+                Pagar Essencial (197 MT)
+              </a>
+
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: 16, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12 }}>
+                  O que inclui:
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {PLANS.essential.features.map((f, i) => (
+                    <li key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, lineHeight: 1.4 }}>
+                      <Check size={16} style={{ color: '#3b82f6', flexShrink: 0, marginTop: 2 }} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={{ marginTop: 20, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+                M-Pesa · e-Mola · Cartão Visa/Mastercard
+              </div>
+            </div>
+
+            {/* Plano Pro (Mais Popular) */}
+            <div style={{
+              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%)',
+              border: '2px solid #10b981',
+              borderRadius: 16,
+              padding: 28,
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              boxShadow: '0 12px 40px rgba(16, 185, 129, 0.15)'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: -12,
+                right: 24,
+                background: '#10b981',
+                color: '#064e3b',
+                fontWeight: 800,
+                fontSize: 11,
+                padding: '3px 12px',
+                borderRadius: 12,
+                letterSpacing: '0.04em'
+              }}>
+                MAIS POPULAR
+              </div>
+
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#34d399', textTransform: 'uppercase', marginBottom: 6 }}>
+                👑 Prospecta Pro
+              </div>
+              <div style={{ fontSize: 32, fontWeight: 800, margin: '6px 0 2px' }}>
+                347 MT <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>/mês</span>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.4 }}>
+                {PLANS.pro.tagline}
+              </p>
+
+              <a
+                href={PLANS.pro.lojouCheckoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button"
+                style={{
+                  textAlign: 'center',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  padding: '12px',
+                  marginBottom: 20,
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  borderColor: '#10b981',
+                  color: '#fff',
+                  borderRadius: 10,
+                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                Pagar Plano Pro (347 MT)
+              </a>
+
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: 16, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12 }}>
+                  Tudo do Essencial, mais:
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {PLANS.pro.features.map((f, i) => (
+                    <li key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, lineHeight: 1.4 }}>
+                      <Check size={16} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={{ marginTop: 20, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+                M-Pesa · e-Mola · Cartão Visa/Mastercard
+              </div>
+            </div>
+          </div>
+
+          {/* Secção de Instruções e Suporte no WhatsApp */}
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.6)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 14,
+            padding: 24,
+            textAlign: 'center'
+          }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 8px' }}>
+              Instruções para Ativação Rápida
+            </h3>
+            <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 16px', maxWidth: 640, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+              1. Escolha o plano acima e conclua o pagamento pelo checkout seguro (M-Pesa, e-Mola ou Cartão).<br />
+              2. Caso pague por outra via ou precise de ativação imediata, envie o comprovativo diretamente ao administrador:
+            </p>
+
+            {cleanSupportWa ? (
+              <a
+                href={`https://wa.me/${cleanSupportWa}?text=${supportMessage}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button"
+                style={{
+                  background: '#25D366',
+                  borderColor: '#22c55e',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 20px',
+                  borderRadius: 10
+                }}
+              >
+                <MessageCircle size={18} /> Falar com o administrador no WhatsApp
+              </a>
+            ) : (
+              <div style={{
+                display: 'inline-block',
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--muted)',
+                fontSize: 13
+              }}>
+                Contacte o administrador para ativar o seu plano.
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       {toastUi}
@@ -1539,21 +1854,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           <>
             <span className="nav-label">CONTROLE EXECUTIVO SAAS</span>
             <nav aria-label="Painel de Administração">
-              <button className={cls('nav-item', view === 'admin' && 'active')} onClick={() => navigate('admin')}>
+              <button className={cls('nav-item', 'active')} onClick={() => navigate('admin')}>
                 <ShieldCheck size={19} /><span>Painel do Administrador</span>
               </button>
-            </nav>
-
-            <span className="nav-label" style={{ marginTop: 20 }}>VISUALIZAR COMO CLIENTE</span>
-            <nav aria-label="Navegação da plataforma">
-              {navMain.map(item => (
-                <button key={item.view} className={cls('nav-item', view === item.view && 'active')} onClick={() => navigate(item.view)}>
-                  <item.icon size={19} />
-                  <span>{item.label}</span>
-                  {item.beta && <span className="nav-beta">BETA</span>}
-                  {item.badge && <span className="nav-beta" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>{item.badge}</span>}
-                </button>
-              ))}
             </nav>
           </>
         ) : (
@@ -1574,11 +1877,13 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
         <div className="sidebar-bottom">
           {/* Credits pill */}
-          <div className="sidebar-credits">
-            <Sparkles size={14} />
-            <span>{user.credits.available} créditos</span>
-            <button className="text-button" style={{ marginLeft: 'auto' }} onClick={() => navigate('account')}><ArrowRight size={13} /></button>
-          </div>
+          {user.role !== 'admin' && (
+            <div className="sidebar-credits">
+              <Sparkles size={14} />
+              <span>{user.credits.available} créditos</span>
+              <button className="text-button" style={{ marginLeft: 'auto' }} onClick={() => navigate('account')}><ArrowRight size={13} /></button>
+            </div>
+          )}
 
           {/* Configurações */}
           <button className="nav-item" onClick={() => navigate('account')}>
@@ -1646,7 +1951,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   : 'Ativar Plano'}
               </button>
             )}
-            <button className="balance" onClick={() => navigate('account')}><Sparkles size={14} />{user.credits.available} créditos</button>
+            {user.role !== 'admin' && (
+              <button className="balance" onClick={() => navigate('account')}><Sparkles size={14} />{user.credits.available} créditos</button>
+            )}
             <span className="avatar small">{user.name.slice(0, 1)}</span>
           </div>
         </header>
@@ -4431,7 +4738,30 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <p className="muted" style={{ margin: '4px 0 0' }}>Lista auditada de clientes registados, respetivos planos, atividades e quotas.</p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <div className="inline-search" style={{ maxWidth: 260 }}>
+                    {/* Filtro por estado do plano */}
+                    <select
+                      className="compact"
+                      style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 12 }}
+                      value={adminStatusFilter}
+                      onChange={e => setAdminStatusFilter(e.target.value as any)}
+                    >
+                      <option value="all">Todos os Estados</option>
+                      <option value="paid">Com plano ativo</option>
+                      <option value="unpaid">Sem plano / Expirados</option>
+                    </select>
+
+                    {/* Ordenação por data */}
+                    <select
+                      className="compact"
+                      style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 12 }}
+                      value={adminSortOrder}
+                      onChange={e => setAdminSortOrder(e.target.value as any)}
+                    >
+                      <option value="newest">Mais recentes</option>
+                      <option value="oldest">Mais antigos</option>
+                    </select>
+
+                    <div className="inline-search" style={{ maxWidth: 220 }}>
                       <Search size={15} />
                       <input
                         aria-label="Procurar utilizador"
@@ -4458,6 +4788,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         <th>Tipo</th>
                         <th>Plano Atual</th>
                         <th>Estado</th>
+                        <th>WhatsApp</th>
                         <th>Atividade</th>
                         <th>Validade</th>
                         <th>Créditos</th>
@@ -4467,7 +4798,21 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <tbody>
                       {admin?.users && admin.users.length > 0 ? (
                         admin.users
-                          .filter(u => !adminUserSearch || u.name.toLowerCase().includes(adminUserSearch.toLowerCase()) || u.email.toLowerCase().includes(adminUserSearch.toLowerCase()))
+                          .filter(u => {
+                            if (adminUserSearch) {
+                              const q = adminUserSearch.toLowerCase();
+                              if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+                            }
+                            const isPaid = (u.subscription?.plan === 'pro' || u.subscription?.plan === 'essential') && u.subscription?.status === 'active';
+                            if (adminStatusFilter === 'paid' && !isPaid) return false;
+                            if (adminStatusFilter === 'unpaid' && isPaid) return false;
+                            return true;
+                          })
+                          .sort((a, b) => {
+                            const tA = new Date(a.createdAt || 0).getTime();
+                            const tB = new Date(b.createdAt || 0).getTime();
+                            return adminSortOrder === 'newest' ? tB - tA : tA - tB;
+                          })
                           .map(u => (
                             <tr key={u.id} style={{ background: adminSelectedUserId === u.id ? 'rgba(59, 130, 246, 0.08)' : undefined }}>
                               <td>
@@ -4494,6 +4839,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 }}>
                                   {u.subscription?.status === 'active' ? '● Ativo' : '● Inativo / Expirado'}
                                 </span>
+                              </td>
+                              <td>
+                                <Pill tone={u.whatsappConnected ? 'green' : 'gray'}>
+                                  {u.whatsappConnected ? 'Ligado' : 'Desligado'}
+                                </Pill>
                               </td>
                               <td style={{ fontSize: 11.5 }}>
                                 {u.activity ? (
@@ -4546,6 +4896,19 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                   >
                                     Gerir
                                   </button>
+                                  {u.role !== 'admin' && u.email !== user.email && (
+                                    <button
+                                      className="button outline compact"
+                                      style={{ fontSize: 11, padding: '4px 8px', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                      title="Eliminar utilizador permanentemente"
+                                      onClick={() => {
+                                        setDeleteModalUser({ id: u.id, name: u.name, email: u.email });
+                                        setDeleteEmailConfirm('');
+                                      }}
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -4561,6 +4924,77 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   </table>
                 </div>
               </section>
+
+              {/* Modal de Confirmação de Eliminação de Conta */}
+              {deleteModalUser && (
+                <div className="modal-backdrop">
+                  <div className="modal-card" style={{ maxWidth: 480, border: '1px solid rgba(239, 68, 68, 0.4)' }}>
+                    <div className="modal-header">
+                      <h3 style={{ margin: 0, color: '#f87171', display: 'flex', alignItems: 'center', gap: 8, fontSize: 17 }}>
+                        <AlertTriangle size={20} /> Eliminar Utilizador Permanentemente
+                      </h3>
+                      <IconButton label="Fechar" onClick={() => setDeleteModalUser(null)}><X size={16} /></IconButton>
+                    </div>
+                    <div className="modal-body" style={{ marginTop: 16 }}>
+                      <p style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.5 }}>
+                        Esta ação é <strong>definitiva e não pode ser desfeita</strong>. Serão eliminados:
+                      </p>
+                      <ul style={{ margin: '0 0 16px 20px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+                        <li>Sessão e campanhas ativas no microserviço de WhatsApp</li>
+                        <li>Chaves de autenticação (wa_auth) e histórico</li>
+                        <li>Todas as buscas, leads, análises e créditos da Prospecta</li>
+                        <li>Conta de acesso no Supabase Auth</li>
+                      </ul>
+
+                      <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                        <div style={{ fontSize: 13, marginBottom: 4 }}>
+                          <strong>Nome:</strong> {deleteModalUser.name}
+                        </div>
+                        <div style={{ fontSize: 13 }}>
+                          <strong>E-mail:</strong> <code style={{ color: '#f87171' }}>{deleteModalUser.email}</code>
+                        </div>
+                      </div>
+
+                      <label style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
+                        Para confirmar, digite exatamente o e-mail <strong>{deleteModalUser.email}</strong>:
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteEmailConfirm}
+                        onChange={e => setDeleteEmailConfirm(e.target.value)}
+                        placeholder={deleteModalUser.email}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 13 }}
+                      />
+                    </div>
+                    <div className="modal-footer" style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                      <button className="button outline compact" disabled={isDeletingUser} onClick={() => setDeleteModalUser(null)}>
+                        Cancelar
+                      </button>
+                      <button
+                        className="button compact"
+                        style={{ background: '#dc2626', borderColor: '#b91c1c', color: '#fff', fontWeight: 700 }}
+                        disabled={deleteEmailConfirm.trim().toLowerCase() !== deleteModalUser.email.trim().toLowerCase() || isDeletingUser}
+                        onClick={async () => {
+                          setIsDeletingUser(true);
+                          try {
+                            const res = await api<{ ok: boolean; message: string }>(`admin/users/${deleteModalUser.id}`, { method: 'DELETE' });
+                            notify(res.message || 'Utilizador eliminado com sucesso.');
+                            setDeleteModalUser(null);
+                            const r = await api<AdminData>('admin');
+                            setAdmin(r);
+                          } catch (err: any) {
+                            notify(err.message || 'Falha ao eliminar utilizador.', true);
+                          } finally {
+                            setIsDeletingUser(false);
+                          }
+                        }}
+                      >
+                        {isDeletingUser ? 'A eliminar...' : 'Confirmar e Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Formulários de Gestão: Plano & Quota Manual */}
               <div className="detail-grid">

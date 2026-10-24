@@ -25,6 +25,12 @@ campaignsRouter.post('/', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'Lista de destinatários vazia.' });
   }
 
+  // Verificação de plano ativo obrigatório (Paywall)
+  const hasPlan = await db.hasActivePlan(userId);
+  if (!hasPlan) {
+    return res.status(402).json({ ok: false, error: 'Plano pago obrigatório para criar campanhas de WhatsApp.' });
+  }
+
   try {
     const campaign = await db.createCampaign({
       userId,
@@ -123,6 +129,11 @@ campaignsRouter.post('/:id/resume', async (req, res) => {
     }
     if (requesterId && campaign.user_id !== requesterId) {
       return res.status(403).json({ ok: false, error: 'Acesso negado: esta campanha pertence a outro utilizador.' });
+    }
+
+    const hasPlan = await db.hasActivePlan(campaign.user_id);
+    if (!hasPlan) {
+      return res.status(402).json({ ok: false, error: 'Plano pago obrigatório para retomar campanhas de WhatsApp.' });
     }
 
     await queueManager.resumeCampaign(id);

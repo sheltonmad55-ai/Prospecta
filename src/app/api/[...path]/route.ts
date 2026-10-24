@@ -2,7 +2,8 @@ import { z, ZodError } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { PROVINCES, STAGES, hasActivePaidPlan, getPlanMaxLeads } from '../../../lib/contracts.ts';
 import { db, id, now, transaction } from '../../../server/db.ts';
-import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, getUserSubscription, hash, passwordHash, rateLimit, requireUser, saveUserProfile, sessionToken, setUserSubscription, supabase, supabaseConfigured, syncAllUsersFromSupabase, userById } from '../../../server/auth.ts';
+import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, getUserSubscription, hash, passwordHash, rateLimit, requireActivePlan, requireAdmin, requireUser, saveUserProfile, sessionToken, setUserSubscription, supabase, supabaseAdmin, supabaseConfigured, syncAllUsersFromSupabase, userById } from '../../../server/auth.ts';
+import { getWhatsAppServiceConfig } from '../../../server/wa-proxy.ts';
 import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase, syncSearchesFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
@@ -42,13 +43,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(!['GET','HEAD'].includes(method)){const text=await request.text();if(text.length>500000)throw new AppError('Pedido demasiado grande.',413);try{input=text?JSON.parse(text):{};}catch{throw new AppError('Conteúdo do pedido inválido.');}}
   const current=await getUserAsync(request);
   if(route==='health' && method==='GET')return reply({status:'ok',mode:mode(),database:true});
-  if(route==='vault' && method==='GET') {
-   const query=new URL(request.url).searchParams;
-   const q=query.get('q')||'';
-   const category=query.get('category')||'';
-   const scripts=searchVaultScripts(q, category);
-   return reply({scripts,categories:VAULT_CATEGORIES,total:scripts.length});
-  }
+
   if(route==='me' && method==='GET') {
     const user=current ? ensureUserAndWorkspace(current) : null;
     const token = user ? ((sessionToken(request).startsWith('ps_') ? sessionToken(request) : null) || encodeSignedSession(user.id)) : null;
@@ -108,7 +103,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
        workspaceId: auth.user.id,
        role: isAdminEmail ? 'admin' : 'owner',
        profile: { service: 'Criação de websites', pitch: '', province: '', phone: data.phone ? validPhone(data.phone) || '' : '', nationwide: true, onboarded: false },
-       credits: { available: 20, reserved: 0, spent: 0 }
+       credits: { available: 0, reserved: 0, spent: 0 }
      };
      try {
        const local = userById(auth.user.id) || createUser(data.name, data.email, randomBytes(32).toString('hex'), !!data.consent, isAdminEmail ? 'admin' : 'owner', auth.user.id);
@@ -145,7 +140,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
        workspaceId: auth.user.user_metadata?.workspaceId || auth.user.id,
        role: (isAdminEmail ? 'admin' : (auth.user.app_metadata?.role || auth.user.user_metadata?.role || 'owner')) as import('@/lib/contracts').User['role'],
        profile: { service: 'Criação de websites', pitch: '', province: '', phone: '', nationwide: true, onboarded: false, ...(auth.user.user_metadata?.profile || {}) },
-       credits: auth.user.user_metadata?.credits || { available: 20, reserved: 0, spent: 0 }
+       credits: auth.user.user_metadata?.credits || { available: 0, reserved: 0, spent: 0 }
      };
      try {
        const local = userById(auth.user.id) || createUser(user.name, data.email, randomBytes(32).toString('hex'), false, user.role, auth.user.id);
@@ -196,9 +191,9 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    throw new AppError('Operação não encontrada.',404);
   }
-  const user=await requireUser(request);
-  rateLimit(`user:${user.id}`,240,60000);
   if(route==='profile' && (method==='PUT' || method==='POST')) {
+   const user = await requireUser(request);
+   rateLimit(`user:${user.id}`,240,60000);
    const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120).default('Criação de websites'),pitch:z.string().max(1000).default(''),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),phone:z.string().max(30).default(''),nationwide:z.boolean().default(true),onboarded:z.boolean().default(true)}).parse(input);
    if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).');
    const updatedUser = await saveUserProfile(user.id, {
@@ -214,7 +209,39 @@ async function handler(request:Request,context:Context):Promise<Response> {
    const headers: Record<string, string> = token ? { 'Set-Cookie': cookie(token, request) } : {};
    return reply({ success: true, user: updatedUser }, 200, headers);
   }
-  if(route==='profile')return reply({ success: true, user, profile: user.profile });
+  if(route==='profile') {
+   const user = await requireUser(request);
+   return reply({ success: true, user, profile: user.profile });
+  }
+
+  // Todas as rotas abaixo requerem ou privilégio de admin ou plano pago ativo
+  const user = path[0] === 'admin' ? await requireAdmin(request) : await requireActivePlan(request);
+  rateLimit(`user:${user.id}`,240,60000);
+
+  if(route==='vault' && method==='GET') {
+   const query=new URL(request.url).searchParams;
+   const q=query.get('q')||'';
+   const category=query.get('category')||'';
+   const scripts=searchVaultScripts(q, category);
+   return reply({scripts,categories:VAULT_CATEGORIES,total:scripts.length});
+  }
+
+  if(false && (method==='PUT' || method==='POST')) {
+   const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120).default('Criação de websites'),pitch:z.string().max(1000).default(''),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),phone:z.string().max(30).default(''),nationwide:z.boolean().default(true),onboarded:z.boolean().default(true)}).parse(input);
+   if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).');
+   const updatedUser = await saveUserProfile(user.id, {
+     name: data.name,
+     service: data.service,
+     pitch: data.pitch,
+     province: data.province,
+     phone: data.phone ? validPhone(data.phone) || '' : '',
+     nationwide: data.nationwide,
+     onboarded: data.onboarded
+   });
+   const token = sessionToken(request);
+   const headers: Record<string, string> = token ? { 'Set-Cookie': cookie(token, request) } : {};
+   return reply({ success: true, user: updatedUser }, 200, headers);
+  }
   if(route==='dashboard' && method==='GET')return reply(dashboard(user));
   if(route==='locations' && method==='GET')return reply({locations:db().prepare('SELECT * FROM locations').all(),catalogue:'Unidades de primeiro nível; localidades pesquisáveis por texto. Não é um catálogo completo de distritos.'});
   if(route==='searches' && method==='GET') { await syncSearchesFromSupabase(user); return reply({searches:listSearches(user)}); }
@@ -342,9 +369,29 @@ async function handler(request:Request,context:Context):Promise<Response> {
     }
   }
   if(path[0]==='admin') {
-    if(user.role!=='admin')throw new AppError('Acesso reservado à administração.',403);
+    const adminUser = await requireAdmin(request);
+    rateLimit(`admin:${adminUser.id}`,240,60000);
+    const user = adminUser;
     if(route==='admin' && method==='GET') {
       try { await syncAllUsersFromSupabase(); } catch {}
+
+      const connectedWaUserIds = new Set();
+      if (supabaseConfigured()) {
+        try {
+          const client = supabaseAdmin();
+          if (client) {
+            const { data: waRows } = await client.from('wa_auth').select('user_id').eq('key', 'creds').limit(1000);
+            if (waRows) {
+              for (const r of waRows) {
+                if (r.user_id) connectedWaUserIds.add(r.user_id);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[admin wa_auth error]:', err);
+        }
+      }
+
       const allUsers = db().prepare(`
         SELECT u.id, u.name, u.email, u.role, u.created_at as createdAt, COALESCE(w.id, u.id) as workspaceId
         FROM users u
@@ -373,6 +420,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
           workspaceId: u.workspaceId,
           credits: cr,
           subscription: sub,
+          whatsappConnected: connectedWaUserIds.has(u.id),
           activity: {
             searchesCount,
             leadsCount,
@@ -404,13 +452,21 @@ async function handler(request:Request,context:Context):Promise<Response> {
         userId: z.string(),
         plan: z.enum(['free', 'essential', 'pro']),
         months: z.number().int().min(1).max(36).default(1),
+        status: z.enum(['active', 'expired', 'canceled']).optional(),
+        expiresAt: z.string().optional(),
         grantPlanCredits: z.boolean().optional()
       }).parse(input);
 
       const targetUser = db().prepare('SELECT id, name FROM users WHERE id=?').get(data.userId);
       if (!targetUser) throw new AppError('Utilizador não encontrado.', 404);
 
-      const sub = setUserSubscription(data.userId, data.plan, data.months);
+      const sub = setUserSubscription(
+        data.userId,
+        data.plan,
+        data.months,
+        data.status || (data.plan === 'free' ? 'expired' : 'active'),
+        data.expiresAt
+      );
       if (data.grantPlanCredits && (data.plan === 'essential' || data.plan === 'pro')) {
         const creditsToAdd = data.plan === 'essential' ? 150 * data.months : 450 * data.months;
         const ws = db().prepare('SELECT id FROM workspaces WHERE user_id=? OR id=?').get(data.userId, data.userId) as { id: string } | undefined;
@@ -448,6 +504,154 @@ async function handler(request:Request,context:Context):Promise<Response> {
       const row=db().prepare('SELECT * FROM privacy_requests WHERE id=?').get(path[2]) as {workspace_id:string,type:string}|undefined;if(!row)throw new AppError('Pedido não encontrado.',404);
       if(row.type==='delete')transaction(()=>{const owner=db().prepare('SELECT user_id FROM workspaces WHERE id=?').get(row.workspace_id) as {user_id:string};db().prepare('DELETE FROM users WHERE id=?').run(owner.user_id);audit(user,'privacy.deleted',path[2]);});
       else db().prepare("UPDATE privacy_requests SET status='completed',completed_at=? WHERE id=?").run(now(),path[2]);return reply({ok:true});
+    }
+
+    if(path[1]==='users' && path[2] && method==='DELETE') {
+      const targetId = path[2];
+      if (adminUser.id === targetId) {
+        throw new AppError('Não é permitido eliminar a sua própria conta de administrador.', 400);
+      }
+
+      const localTarget = db().prepare('SELECT id, name, email, role FROM users WHERE id=?').get(targetId) as { id: string; name: string; email: string; role: string } | undefined;
+      let targetEmail = (localTarget?.email || '').toLowerCase().trim();
+      let targetRole = localTarget?.role || 'owner';
+      let targetName = localTarget?.name || 'Utilizador';
+
+      const client = supabaseAdmin();
+      if (client?.auth?.admin) {
+        try {
+          const { data: suData } = await client.auth.admin.getUserById(targetId);
+          if (suData?.user) {
+            targetEmail = (suData.user.email || targetEmail).toLowerCase().trim();
+            targetRole = suData.user.app_metadata?.role || suData.user.user_metadata?.role || targetRole;
+            targetName = suData.user.user_metadata?.name || targetName;
+          }
+        } catch {}
+      }
+
+      const isTargetAdmin = targetRole === 'admin' || targetEmail === 'sheltonmad55@gmail.com' || targetEmail === 'sheltonmad5@gmail.com';
+      if (isTargetAdmin) {
+        throw new AppError('Não é permitido eliminar outro administrador.', 403);
+      }
+
+      const failedSteps: string[] = [];
+
+      // (a) Terminar sessão no microserviço de WhatsApp e cancelar campanhas
+      try {
+        const { url, apiKey } = getWhatsAppServiceConfig();
+        await fetch(`${url}/sessions/${encodeURIComponent(targetId)}/logout`, {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'x-user-id': targetId },
+          cache: 'no-store'
+        }).catch(() => {});
+      } catch (err: any) {
+        failedSteps.push(`Desconectar WhatsApp: ${err?.message || err}`);
+      }
+
+      // (b) Apagar tabelas wa_* do utilizador no Supabase
+      if (client) {
+        try {
+          const { data: camps } = await client.from('wa_campaigns').select('id').eq('user_id', targetId);
+          if (camps && camps.length > 0) {
+            const cIds = camps.map(c => c.id);
+            await client.from('wa_campaign_recipients').delete().in('campaign_id', cIds);
+          }
+          await client.from('wa_campaign_recipients').delete().eq('user_id', targetId);
+          await client.from('wa_campaigns').delete().eq('user_id', targetId);
+          await client.from('wa_optout').delete().eq('user_id', targetId);
+          await client.from('wa_auth').delete().eq('user_id', targetId);
+        } catch (err: any) {
+          failedSteps.push(`Tabelas WhatsApp no Supabase: ${err?.message || err}`);
+        }
+      }
+
+      // (c) Apagar dados da Prospecta ligados a ele (buscas, leads, análises, workspaces, etc.)
+      try {
+        const workspaces = db().prepare('SELECT id FROM workspaces WHERE user_id=? OR id=?').all(targetId, targetId) as { id: string }[];
+        const wsIds = Array.from(new Set([targetId, ...workspaces.map(w => w.id)]));
+
+        for (const wsId of wsIds) {
+          db().prepare('DELETE FROM credit_entries WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM analyses WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM leads WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM activities WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM searches WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM jobs WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM suppressions WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM corrections WHERE workspace_id=?').run(wsId);
+          db().prepare('DELETE FROM privacy_requests WHERE workspace_id=?').run(wsId);
+        }
+        db().prepare('DELETE FROM subscriptions WHERE user_id=?').run(targetId);
+        db().prepare('DELETE FROM sessions WHERE user_id=?').run(targetId);
+        db().prepare('DELETE FROM auth_tokens WHERE user_id=?').run(targetId);
+        db().prepare('DELETE FROM workspaces WHERE user_id=? OR id=?').run(targetId, targetId);
+        db().prepare('DELETE FROM users WHERE id=?').run(targetId);
+
+        if (client) {
+          for (const wsId of wsIds) {
+            await client.from('leads').delete().eq('workspace_id', wsId);
+            await client.from('searches').delete().eq('workspace_id', wsId);
+          }
+          await client.from('workspaces').delete().or(`id.eq.${targetId},owner_id.eq.${targetId}`);
+          await client.from('memberships').delete().eq('user_id', targetId);
+        }
+      } catch (err: any) {
+        failedSteps.push(`Dados da Prospecta: ${err?.message || err}`);
+      }
+
+      // (d) Apagar conta de autenticação no Supabase Auth
+      if (client?.auth?.admin) {
+        try {
+          const { error: delAuthErr } = await client.auth.admin.deleteUser(targetId);
+          if (delAuthErr && !delAuthErr.message?.toLowerCase().includes('not found')) {
+            failedSteps.push(`Autenticação Supabase: ${delAuthErr.message}`);
+          }
+        } catch (err: any) {
+          failedSteps.push(`Autenticação Supabase: ${err?.message || err}`);
+        }
+      }
+
+      if (failedSteps.length > 0) {
+        throw new AppError(`Eliminação incompleta. Falha nos seguintes passos: ${failedSteps.join('; ')}`, 500);
+      }
+
+      // (e) Registar auditoria em admin_audit
+      const auditId = id();
+      const auditTimestamp = now();
+      try {
+        db().prepare(`
+          INSERT INTO admin_audit (id, admin_id, admin_email, action, target_id, target_email, details, created_at)
+          VALUES (?, ?, ?, 'delete_user', ?, ?, ?, ?)
+        `).run(auditId, adminUser.id, adminUser.email || '', targetId, targetEmail, JSON.stringify({ name: targetName }), auditTimestamp);
+      } catch (err) {
+        console.warn('[admin_audit sqlite warning]:', err);
+      }
+
+      if (client) {
+        try {
+          await client.from('admin_audit').insert({
+            admin_id: adminUser.id,
+            admin_email: adminUser.email || '',
+            action: 'delete_user',
+            target_id: targetId,
+            target_email: targetEmail,
+            details: { name: targetName }
+          });
+        } catch {
+          try {
+            await client.from('audit_events').insert({
+              id: auditId,
+              user_id: adminUser.id,
+              workspace_id: adminUser.workspaceId,
+              action: 'delete_user',
+              target_id: targetId,
+              created_at: auditTimestamp
+            });
+          } catch {}
+        }
+      }
+
+      return reply({ ok: true, message: `Utilizador ${targetEmail || targetName} eliminado com sucesso.` });
     }
   }
   throw new AppError('Página ou operação não encontrada.',404);

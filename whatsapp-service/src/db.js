@@ -613,4 +613,72 @@ export const db = {
     }
     return count;
   },
+
+  // ----------------------------------------------------
+  // VERIFICAÇÃO DE PLANO PAGO OBRIGATÓRIO (PAYWALL)
+  // ----------------------------------------------------
+  async hasActivePlan(userId) {
+    if (!userId) return false;
+
+    if (supabase) {
+      try {
+        // 1. Verificar na API Auth Admin do Supabase
+        if (supabase.auth && supabase.auth.admin) {
+          const { data, error } = await supabase.auth.admin.getUserById(userId);
+          if (!error && data?.user) {
+            const u = data.user;
+            const email = (u.email || '').toLowerCase().trim();
+            const isAdmin = email === 'sheltonmad55@gmail.com' || email === 'sheltonmad5@gmail.com' || u.app_metadata?.role === 'admin' || u.user_metadata?.role === 'admin';
+            if (isAdmin) return true;
+
+            const sub = u.user_metadata?.subscription;
+            if (sub && (sub.plan === 'essential' || sub.plan === 'pro') && sub.status === 'active') {
+              if (!sub.expiresAt || new Date(sub.expiresAt).getTime() > Date.now()) {
+                return true;
+              }
+            }
+          }
+        }
+
+        // 2. Verificar fallback na tabela workspaces
+        const { data: wsRows } = await supabase
+          .from('workspaces')
+          .select('profile')
+          .or(`id.eq.${userId},owner_id.eq.${userId}`)
+          .limit(1);
+
+        if (wsRows && wsRows.length > 0) {
+          const profile = typeof wsRows[0].profile === 'string'
+            ? JSON.parse(wsRows[0].profile || '{}')
+            : (wsRows[0].profile || {});
+          const sub = profile.subscription;
+          if (sub && (sub.plan === 'essential' || sub.plan === 'pro') && sub.status === 'active') {
+            if (!sub.expiresAt || new Date(sub.expiresAt).getTime() > Date.now()) {
+              return true;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[DB hasActivePlan] Erro ao verificar plano no Supabase:', err);
+      }
+      return false;
+    }
+
+    // Armazenamento em memória (testes locais)
+    const memSub = memStore.userPlans?.get(userId);
+    if (memSub) {
+      if (memSub.role === 'admin') return true;
+      if ((memSub.plan === 'essential' || memSub.plan === 'pro') && memSub.status === 'active') {
+        if (!memSub.expiresAt || new Date(memSub.expiresAt).getTime() > Date.now()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  },
+
+  setUserPlanForTesting(userId, planData) {
+    if (!memStore.userPlans) memStore.userPlans = new Map();
+    memStore.userPlans.set(userId, planData);
+  },
 };

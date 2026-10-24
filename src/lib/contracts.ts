@@ -445,6 +445,8 @@ export function hasActivePaidPlan(user: User | null | undefined): boolean {
   return true;
 }
 
+export const hasActivePlan = hasActivePaidPlan;
+
 export function getPlanMaxLeads(user: User | null | undefined): number {
   if (!user) return 10;
   if (user.role === 'admin') return 50;

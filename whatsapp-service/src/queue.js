@@ -127,6 +127,20 @@ export const queueManager = {
     console.log(`[Queue] Iniciando envio da campanha "${campaign.name}" (${campaignId}) para utilizador ${userId}`);
 
     while (!worker.cancelled && !worker.paused) {
+      // 0. Verificação de plano ativo obrigatório (Paywall): se o plano expirar ou for cancelado, pausa imediatamente
+      const hasPlan = await db.hasActivePlan(userId);
+      if (!hasPlan) {
+        console.warn(`[Queue] Utilizador ${userId} sem plano ativo. Pausando a campanha automaticamente com "pausada: plano inativo".`);
+        worker.paused = true;
+        await db.updateCampaignStatus(
+          campaignId,
+          'paused',
+          stats,
+          'pausada: plano inativo'
+        );
+        break;
+      }
+
       // 1. Requisito 4.1: Se a sessão cair a meio da campanha, pausa automaticamente em vez de falhar silenciosamente
       const session = waManager.getSession(userId);
       if (!session || session.state !== 'connected' || !session.sock) {

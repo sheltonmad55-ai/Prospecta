@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser, AppError } from '@/server/auth';
+import { requireActivePlan, AppError } from '@/server/auth';
 import type { User } from '@/lib/contracts';
 
 export function getWhatsAppServiceConfig() {
@@ -18,7 +18,7 @@ export async function forwardToWhatsAppService(
 ) {
   let user: User;
   try {
-    user = await requireUser(request);
+    user = await requireActivePlan(request);
   } catch (authErr: any) {
     const status = authErr instanceof AppError ? authErr.status : 401;
     return NextResponse.json({ ok: false, error: authErr.message || 'Não autorizado.' }, { status });

@@ -24,6 +24,16 @@ sessionsRouter.post('/:userId/connect', async (req, res) => {
   const { userId } = req.params;
   const { force } = req.body || {};
 
+  // Verificação de plano ativo obrigatório (Paywall)
+  const hasPlan = await db.hasActivePlan(userId);
+  if (!hasPlan) {
+    return res.status(402).json({
+      ok: false,
+      state: 'disconnected',
+      error: 'Plano pago obrigatório para ligar o WhatsApp. Ative o plano Essencial ou Pro.',
+    });
+  }
+
   try {
     const session = await waManager.connectSession(userId, !!force);
     const status = session.getStatus();
@@ -103,6 +113,15 @@ sessionsRouter.post('/:userId/send', async (req, res) => {
     return res.status(400).json({
       ok: false,
       error: 'Telefone ("phone") e mensagem ("message") são obrigatórios.',
+    });
+  }
+
+  // Verificação de plano ativo obrigatório (Paywall)
+  const hasPlan = await db.hasActivePlan(userId);
+  if (!hasPlan) {
+    return res.status(402).json({
+      ok: false,
+      error: 'Plano pago obrigatório para enviar mensagens de teste no WhatsApp.',
     });
   }
 

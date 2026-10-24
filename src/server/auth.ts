@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from
 import { createClient } from '@supabase/supabase-js';
 import { db, id, now, transaction } from './db.ts';
 import { mode } from './providers.ts';
-import { PLANS_ACTIVE, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription } from '../lib/contracts.ts';
+import { PLANS_ACTIVE, hasActivePlan, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription } from '../lib/contracts.ts';
 
 export class AppError extends Error {
   status: number;
@@ -92,6 +92,16 @@ export async function syncAllUsersFromSupabase(): Promise<number> {
             INSERT OR IGNORE INTO workspaces(id, user_id, profile, created_at)
             VALUES(?, ?, '{}', ?)
           `).run(u.id, u.id, u.created_at || now());
+
+          if (u.user_metadata?.subscription) {
+            const s = u.user_metadata.subscription;
+            if (s.plan && s.status) {
+              db().prepare(`
+                INSERT OR REPLACE INTO subscriptions (id, user_id, plan, status, months, starts_at, expires_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).run(u.id, u.id, s.plan, s.status, s.months || 1, u.created_at || now(), s.expiresAt || '', u.created_at || now(), now());
+            }
+          }
         }
         return data.users.length;
       }
@@ -141,9 +151,9 @@ export function credits(workspaceId: string): Credits {
     const sums = Object.fromEntries(rows.map(r => [r.kind, r.total]));
     const spent = sums.consume || 0;
     const reserved = (sums.reserve || 0) - (sums.release || 0) - spent;
-    return { available: (sums.grant || 0) - spent - reserved, reserved, spent };
+    return { available: Math.max(0, (sums.grant || 0) - spent - reserved), reserved, spent };
   } catch {
-    return { available: 20, reserved: 0, spent: 0 };
+    return { available: 0, reserved: 0, spent: 0 };
   }
 }
 
@@ -158,7 +168,7 @@ export function getUserSubscription(userId: string): UserSubscription {
     `).get(userId) as { plan: PlanType; status: SubscriptionStatus; expiresAt: string; months: number } | undefined;
 
     if (sub) {
-      const isExpired = sub.expiresAt && new Date(sub.expiresAt).getTime() < Date.now();
+      const isExpired = sub.status === 'expired' || Boolean(sub.expiresAt && new Date(sub.expiresAt).getTime() < Date.now());
       return {
         plan: sub.plan,
         status: isExpired ? 'expired' : sub.status,
@@ -175,24 +185,57 @@ export function getUserSubscription(userId: string): UserSubscription {
   };
 }
 
-export function setUserSubscription(userId: string, plan: PlanType, months = 1): UserSubscription {
+export function setUserSubscription(
+  userId: string,
+  plan: PlanType,
+  months = 1,
+  status: SubscriptionStatus = 'active',
+  customExpiresAt?: string
+): UserSubscription {
   const startsAt = now();
-  const expires = new Date();
-  expires.setMonth(expires.getMonth() + Math.max(1, months));
-  const expiresAt = expires.toISOString();
+  let expiresAt = '';
+  if (customExpiresAt) {
+    expiresAt = customExpiresAt;
+  } else if (plan === 'free') {
+    expiresAt = '';
+    status = 'expired';
+  } else {
+    const expires = new Date();
+    expires.setMonth(expires.getMonth() + Math.max(1, months));
+    expiresAt = expires.toISOString();
+  }
   const subId = id();
 
   db().prepare(`
     INSERT INTO subscriptions (id, user_id, plan, status, months, starts_at, expires_at, created_at, updated_at)
-    VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)
-  `).run(subId, userId, plan, months, startsAt, expiresAt, startsAt, startsAt);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(subId, userId, plan, status, months, startsAt, expiresAt, startsAt, startsAt);
 
-  return {
+  const subObj: UserSubscription = {
     plan,
-    status: 'active',
+    status,
     expiresAt,
     months
   };
+
+  // Sincronizar subscrição com o Supabase Auth (user_metadata) e Workspaces para persistência na nuvem
+  if (supabaseConfigured()) {
+    try {
+      const client = supabaseAdmin();
+      if (client) {
+        if (client.auth?.admin) {
+          Promise.resolve(client.auth.admin.updateUserById(userId, {
+            user_metadata: { subscription: subObj }
+          })).catch(() => {});
+        }
+        Promise.resolve(client.from('workspaces').update({
+          profile: { subscription: subObj }
+        }).eq('owner_id', userId)).catch(() => {});
+      }
+    } catch {}
+  }
+
+  return subObj;
 }
 
 export function userById(userId: string): User | null {
@@ -229,15 +272,21 @@ export function userById(userId: string): User | null {
     if (isAdmin) {
       parsedProfile.onboarded = true;
     }
+
+    const userRole = isAdmin ? 'admin' : ((row.role || 'owner') as User['role']);
+    const subscription = getUserSubscription(row.id);
+    const hasPlan = isAdmin || hasActivePlan({ id: row.id, role: userRole, subscription } as User);
+    const cr = hasPlan ? credits(workspaceId) : { available: 0, reserved: 0, spent: 0 };
+
     return {
       id: row.id,
       name: safeName,
       email: row.email,
       workspaceId,
-      role: isAdmin ? 'admin' : ((row.role || 'owner') as User['role']),
+      role: userRole,
       profile: parsedProfile,
-      credits: credits(workspaceId),
-      subscription: getUserSubscription(row.id)
+      credits: cr,
+      subscription
     };
   } catch {
     return null;
@@ -281,9 +330,6 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
         db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify(mergedProfile), existingWorkspace.id);
       } else {
         db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(workspaceId, user.id, JSON.stringify(profileToSave), timestamp);
-        try {
-          db().prepare('INSERT OR IGNORE INTO credit_entries VALUES(?,?,NULL,?,?,?,?)').run(id(), workspaceId, 'grant', 20, 'Créditos de boas-vindas do piloto', timestamp);
-        } catch {}
       }
     });
   } catch (err) {
@@ -316,7 +362,7 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
     workspaceId,
     role,
     profile: profileToSave,
-    credits: { available: 20, reserved: 0, spent: 0 }
+    credits: { available: 0, reserved: 0, spent: 0 }
   };
 }
 
@@ -423,7 +469,7 @@ export async function saveUserProfile(userId: string, data: { name?: string; bus
     workspaceId,
     role: existing?.role || 'owner',
     profile: updatedProfile,
-    credits: existing?.credits || { available: 20, reserved: 0, spent: 0 }
+    credits: existing?.credits || { available: 0, reserved: 0, spent: 0 }
   };
 }
 
@@ -434,7 +480,6 @@ export function createUser(name: string, email: string, password: string, market
       const timestamp = now();
       db().prepare('INSERT INTO users VALUES(?,?,?,?,?,?,?)').run(userId, name, email.toLowerCase(), passwordHash(password), role, marketing ? 1 : 0, timestamp);
       db().prepare('INSERT INTO workspaces VALUES(?,?,?,?)').run(workspaceId, userId, JSON.stringify(defaultProfile), timestamp);
-      db().prepare('INSERT INTO credit_entries VALUES(?,?,?,?,?,?,?)').run(id(), workspaceId, null, 'grant', 20, 'Créditos de boas-vindas do piloto', timestamp);
       return userById(userId)!;
     });
   } catch {
@@ -445,7 +490,7 @@ export function createUser(name: string, email: string, password: string, market
       workspaceId: userId,
       role,
       profile: { ...defaultProfile },
-      credits: { available: 20, reserved: 0, spent: 0 }
+      credits: { available: 0, reserved: 0, spent: 0 }
     };
   }
 }
@@ -650,6 +695,58 @@ export async function requireUser(request: Request): Promise<User> {
   const user = await getUserAsync(request);
   if (user) return user;
   throw new AppError('Entre na sua conta para continuar.', 401);
+}
+
+export async function requireActivePlan(request: Request): Promise<User> {
+  const user = await requireUser(request);
+  const rawEmail = (user.email || '').toLowerCase().trim();
+  const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com';
+  if (user.role === 'admin' || isAdminEmail) {
+    return user;
+  }
+  if (!hasActivePlan(user)) {
+    throw new AppError('Plano pago obrigatório. Ative o plano Essencial ou Pro para aceder a esta funcionalidade.', 402);
+  }
+  return user;
+}
+
+export async function requireAdmin(request: Request): Promise<User> {
+  const user = await requireUser(request);
+  const rawEmail = (user.email || '').toLowerCase().trim();
+  const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com';
+
+  let isDbAdmin = user.role === 'admin' || isAdminEmail;
+  try {
+    const dbUser = db().prepare('SELECT role, email FROM users WHERE id=?').get(user.id) as { role: string; email: string } | undefined;
+    if (dbUser) {
+      const email = (dbUser.email || '').toLowerCase().trim();
+      if (dbUser.role === 'admin' || email === 'sheltonmad55@gmail.com' || email === 'sheltonmad5@gmail.com') {
+        isDbAdmin = true;
+      } else {
+        isDbAdmin = false;
+      }
+    }
+    if (supabaseConfigured()) {
+      const client = supabaseAdmin();
+      if (client?.auth?.admin) {
+        const { data } = await client.auth.admin.getUserById(user.id);
+        if (data?.user) {
+          const email = (data.user.email || '').toLowerCase().trim();
+          const role = data.user.app_metadata?.role || data.user.user_metadata?.role;
+          if (role === 'admin' || email === 'sheltonmad55@gmail.com' || email === 'sheltonmad5@gmail.com') {
+            isDbAdmin = true;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[requireAdmin check warning]:', err);
+  }
+
+  if (isDbAdmin) {
+    return { ...user, role: 'admin' };
+  }
+  throw new AppError('Acesso reservado a administradores.', 403);
 }
 
 export function cookie(token: string, request?: Request): string {
