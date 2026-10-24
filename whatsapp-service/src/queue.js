@@ -82,6 +82,23 @@ export const queueManager = {
     console.log(`[Queue] Campanha ${campaignId} cancelada.`);
   },
 
+  async pauseCampaignsForDisconnectedUser(userId, reason = 'pausada: WhatsApp desconectado') {
+    for (const [cId, worker] of activeWorkers.entries()) {
+      if (worker && worker.isRunning && !worker.paused && !worker.cancelled) {
+        try {
+          const campaign = await db.getCampaign(cId);
+          if (campaign && campaign.user_id === userId) {
+            worker.paused = true;
+            await db.updateCampaignStatus(cId, 'paused', campaign.stats, reason);
+            console.log(`[Queue] Campanha ${cId} pausada automaticamente: ${reason}`);
+          }
+        } catch (e) {
+          console.error(`[Queue] Falha ao pausar campanha ${cId}:`, e.message);
+        }
+      }
+    }
+  },
+
   async runWorker(worker) {
     worker.isRunning = true;
     const { campaignId } = worker;
@@ -98,7 +115,6 @@ export const queueManager = {
 
     const minDelay = Math.max(10, settings?.minDelaySec || 20);
     const maxDelay = Math.max(minDelay, settings?.maxDelaySec || 60);
-    const dailyLimit = settings?.dailyLimit || 40;
     const startHour = settings?.startHour ?? 8;
     const endHour = settings?.endHour ?? 19;
     const pauseEvery = settings?.pauseEvery || 20;
@@ -111,15 +127,18 @@ export const queueManager = {
     console.log(`[Queue] Iniciando envio da campanha "${campaign.name}" (${campaignId}) para utilizador ${userId}`);
 
     while (!worker.cancelled && !worker.paused) {
-      // 1. Verificar se a sessão do WhatsApp está conectada
+      // 1. Requisito 4.1: Se a sessão cair a meio da campanha, pausa automaticamente em vez de falhar silenciosamente
       const session = waManager.getSession(userId);
       if (!session || session.state !== 'connected' || !session.sock) {
-        console.warn(`[Queue] WhatsApp do utilizador ${userId} não está conectado. Aguardando 15s...`);
-        for (let i = 0; i < 15; i++) {
-          if (worker.cancelled || worker.paused) break;
-          await sleep(1000);
-        }
-        continue;
+        console.warn(`[Queue] WhatsApp do utilizador ${userId} desconectado. Pausando a campanha automaticamente.`);
+        worker.paused = true;
+        await db.updateCampaignStatus(
+          campaignId,
+          'paused',
+          stats,
+          'pausada: WhatsApp desconectado'
+        );
+        break;
       }
 
       // 2. Janela de envio (08:00 às 19:00 fuso de Moçambique)
@@ -133,16 +152,21 @@ export const queueManager = {
         continue;
       }
 
-      // 3. Limite diário por número
+      // 3. Requisito 3: Rampa de aquecimento automático (dias 1-3: 15/dia, dias 4-7: 30/dia, dia 8+: 40/dia)
+      const warmupInfo = await db.getWarmupInfo(userId, settings?.dailyLimit || 40);
+      const isWarmupOverridden = !!settings?.confirmWarmupOverride;
+      const effectiveLimit = isWarmupOverridden
+        ? (settings?.dailyLimit || 40)
+        : warmupInfo.effectiveLimit;
+
       const sentToday = await db.getSentCountToday(userId);
-      if (sentToday >= dailyLimit) {
-        console.warn(`[Queue] Limite diário de ${dailyLimit} envios atingido para o utilizador ${userId}. Campanha em pausa de segurança.`);
-        await db.updateCampaignStatus(
-          campaignId,
-          'paused',
-          stats,
-          `Limite diário atingido (${sentToday}/${dailyLimit}). A campanha continuará amanhã para proteger o seu número contra bloqueios.`
-        );
+      if (sentToday >= effectiveLimit) {
+        const reasonMsg = isWarmupOverridden
+          ? `Limite diário configurado (${sentToday}/${effectiveLimit}) atingido hoje.`
+          : `Limite do aquecimento seguro (${warmupInfo.phase}) atingido: ${sentToday}/${effectiveLimit} mensagens enviadas hoje.`;
+        console.warn(`[Queue] ${reasonMsg} Campanha ${campaignId} em pausa de segurança.`);
+        worker.paused = true;
+        await db.updateCampaignStatus(campaignId, 'paused', stats, reasonMsg);
         break;
       }
 

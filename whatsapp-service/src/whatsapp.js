@@ -137,6 +137,7 @@ export const waManager = {
 
           const rawPhone = sock.user?.id ? sock.user.id.split(':')[0].replace(/\D/g, '') : null;
           session.phone = rawPhone ? normalizeMzPhone(rawPhone) || rawPhone : 'Conectado';
+          await db.setConnectedAt(userId).catch(() => {});
           console.log(`[WA] Sessão conectada com sucesso para utilizador ${userId} (+${session.phone})`);
         }
 
@@ -150,11 +151,20 @@ export const waManager = {
           session.qr = null;
           session.qrDataUrl = null;
 
+          // Requisito 4.1: Pausa automática de campanhas ativas se a sessão cair
+          try {
+            const { queueManager } = await import('./queue.js');
+            await queueManager.pauseCampaignsForDisconnectedUser(userId, 'pausada: WhatsApp desconectado');
+          } catch (e) {
+            console.error('[WA] Erro ao pausar campanhas do utilizador desconectado:', e?.message);
+          }
+
           if (isLoggedOut) {
             console.log(`[WA] Sessão desconectada pelo utilizador ${userId}. Limpando credenciais da base de dados.`);
             if (session.clearState) {
               await session.clearState().catch(() => {});
             }
+            await db.deleteAuthKey(userId, 'meta:connected_at').catch(() => {});
             sessions.delete(userId);
           } else {
             // Reconexão com backoff exponencial: 2s, 4s, 8s, 16s... até 30s

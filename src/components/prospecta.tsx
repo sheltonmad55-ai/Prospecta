@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import {
   AlertTriangle, ArrowDownLeft, ArrowRight, ArrowUpRight, Bookmark, Building2, CalendarDays,
   Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock3,
-  Compass, Copy, Database, Download, ExternalLink, FileText, Globe2,
-  LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Plus,
+  Compass, Copy, Database, Download, ExternalLink, FileText, Flame, Globe2,
+  LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Play, Plus,
   Radar, RefreshCw, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
   Users, Wallet, X
 } from 'lucide-react';
@@ -581,9 +581,26 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [resultsSubTab, setResultsSubTab] = useState<'all' | 'with_whatsapp' | 'no_whatsapp'>('all');
   const [inlinePhoneBizId, setInlinePhoneBizId] = useState<string | null>(null);
   const [inlinePhoneVal, setInlinePhoneVal] = useState('');
-  const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string; qrDataUrl?: string; wakingUp?: boolean } | null>(null);
+  const [waServiceStatus, setWaServiceStatus] = useState<{
+    connected: boolean;
+    user?: string | null;
+    status?: string;
+    qrDataUrl?: string;
+    wakingUp?: boolean;
+    warmup?: {
+      connectedAt: string | null;
+      dayNumber: number;
+      recommendedLimit: number;
+      phaseDescription: string;
+      todaySent: number;
+      todayRemaining: number;
+      effectiveLimit: number;
+      isOverWarmupRecommended: boolean;
+    };
+  } | null>(null);
   const [waQrLoading, setWaQrLoading] = useState(false);
   const [waWakingUp, setWaWakingUp] = useState(false);
+  const [confirmWarmupOverride, setConfirmWarmupOverride] = useState(false);
   const [waTestPhone, setWaTestPhone] = useState('847404158');
   const [waTestMessage, setWaTestMessage] = useState('Olá! Teste de integração do WhatsApp com a Prospecta SaaS concluído com sucesso 🚀');
   const [waTestSending, setWaTestSending] = useState(false);
@@ -592,7 +609,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [safeIntervalSec, setSafeIntervalSec] = useState<number>(20);
   const [waMinDelaySec, setWaMinDelaySec] = useState<number>(20);
   const [waMaxDelaySec, setWaMaxDelaySec] = useState<number>(60);
-  const [waDailyLimit, setWaDailyLimit] = useState<number>(40);
+  const [waDailyLimit, setWaDailyLimit] = useState<number>(15);
   const [waStartHour, setWaStartHour] = useState<number>(8);
   const [waEndHour, setWaEndHour] = useState<number>(19);
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
@@ -606,15 +623,20 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
   const checkWhatsAppStatus = useCallback(async () => {
     try {
-      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string; state?: string; qrDataUrl?: string; wakingUp?: boolean }>('wa/status');
+      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string; state?: string; qrDataUrl?: string; wakingUp?: boolean; warmup?: any }>('wa/status');
       setWaWakingUp(!!res.wakingUp);
       setWaServiceStatus({
         connected: !!res.connected,
         user: res.user,
         status: res.status || (res.connected ? 'connected' : 'disconnected'),
         qrDataUrl: res.qrDataUrl,
-        wakingUp: !!res.wakingUp
+        wakingUp: !!res.wakingUp,
+        warmup: res.warmup
       });
+      // Se houver limite recomendado de aquecimento e o usuário ainda não tiver alterado manualmente para valor superior
+      if (res.warmup?.recommendedLimit) {
+        setWaDailyLimit(prev => Math.min(prev, res.warmup.recommendedLimit));
+      }
       return res;
     } catch (err: any) {
       const isWaking = err?.message && (err.message.includes('acordar') || err.message.includes('arranque'));
@@ -623,7 +645,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         connected: false,
         status: 'offline',
         qrDataUrl: prev?.qrDataUrl,
-        wakingUp: !!isWaking
+        wakingUp: !!isWaking,
+        warmup: prev?.warmup
       }));
       return { connected: false, status: 'offline', wakingUp: !!isWaking };
     }
@@ -633,10 +656,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     setWaQrLoading(true);
     qrGeneratedAtRef.current = Date.now();
     try {
-      const res = await api<{ ok: boolean; connected?: boolean; user?: string | null; status?: string; qrDataUrl?: string; wakingUp?: boolean }>('wa/connect');
+      const res = await api<{ ok: boolean; connected?: boolean; user?: string | null; status?: string; qrDataUrl?: string; wakingUp?: boolean; warmup?: any }>('wa/connect');
       setWaWakingUp(!!res.wakingUp);
       if (res.connected) {
-        setWaServiceStatus({ connected: true, user: res.user, status: 'connected', qrDataUrl: undefined });
+        setWaServiceStatus({ connected: true, user: res.user, status: 'connected', qrDataUrl: undefined, warmup: res.warmup });
         notify('WhatsApp conectado com sucesso!');
       } else if (res.qrDataUrl) {
         setWaServiceStatus({ connected: false, qrDataUrl: res.qrDataUrl, status: 'waiting_qr', user: undefined });
@@ -655,6 +678,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       setWaQrLoading(false);
     }
   }, [notify]);
+
+  // Verificação inicial e periódica em segundo plano para manter alerta de status atualizado em todas as telas
+  useEffect(() => {
+    if (!user?.id) return;
+    checkWhatsAppStatus();
+    const bgInterval = setInterval(() => {
+      if (view !== 'integrations' && !isBulkModalOpen) {
+        checkWhatsAppStatus();
+      }
+    }, 20000);
+    return () => clearInterval(bgInterval);
+  }, [user?.id, view, isBulkModalOpen, checkWhatsAppStatus]);
 
   useEffect(() => {
     if (view === 'integrations' || isBulkModalOpen) {
@@ -855,7 +890,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           startHour: waStartHour,
           endHour: waEndHour,
           pauseEvery: 20,
-          pauseDurationMinutes: 7
+          pauseDurationMinutes: 7,
+          confirmWarmupOverride
         }
       });
 
@@ -874,7 +910,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     } finally {
       setCampaignLoading(false);
     }
-  }, [filters, user, bulkTemplate, waMinDelaySec, waMaxDelaySec, waDailyLimit, waStartHour, waEndHour, waServiceStatus, view, notify]);
+  }, [filters, user, bulkTemplate, waMinDelaySec, waMaxDelaySec, waDailyLimit, waStartHour, waEndHour, confirmWarmupOverride, waServiceStatus, view, notify]);
 
   const handlePauseCampaign = useCallback(async () => {
     if (!activeCampaignId) return;
@@ -1616,6 +1652,113 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         </header>
 
         <main id="main" className="workspace">
+
+          {/* ══ ALERTAS GLOBAIS DE WHATSAPP & RETOMA ══ */}
+          {user.profile.onboarded && view !== 'admin' && (
+            <>
+              {waWakingUp ? (
+                <div style={{
+                  margin: '0 0 18px',
+                  padding: '12px 18px',
+                  borderRadius: 12,
+                  background: 'rgba(37, 99, 235, 0.12)',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  color: '#93C5FD',
+                  fontSize: 13
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <LoaderCircle size={18} className="spin" color="#60A5FA" />
+                    <span><b>A ligar ao servidor de WhatsApp, aguarde cerca de um minuto...</b> Os serviços dedicados estão em arranque a frio.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => checkWhatsAppStatus()}
+                    style={{ background: 'transparent', border: '1px solid rgba(59, 130, 246, 0.4)', color: '#FFFFFF', padding: '5px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
+                  >
+                    Verificar Estado
+                  </button>
+                </div>
+              ) : waServiceStatus && !waServiceStatus.connected && view !== 'integrations' ? (
+                <div style={{
+                  margin: '0 0 18px',
+                  padding: '12px 18px',
+                  borderRadius: 12,
+                  background: 'rgba(234, 179, 8, 0.12)',
+                  border: '1px solid rgba(234, 179, 8, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  color: '#FDE047',
+                  fontSize: 13
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <AlertTriangle size={18} color="#FACC15" />
+                    <span><b>WhatsApp Desconectado:</b> O seu número de WhatsApp não está ativo. As mensagens e campanhas estão pausadas.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('integrations')}
+                    style={{ background: '#2563EB', color: '#FFFFFF', border: 'none', padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Reconectar WhatsApp
+                  </button>
+                </div>
+              ) : null}
+
+              {/* Notificação de retoma de campanha pausada quando a sessão volta */}
+              {campaignData && campaignData.status === 'paused' && waServiceStatus?.connected && (
+                <div style={{
+                  margin: '0 0 18px',
+                  padding: '14px 18px',
+                  borderRadius: 12,
+                  background: 'rgba(34, 197, 94, 0.12)',
+                  border: '1px solid rgba(34, 197, 94, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  color: '#FFFFFF',
+                  fontSize: 13
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <CheckCheck size={20} color="#4ADE80" />
+                    <div>
+                      <strong style={{ color: '#4ADE80', fontSize: 13.5, display: 'block' }}>
+                        WhatsApp Reconectado — Campanha &quot;{campaignData.name}&quot; pronta para retoma
+                      </strong>
+                      <span style={{ fontSize: 12, color: '#CBD5E1' }}>
+                        A campanha foi pausada automaticamente por segurança. Resumo: <b>{campaignData.stats?.sent || 0} enviadas</b> de {campaignData.stats?.total || 0} leads (restam {Math.max(0, (campaignData.stats?.total || 0) - (campaignData.stats?.sent || 0) - (campaignData.stats?.failed || 0) - (campaignData.stats?.ignored || 0))}).
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={handleResumeCampaign}
+                      style={{ background: '#22C55E', color: '#000000', border: 'none', padding: '7px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Play size={14} fill="#000000" /> Retomar Campanha
+                    </button>
+                    {view !== 'integrations' && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('integrations')}
+                        style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#FFFFFF', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
+                      >
+                        Ver Fila
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Onboarding */}
           {!user.profile.onboarded && view !== 'admin' && (
@@ -2901,9 +3044,58 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       </div>
                     </div>
 
-                    {campaignData.last_error && (
+                    {/* Alerta de Desconexão / Caixa de Retoma Segura */}
+                    {campaignData.status === 'paused' && (
+                      <div style={{
+                        marginTop: 14,
+                        padding: '14px 16px',
+                        background: waServiceStatus?.connected ? 'rgba(34, 197, 94, 0.12)' : 'rgba(234, 179, 8, 0.12)',
+                        border: `1px solid ${waServiceStatus?.connected ? 'rgba(34, 197, 94, 0.4)' : 'rgba(234, 179, 8, 0.4)'}`,
+                        borderRadius: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 12
+                      }}>
+                        <div>
+                          <strong style={{ color: waServiceStatus?.connected ? '#4ADE80' : '#FDE047', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {waServiceStatus?.connected ? <CheckCheck size={18} /> : <AlertTriangle size={18} />}
+                            {waServiceStatus?.connected
+                              ? 'WhatsApp Reconectado — A campanha não retoma sozinha'
+                              : 'Campanha Pausada Automaticamente (WhatsApp Desconectado)'}
+                          </strong>
+                          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#CBD5E1', lineHeight: 1.45 }}>
+                            {waServiceStatus?.connected
+                              ? `A ligação foi restabelecida com sucesso. Resumo atual: ${campaignData.stats?.sent || 0} enviadas, restam ${Math.max(0, (campaignData.stats?.total || 0) - (campaignData.stats?.sent || 0) - (campaignData.stats?.failed || 0) - (campaignData.stats?.ignored || 0))} leads. Clique em Retomar Campanha para continuar.`
+                              : 'Para proteger a sua reputação e evitar perda silenciosa de contactos, a fila foi pausada automaticamente. Conecte o terminal para poder retomar.'}
+                          </p>
+                        </div>
+                        {waServiceStatus?.connected ? (
+                          <button
+                            type="button"
+                            className="button"
+                            onClick={handleResumeCampaign}
+                            style={{ background: '#22C55E', color: '#000000', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                          >
+                            <Play size={14} fill="#000000" /> Retomar Campanha
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="button secondary"
+                            onClick={fetchWhatsAppQr}
+                            style={{ fontSize: 12 }}
+                          >
+                            <RefreshCw size={14} /> Conectar WhatsApp
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {campaignData.last_error && !campaignData.last_error.includes('WhatsApp desconectado') && (
                       <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 8, color: '#FCA5A5', fontSize: 12.5 }}>
-                        <strong>Aviso de Segurança:</strong> {campaignData.last_error}
+                        <strong>Aviso de Fila:</strong> {campaignData.last_error}
                       </div>
                     )}
                   </div>
@@ -2977,10 +3169,43 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <div style={{ marginTop: 8, padding: 14, background: 'rgba(15, 23, 42, 0.7)', borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: 12.5, fontWeight: 700, color: '#E2E8F0' }}>
-                            🛡️ Configuração da Fila Anti-Bloqueio
+                            🛡️ Configuração da Fila Anti-Bloqueio & Rampa
                           </span>
-                          <span style={{ fontSize: 11, color: '#34D399' }}>Padrão Conservador</span>
+                          <span style={{ fontSize: 11, color: '#34D399' }}>Aquecimento Ativo</span>
                         </div>
+
+                        {/* Widget de Aquecimento Automático */}
+                        {waServiceStatus?.warmup && (
+                          <div style={{
+                            padding: '10px 14px',
+                            borderRadius: 8,
+                            background: 'rgba(30, 41, 59, 0.65)',
+                            border: `1px solid ${waDailyLimit > waServiceStatus.warmup.recommendedLimit ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.3)'}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                              <span style={{ fontSize: 12.5, fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Flame size={15} color="#F97316" />
+                                Limite de hoje: {waServiceStatus.warmup.todaySent} de {waDailyLimit} (aquecimento: dia {waServiceStatus.warmup.dayNumber})
+                              </span>
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: 99,
+                                background: waDailyLimit > waServiceStatus.warmup.recommendedLimit ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                                color: waDailyLimit > waServiceStatus.warmup.recommendedLimit ? '#FCA5A5' : '#86EFAC'
+                              }}>
+                                {waDailyLimit > waServiceStatus.warmup.recommendedLimit ? '⚠️ Limite acima da rampa' : '🛡️ Rampa segura'}
+                              </span>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 11.5, color: '#CBD5E1', lineHeight: 1.4 }}>
+                              <b>{waServiceStatus.warmup.phaseDescription}:</b> máximo recomendado de <b>{waServiceStatus.warmup.recommendedLimit} envios/dia</b> somando todas as campanhas. Números novos precisam de aquecimento progressivo para evitar banimento.
+                            </p>
+                          </div>
+                        )}
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
                           <label style={{ fontSize: 11.5, color: '#94A3B8' }}>
@@ -3018,7 +3243,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                               <input
                                 type="number"
-                                min={10}
+                                min={5}
                                 max={150}
                                 value={waDailyLimit}
                                 onChange={e => setWaDailyLimit(Number(e.target.value))}
@@ -3029,9 +3254,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           </label>
                         </div>
 
-                        {(waMinDelaySec < 20 || waDailyLimit > 50) && (
+                        {(waMinDelaySec < 20 || waDailyLimit > (waServiceStatus?.warmup?.recommendedLimit || 40)) && (
                           <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 6, color: '#FCA5A5', fontSize: 11.5 }}>
-                            ⚠️ Atenção: Intervalos menores que 20s ou limites acima de 50 envios/dia aumentam o risco de suspensão do chip pela Meta.
+                            ⚠️ Atenção: Configurar limites acima da rampa de aquecimento ({waServiceStatus?.warmup?.recommendedLimit || 40}/dia) ou intervalos abaixo de 20s aumenta o risco de bloqueio do chip pelo WhatsApp.
                           </div>
                         )}
                       </div>
@@ -3344,7 +3569,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   const firstMsg = firstTarget
                     ? parseSpintaxClient(interpolateMessage(bulkTemplate, firstTarget, user.name || 'Chelton', filters.service || user.profile.service))
                     : '';
-                  const isAggressive = waMinDelaySec < 20 || waDailyLimit > 50;
+                  const warmupInfo = waServiceStatus?.warmup;
+                  const isOverWarmup = warmupInfo ? waDailyLimit > warmupInfo.recommendedLimit : waDailyLimit > 40;
+                  const isAggressive = waMinDelaySec < 20 || isOverWarmup;
 
                   return (
                     <div className="bulk-modal-overlay" onClick={() => setShowConfirmModal(false)}>
@@ -3378,23 +3605,46 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: 12 }}>
                             <span style={{ fontSize: 11, color: '#94A3B8', display: 'block' }}>Janela & Limite Diário</span>
                             <strong style={{ fontSize: 16, color: '#FFFFFF' }}>{String(waStartHour).padStart(2, '0')}h - {String(waEndHour).padStart(2, '0')}h</strong>
-                            <small style={{ fontSize: 11, color: '#CBD5E1', display: 'block' }}>Máx {waDailyLimit} msgs/dia</small>
+                            <small style={{ fontSize: 11, color: isOverWarmup ? '#FCA5A5' : '#CBD5E1', display: 'block' }}>
+                              Máx {waDailyLimit} msgs/dia {warmupInfo ? `(Dia ${warmupInfo.dayNumber})` : ''}
+                            </small>
                           </div>
                         </div>
+
+                        {/* Rampa de Aquecimento & Alerta de Risco */}
+                        {isOverWarmup ? (
+                          <div style={{ padding: '12px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.45)', borderRadius: 8, marginBottom: 16 }}>
+                            <strong style={{ color: '#FCA5A5', fontSize: 12.5, display: 'block', marginBottom: 4 }}>
+                              ⚠️ Alerta de Risco: Limite Superior à Rampa de Aquecimento
+                            </strong>
+                            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#CBD5E1', lineHeight: 1.45 }}>
+                              {warmupInfo
+                                ? `O seu WhatsApp está no dia ${warmupInfo.dayNumber} de aquecimento (${warmupInfo.phaseDescription}), com limite seguro de ${warmupInfo.recommendedLimit} envios/dia. Disparar ${waDailyLimit} mensagens aumenta muito a probabilidade de bloqueio imediato pela Meta.`
+                                : `O limite configurado de ${waDailyLimit} envios/dia está acima do teto conservador recomendado (40/dia).`}
+                            </p>
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#FFFFFF', cursor: 'pointer', fontWeight: 600 }}>
+                              <input
+                                type="checkbox"
+                                checked={confirmWarmupOverride}
+                                onChange={e => setConfirmWarmupOverride(e.target.checked)}
+                                style={{ marginTop: 2 }}
+                              />
+                              <span>Estou ciente do risco de suspensão do chip e confirmo expressamente o envio acima do limite recomendado pelo aquecimento.</span>
+                            </label>
+                          </div>
+                        ) : warmupInfo && (
+                          <div style={{ padding: '10px 14px', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: 8, color: '#86EFAC', fontSize: 12, marginBottom: 16 }}>
+                            🛡️ <b>Rampa de Aquecimento Protegida:</b> Dia {warmupInfo.dayNumber} ({warmupInfo.phaseDescription}) · Limite diário configurado de {waDailyLimit} envios está dentro da zona segura (máx {warmupInfo.recommendedLimit}/dia).
+                          </div>
+                        )}
 
                         {/* Anti-ban protections list */}
                         <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12, marginBottom: 16, fontSize: 12, color: '#CBD5E1', display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <div>🛡️ <b>Simulação de digitação:</b> 2 a 5 segundos de status <i>digitando...</i> antes de cada mensagem.</div>
                           <div>⏸️ <b>Pausa programada:</b> 7 minutos de descanso a cada 20 mensagens enviadas.</div>
                           <div>🚪 <b>Opt-out ativo:</b> Quem responder &quot;SAIR&quot; ou &quot;PARAR&quot; é excluído automaticamente.</div>
-                          <div>🛑 <b>Proteção de falhas:</b> Pausa automática caso ocorram 5 falhas consecutivas.</div>
+                          <div>🛑 <b>Proteção de falhas:</b> Pausa automática caso ocorram 5 falhas consecutivas ou queda de sessão.</div>
                         </div>
-
-                        {isAggressive && (
-                          <div style={{ padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 8, color: '#FCA5A5', fontSize: 12, marginBottom: 16 }}>
-                            ⚠️ <b>Atenção:</b> Os valores de cadência ({waMinDelaySec}s) ou limite ({waDailyLimit}/dia) estão acima do recomendado. Valores agressivos aumentam o risco de suspensão temporária do chip pelo WhatsApp.
-                          </div>
-                        )}
 
                         {/* First message preview */}
                         {firstTarget && (
@@ -3422,7 +3672,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             type="button"
                             className="button"
                             style={{ background: '#25D366', color: '#000', fontWeight: 800, minWidth: 160 }}
-                            disabled={campaignLoading || targetList.length === 0}
+                            disabled={campaignLoading || targetList.length === 0 || (isOverWarmup && !confirmWarmupOverride)}
                             onClick={() => handleCreateAndStartCampaign(targetList)}
                           >
                             {campaignLoading ? 'A iniciar...' : `🚀 Iniciar (${targetList.length} disparos)`}

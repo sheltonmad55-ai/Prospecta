@@ -220,6 +220,67 @@ export const db = {
   },
 
   // ----------------------------------------------------
+  // AQUECIMENTO AUTOMÁTICO DO NÚMERO (WARMUP)
+  // ----------------------------------------------------
+  async getConnectedAt(userId) {
+    return await this.getAuthKey(userId, 'meta:connected_at');
+  },
+
+  async setConnectedAt(userId, timestamp = new Date().toISOString()) {
+    const existing = await this.getConnectedAt(userId);
+    if (!existing) {
+      await this.setAuthKey(userId, 'meta:connected_at', timestamp);
+      return timestamp;
+    }
+    return existing;
+  },
+
+  async getWarmupInfo(userId, customLimit = 40) {
+    let connectedAt = await this.getConnectedAt(userId);
+    if (!connectedAt) {
+      // Se tiver credenciais ativas, inicializa a data de conexão
+      const creds = await this.getAuthKey(userId, 'creds');
+      if (creds) {
+        connectedAt = await this.setConnectedAt(userId);
+      }
+    }
+
+    const now = new Date();
+    const connDate = connectedAt ? new Date(connectedAt) : now;
+    const diffMs = Math.max(0, now.getTime() - connDate.getTime());
+    const dayNumber = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
+
+    let maxRecommended = 15;
+    let phase = 'Fase 1: Dias 1 a 3';
+    let phaseDescription = 'Início seguro com volume reduzido para construir histórico na Meta';
+    if (dayNumber >= 8) {
+      maxRecommended = Math.max(40, customLimit || 40);
+      phase = 'Fase 3: Dia 8 em diante';
+      phaseDescription = 'Aquecimento concluído! Limite padrão de 40 envios diários';
+    } else if (dayNumber >= 4) {
+      maxRecommended = 30;
+      phase = 'Fase 2: Dias 4 a 7';
+      phaseDescription = 'Aumento gradual e seguro da cadência diária';
+    }
+
+    const todaySent = await this.getSentCountToday(userId);
+    const effectiveLimit = Math.min(maxRecommended, customLimit || maxRecommended);
+    const remainingToday = Math.max(0, effectiveLimit - todaySent);
+
+    return {
+      dayNumber,
+      phase,
+      phaseDescription,
+      recommendedLimit: maxRecommended,
+      effectiveLimit,
+      todaySent,
+      remainingToday,
+      connectedAt: connectedAt || now.toISOString(),
+      isOverWarmupRecommended: (customLimit || 0) > maxRecommended,
+    };
+  },
+
+  // ----------------------------------------------------
   // WA_OPTOUT (Lista de Exclusão "SAIR" / "PARAR")
   // ----------------------------------------------------
   async addOptOut(userId, phone, reason = 'SAIR') {

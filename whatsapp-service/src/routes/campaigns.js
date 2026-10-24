@@ -9,7 +9,9 @@ export const campaignsRouter = Router();
  * Cria uma nova campanha com destinatários e inicia o disparo na fila segura
  */
 campaignsRouter.post('/', async (req, res) => {
-  const { userId, name, messageTemplate, recipients, settings } = req.body || {};
+  const headerUserId = req.headers['x-user-id'];
+  const { name, messageTemplate, recipients, settings } = req.body || {};
+  const userId = headerUserId || req.body?.userId;
 
   if (!userId) {
     return res.status(400).json({ ok: false, error: 'O "userId" é obrigatório.' });
@@ -49,15 +51,20 @@ campaignsRouter.post('/', async (req, res) => {
 
 /**
  * GET /campaigns/:id
- * Consulta o progresso detalhado de uma campanha
+ * Consulta o progresso detalhado de uma campanha (com verificação de titularidade)
  */
 campaignsRouter.get('/:id', async (req, res) => {
   const { id } = req.params;
+  const requesterId = req.headers['x-user-id'] || req.query?.userId;
 
   try {
     const campaign = await db.getCampaign(id);
     if (!campaign) {
       return res.status(404).json({ ok: false, error: 'Campanha não encontrada.' });
+    }
+
+    if (requesterId && campaign.user_id !== requesterId) {
+      return res.status(403).json({ ok: false, error: 'Acesso negado: esta campanha pertence a outro utilizador.' });
     }
 
     const recipients = await db.getCampaignRecipients(id);
@@ -84,8 +91,17 @@ campaignsRouter.get('/:id', async (req, res) => {
  */
 campaignsRouter.post('/:id/pause', async (req, res) => {
   const { id } = req.params;
+  const requesterId = req.headers['x-user-id'] || req.body?.userId;
 
   try {
+    const campaign = await db.getCampaign(id);
+    if (!campaign) {
+      return res.status(404).json({ ok: false, error: 'Campanha não encontrada.' });
+    }
+    if (requesterId && campaign.user_id !== requesterId) {
+      return res.status(403).json({ ok: false, error: 'Acesso negado: esta campanha pertence a outro utilizador.' });
+    }
+
     await queueManager.pauseCampaign(id);
     return res.json({ ok: true, message: 'Campanha pausada com sucesso.' });
   } catch (err) {
@@ -98,8 +114,17 @@ campaignsRouter.post('/:id/pause', async (req, res) => {
  */
 campaignsRouter.post('/:id/resume', async (req, res) => {
   const { id } = req.params;
+  const requesterId = req.headers['x-user-id'] || req.body?.userId;
 
   try {
+    const campaign = await db.getCampaign(id);
+    if (!campaign) {
+      return res.status(404).json({ ok: false, error: 'Campanha não encontrada.' });
+    }
+    if (requesterId && campaign.user_id !== requesterId) {
+      return res.status(403).json({ ok: false, error: 'Acesso negado: esta campanha pertence a outro utilizador.' });
+    }
+
     await queueManager.resumeCampaign(id);
     return res.json({ ok: true, message: 'Campanha retomada com sucesso.' });
   } catch (err) {
@@ -112,8 +137,17 @@ campaignsRouter.post('/:id/resume', async (req, res) => {
  */
 campaignsRouter.post('/:id/cancel', async (req, res) => {
   const { id } = req.params;
+  const requesterId = req.headers['x-user-id'] || req.body?.userId;
 
   try {
+    const campaign = await db.getCampaign(id);
+    if (!campaign) {
+      return res.status(404).json({ ok: false, error: 'Campanha não encontrada.' });
+    }
+    if (requesterId && campaign.user_id !== requesterId) {
+      return res.status(403).json({ ok: false, error: 'Acesso negado: esta campanha pertence a outro utilizador.' });
+    }
+
     await queueManager.cancelCampaign(id);
     return res.json({ ok: true, message: 'Campanha cancelada com sucesso.' });
   } catch (err) {

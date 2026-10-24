@@ -27,7 +27,7 @@ export async function forwardToWhatsAppService(
   const { url, apiKey } = getWhatsAppServiceConfig();
   const method = request.method;
 
-  // Resolve o caminho de destino no microserviço
+  // Resolve o caminho de destino no microserviço - userId é ESTRITAMENTE o do utilizador autenticado
   const first = pathSegments[0] || 'status';
   let targetPath = '';
 
@@ -39,12 +39,18 @@ export async function forwardToWhatsAppService(
     targetPath = `/sessions/${encodeURIComponent(user.id)}/logout`;
   } else if (first === 'send') {
     targetPath = `/sessions/${encodeURIComponent(user.id)}/send`;
+  } else if (first === 'sessions') {
+    // Se o cliente tentar especificar sessions/:qualquerUserId/:action, força sempre o user.id autenticado
+    const action = pathSegments[2] || pathSegments[1] || 'status';
+    const allowedActions = ['status', 'connect', 'logout', 'send'];
+    const safeAction = allowedActions.includes(action) ? action : 'status';
+    targetPath = `/sessions/${encodeURIComponent(user.id)}/${safeAction}`;
   } else if (first === 'campaigns') {
     // Sub-rotas de campanhas (/api/wa/campaigns, /api/wa/campaigns/:id, /api/wa/campaigns/:id/pause, etc.)
     const rest = pathSegments.slice(1).join('/');
     targetPath = rest ? `/campaigns/${rest}` : '/campaigns';
   } else {
-    targetPath = `/${pathSegments.join('/')}`;
+    return NextResponse.json({ ok: false, error: 'Rota de WhatsApp não permitida.' }, { status: 400 });
   }
 
   // Prepara o body
@@ -60,8 +66,8 @@ export async function forwardToWhatsAppService(
       }
     }
 
-    // Se for criação de campanha, garante que o userId é o do utilizador autenticado
-    if (first === 'campaigns' && pathSegments.length === 1 && method === 'POST') {
+    // Garante que o userId no body é SEMPRE o do utilizador autenticado (previne IDOR)
+    if (bodyPayload && typeof bodyPayload === 'object') {
       bodyPayload.userId = user.id;
     }
   }
@@ -75,6 +81,7 @@ export async function forwardToWhatsAppService(
 
     const headers: Record<string, string> = {
       'x-api-key': apiKey,
+      'x-user-id': user.id,
       'Content-Type': 'application/json',
     };
 

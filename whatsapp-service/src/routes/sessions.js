@@ -1,7 +1,20 @@
 import { Router } from 'express';
 import { waManager } from '../whatsapp.js';
+import { db } from '../db.js';
 
 export const sessionsRouter = Router();
+
+// Requisito 2: Isolamento estrito entre utilizadores
+sessionsRouter.use('/:userId', (req, res, next) => {
+  const headerUserId = req.headers['x-user-id'];
+  if (headerUserId && headerUserId !== req.params.userId) {
+    return res.status(403).json({
+      ok: false,
+      error: 'Acesso negado: utilizador não autorizado para aceder a esta sessão de WhatsApp.',
+    });
+  }
+  next();
+});
 
 /**
  * POST /sessions/:userId/connect
@@ -14,9 +27,11 @@ sessionsRouter.post('/:userId/connect', async (req, res) => {
   try {
     const session = await waManager.connectSession(userId, !!force);
     const status = session.getStatus();
+    const warmup = await db.getWarmupInfo(userId).catch(() => null);
     return res.json({
       ok: true,
       ...status,
+      warmup,
     });
   } catch (err) {
     return res.status(500).json({
@@ -29,7 +44,7 @@ sessionsRouter.post('/:userId/connect', async (req, res) => {
 
 /**
  * GET /sessions/:userId/status
- * Devolve o estado da conexão, o QR Code em DataURL (se pendente) e o número conectado.
+ * Devolve o estado da conexão, o QR Code em DataURL (se pendente), o número conectado e métricas de aquecimento.
  */
 sessionsRouter.get('/:userId/status', async (req, res) => {
   const { userId } = req.params;
@@ -43,9 +58,11 @@ sessionsRouter.get('/:userId/status', async (req, res) => {
     }
 
     const status = session.getStatus();
+    const warmup = await db.getWarmupInfo(userId).catch(() => null);
     return res.json({
       ok: true,
       ...status,
+      warmup,
     });
   } catch (err) {
     return res.status(500).json({
