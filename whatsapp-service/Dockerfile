@@ -1,9 +1,9 @@
 # ============================================================
 # Dockerfile para o microserviço whatsapp-service da Prospecta
-# Base leve: Node 20 Alpine
+# Base leve: Node 22 Alpine
 # ============================================================
 
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Instalar dependências de sistema necessárias para compilação nativa se preciso e fuso horário
 RUN apk add --no-cache tzdata ca-certificates

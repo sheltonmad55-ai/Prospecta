@@ -21,7 +21,7 @@ Dividimos o sistema em duas camadas desacopladas e seguras:
        │  (Rotas /api/wa/* validam utilizador autenticado)
        │  (Injeta secretamente x-api-key; browser NUNCA vê chaves nem URLs internos)
        ▼ HTTPS
-[ whatsapp-service (Microserviço Node 20 / Docker) ]
+[ whatsapp-service (Microserviço Node 22 / Docker) ]
   ├── Gestor Multi-sessões (Map de sockets Baileys por userId)
   ├── useDbAuthState(userId): Credenciais e chaves gravadas em Postgres/Supabase
   ├── Fila Segura Anti-Bloqueio (20s-60s delay, presença 'digitando...', limites diários)
