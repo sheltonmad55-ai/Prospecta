@@ -311,6 +311,24 @@ function adaptScriptTemplate(
   return result;
 }
 
+function parseSpintaxClient(text: string): string {
+  if (!text) return '';
+  const spintaxRegex = /\{([^{}]+)\}/;
+  let matches;
+  let result = text;
+  while ((matches = spintaxRegex.exec(result)) !== null) {
+    const rawContent = matches[1];
+    if (rawContent.includes('|')) {
+      const choices = rawContent.split('|');
+      const chosen = choices[Math.floor(Math.random() * choices.length)].trim();
+      result = result.replace(matches[0], chosen);
+    } else {
+      result = result.replace(matches[0], `__VAR_${rawContent}__`);
+    }
+  }
+  return result.replace(/__VAR_([a-zA-Z0-9_-]+)__/g, '{$1}');
+}
+
 function interpolateMessage(
   template: string,
   biz: Business,
@@ -327,7 +345,9 @@ function interpolateMessage(
   const score = biz.opportunityScore != null ? String(biz.opportunityScore) : '85';
   const phone = biz.phone || '';
 
-  return template
+  const withSpintax = parseSpintaxClient(template);
+
+  return withSpintax
     .replace(/\{nome_empresa\}|\{\{empresa\}\}|\{empresa\}/gi, bizName)
     .replace(/\{cidade\}|\{\{cidade\}\}/gi, city)
     .replace(/\{provincia\}|\{\{provincia\}\}|\{província\}|\{\{província\}\}/gi, province)
@@ -337,6 +357,27 @@ function interpolateMessage(
     .replace(/\{responsavel\}|\{\{responsavel\}\}|\{responsável\}|\{\{responsável\}\}|\{nome\}|\{\{nome\}\}/gi, userName || 'Chelton')
     .replace(/\{telefone\}|\{\{telefone\}\}/gi, phone)
     .replace(/\{score\}|\{\{score\}\}/gi, score);
+}
+
+function exportCampaignCsv(campaign: any, recipientsList: any[]) {
+  const rows = [
+    ['Destinatário / Telefone', 'Empresa / Nome', 'Estado', 'Erro / Motivo', 'Data de Envio'],
+    ...(recipientsList || []).map(r => [
+      `"${r.phone}"`,
+      `"${(r.vars?.nome_empresa || r.vars?.nome || r.vars?.empresa || 'Contacto').replace(/"/g, '""')}"`,
+      `"${r.status === 'sent' ? 'Enviada' : r.status === 'failed' ? 'Falha' : r.status === 'ignored' ? 'Sem WhatsApp' : r.status === 'optout' ? 'Opt-Out (SAIR)' : 'Pendente'}"`,
+      `"${(r.error || '').replace(/"/g, '""')}"`,
+      `"${r.sent_at ? new Date(r.sent_at).toLocaleString('pt-MZ') : ''}"`
+    ])
+  ];
+  const csvContent = '\uFEFF' + rows.map(r => r.join(';')).join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Relatorio_Campanha_WhatsApp_${(campaign?.name || 'Campanha').replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exportBusinessesToCsv(businesses: Business[], filename = 'empresas_sem_whatsapp.csv') {
@@ -540,35 +581,60 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [resultsSubTab, setResultsSubTab] = useState<'all' | 'with_whatsapp' | 'no_whatsapp'>('all');
   const [inlinePhoneBizId, setInlinePhoneBizId] = useState<string | null>(null);
   const [inlinePhoneVal, setInlinePhoneVal] = useState('');
-  const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string; qrDataUrl?: string } | null>(null);
+  const [waServiceStatus, setWaServiceStatus] = useState<{ connected: boolean; user?: string | null; status?: string; qrDataUrl?: string; wakingUp?: boolean } | null>(null);
   const [waQrLoading, setWaQrLoading] = useState(false);
+  const [waWakingUp, setWaWakingUp] = useState(false);
   const [waTestPhone, setWaTestPhone] = useState('847404158');
   const [waTestMessage, setWaTestMessage] = useState('Olá! Teste de integração do WhatsApp com a Prospecta SaaS concluído com sucesso 🚀');
   const [waTestSending, setWaTestSending] = useState(false);
   const [integrationSource, setIntegrationSource] = useState<'search' | 'leads'>('search');
   const [integrationFilter, setIntegrationFilter] = useState<'all' | 'with_wa' | 'no_wa'>('all');
-  const [bulkDispatchRunning, setBulkDispatchRunning] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentName: string; status: 'idle' | 'sending' | 'waiting' | 'done' | 'error'; errorCount: number }>({ current: 0, total: 0, currentName: '', status: 'idle', errorCount: 0 });
-  const [safeIntervalSec, setSafeIntervalSec] = useState<number>(10);
-  const cancelBulkDispatchRef = useRef(false);
+  const [safeIntervalSec, setSafeIntervalSec] = useState<number>(20);
+  const [waMinDelaySec, setWaMinDelaySec] = useState<number>(20);
+  const [waMaxDelaySec, setWaMaxDelaySec] = useState<number>(60);
+  const [waDailyLimit, setWaDailyLimit] = useState<number>(40);
+  const [waStartHour, setWaStartHour] = useState<number>(8);
+  const [waEndHour, setWaEndHour] = useState<number>(19);
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  const [campaignData, setCampaignData] = useState<any>(null);
+  const [campaignLoading, setCampaignLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showBestPractices, setShowBestPractices] = useState(true);
+  const qrGeneratedAtRef = useRef<number>(0);
 
   const notify = useCallback((message: string, error = false) => setToast({ message, error }), []);
 
   const checkWhatsAppStatus = useCallback(async () => {
     try {
-      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string; qrDataUrl?: string }>('whatsapp/status');
-      setWaServiceStatus({ connected: !!res.connected, user: res.user, status: res.status, qrDataUrl: res.qrDataUrl });
+      const res = await api<{ ok: boolean; connected: boolean; user?: string | null; status?: string; state?: string; qrDataUrl?: string; wakingUp?: boolean }>('wa/status');
+      setWaWakingUp(!!res.wakingUp);
+      setWaServiceStatus({
+        connected: !!res.connected,
+        user: res.user,
+        status: res.status || (res.connected ? 'connected' : 'disconnected'),
+        qrDataUrl: res.qrDataUrl,
+        wakingUp: !!res.wakingUp
+      });
       return res;
-    } catch {
-      setWaServiceStatus({ connected: false, status: 'offline' });
-      return { connected: false, status: 'offline' };
+    } catch (err: any) {
+      const isWaking = err?.message && (err.message.includes('acordar') || err.message.includes('arranque'));
+      setWaWakingUp(!!isWaking);
+      setWaServiceStatus(prev => ({
+        connected: false,
+        status: 'offline',
+        qrDataUrl: prev?.qrDataUrl,
+        wakingUp: !!isWaking
+      }));
+      return { connected: false, status: 'offline', wakingUp: !!isWaking };
     }
   }, []);
 
   const fetchWhatsAppQr = useCallback(async () => {
     setWaQrLoading(true);
+    qrGeneratedAtRef.current = Date.now();
     try {
-      const res = await api<{ ok: boolean; connected?: boolean; user?: string | null; status?: string; qrDataUrl?: string }>('whatsapp/qr');
+      const res = await api<{ ok: boolean; connected?: boolean; user?: string | null; status?: string; qrDataUrl?: string; wakingUp?: boolean }>('wa/connect');
+      setWaWakingUp(!!res.wakingUp);
       if (res.connected) {
         setWaServiceStatus({ connected: true, user: res.user, status: 'connected', qrDataUrl: undefined });
         notify('WhatsApp conectado com sucesso!');
@@ -579,7 +645,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           connected: !!prev?.connected,
           user: prev?.user,
           status: res.status || 'connecting',
-          qrDataUrl: prev?.qrDataUrl
+          qrDataUrl: prev?.qrDataUrl,
+          wakingUp: !!res.wakingUp
         }));
       }
     } catch (err: any) {
@@ -596,50 +663,47 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           fetchWhatsAppQr();
         }
       });
-      const interval = setInterval(checkWhatsAppStatus, 4000);
+      // Polling a cada 3 segundos conforme requisito
+      const interval = setInterval(() => {
+        checkWhatsAppStatus().then(res => {
+          // Se o QR estiver exibido há mais de 50 segundos sem leitura, gera novo automaticamente
+          if (res?.status === 'waiting_qr' && Date.now() - qrGeneratedAtRef.current > 50000) {
+            fetchWhatsAppQr();
+          }
+        });
+      }, 3000);
       return () => clearInterval(interval);
     }
   }, [view, isBulkModalOpen, checkWhatsAppStatus, fetchWhatsAppQr]);
 
-  const startBackgroundDispatch = async (withWaList: Business[]) => {
-    if (withWaList.length === 0) return;
-    cancelBulkDispatchRef.current = false;
-    setBulkDispatchRunning(true);
-    setBulkProgress({ current: 0, total: withWaList.length, currentName: withWaList[0].name, status: 'sending', errorCount: 0 });
+  // Polling em tempo real da campanha ativa (a cada 3s)
+  useEffect(() => {
+    if (!activeCampaignId) return;
+    let active = true;
 
-    let sentCount = 0;
-    let errCount = 0;
-
-    for (let i = 0; i < withWaList.length; i++) {
-      if (cancelBulkDispatchRef.current) {
-        notify('Disparo em lote cancelado.', true);
-        break;
-      }
-      const b = withWaList[i];
-      const interpolated = interpolateMessage(bulkTemplate, b, user?.name || 'Chelton', filters.service || user?.profile.service);
-      setBulkProgress(prev => ({ ...prev, current: i + 1, currentName: b.name, status: 'sending' }));
-
+    const poll = async () => {
       try {
-        await post('whatsapp/send', { phone: b.phone, message: interpolated });
-        sentCount++;
-      } catch (err: any) {
-        errCount++;
-        console.error(`Falha no envio para ${b.name}:`, err);
-      }
-
-      if (i < withWaList.length - 1 && !cancelBulkDispatchRef.current) {
-        setBulkProgress(prev => ({ ...prev, status: 'waiting', errorCount: errCount }));
-        for (let s = safeIntervalSec; s > 0; s--) {
-          if (cancelBulkDispatchRef.current) break;
-          await new Promise(r => setTimeout(r, 1000));
+        const res = await api<{ ok: boolean; campaign: any; recipients: any[] }>(`wa/campaigns/${activeCampaignId}`);
+        if (active && res.ok && res.campaign) {
+          setCampaignData({
+            ...res.campaign,
+            recipients: res.recipients || []
+          });
+          if (res.campaign.status === 'completed') {
+            notify(`🎉 Campanha "${res.campaign.name}" concluída! Enviadas: ${res.campaign.stats.sent}`);
+          }
         }
-      }
-    }
+      } catch {}
+    };
 
-    setBulkDispatchRunning(false);
-    setBulkProgress(prev => ({ ...prev, status: 'done', errorCount: errCount }));
-    notify(`Disparo concluído: ${sentCount} enviados${errCount > 0 ? `, ${errCount} falhas` : ''}.`);
-  };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [activeCampaignId, notify]);
+
   const [business, setBusiness] = useState<Business | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -716,28 +780,135 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       notify('Indique um número de telemóvel válido para o teste.', true);
       return;
     }
+    if (!waServiceStatus?.connected) {
+      notify('Conecte o seu WhatsApp através do QR Code antes de enviar mensagens de teste.', true);
+      return;
+    }
     setWaTestSending(true);
     try {
-      await post('whatsapp/send', { phone: waTestPhone.trim(), message: waTestMessage.trim() });
-      notify(`✅ Mensagem de teste enviada com sucesso para +${waTestPhone.replace(/\D/g, '')}!`);
+      let phoneClean = waTestPhone.replace(/\D/g, '').replace(/^0+/, '');
+      if (phoneClean.length === 9 && /^8[2-7]/.test(phoneClean)) {
+        phoneClean = '258' + phoneClean;
+      }
+      await post('wa/send', { phone: phoneClean, message: waTestMessage.trim() });
+      notify(`✅ Mensagem de teste enviada com sucesso para +${phoneClean}!`);
     } catch (err: any) {
       notify(err.message || 'Falha ao enviar mensagem de teste.', true);
     } finally {
       setWaTestSending(false);
     }
-  }, [waTestPhone, waTestMessage, notify]);
+  }, [waTestPhone, waTestMessage, waServiceStatus, notify]);
 
   const handleResetWhatsApp = useCallback(async () => {
     if (!window.confirm('Pretende desconectar o WhatsApp e gerar um novo QR Code?')) return;
     try {
-      await post('whatsapp/disconnect');
+      await post('wa/logout');
       notify('Sessão desconectada. A gerar novo QR Code...');
       setWaServiceStatus({ connected: false, status: 'connecting', qrDataUrl: undefined, user: undefined });
-      setTimeout(fetchWhatsAppQr, 800);
+      setTimeout(fetchWhatsAppQr, 1000);
     } catch (err: any) {
       notify(err.message || 'Falha ao desconectar sessão WhatsApp.', true);
     }
   }, [fetchWhatsAppQr, notify]);
+
+  const handleCreateAndStartCampaign = useCallback(async (targets: Business[]) => {
+    if (targets.length === 0) {
+      notify('Selecione pelo menos um lead com WhatsApp para iniciar a campanha.', true);
+      return;
+    }
+    if (!waServiceStatus?.connected) {
+      notify('Conecte o seu WhatsApp através do QR Code antes de iniciar os disparos.', true);
+      return;
+    }
+    setCampaignLoading(true);
+    try {
+      const currentCountryCode = filters.country || 'MZ';
+      const withWaList = targets.filter(b => isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
+      if (withWaList.length === 0) {
+        notify('Nenhum dos leads selecionados possui um número de WhatsApp válido.', true);
+        setCampaignLoading(false);
+        return;
+      }
+
+      const recipients = withWaList.map(b => ({
+        phone: b.phone,
+        vars: {
+          nome_empresa: b.name,
+          empresa: b.name,
+          nome: b.name,
+          cidade: b.locality || b.city || '',
+          localidade: b.locality || b.city || '',
+          nicho: b.category || b.activity || '',
+          servico: filters.service || user?.profile?.service || '',
+          responsavel: user?.name || 'Chelton'
+        }
+      }));
+
+      const res = await post<{ ok: boolean; campaign: any }>('wa/campaigns', {
+        name: `Campanha ${new Date().toLocaleDateString('pt-MZ')} (${withWaList.length} leads)`,
+        messageTemplate: bulkTemplate,
+        recipients,
+        settings: {
+          minDelaySec: waMinDelaySec,
+          maxDelaySec: waMaxDelaySec,
+          dailyLimit: waDailyLimit,
+          startHour: waStartHour,
+          endHour: waEndHour,
+          pauseEvery: 20,
+          pauseDurationMinutes: 7
+        }
+      });
+
+      if (res.ok && res.campaign) {
+        setActiveCampaignId(res.campaign.id);
+        setCampaignData(res.campaign);
+        setShowConfirmModal(false);
+        setIsBulkModalOpen(false);
+        notify(`🚀 Campanha criada com sucesso! ${withWaList.length} leads em processamento na fila segura.`);
+        if (view !== 'integrations') {
+          setView('integrations');
+        }
+      }
+    } catch (err: any) {
+      notify(err.message || 'Falha ao iniciar campanha de WhatsApp.', true);
+    } finally {
+      setCampaignLoading(false);
+    }
+  }, [filters, user, bulkTemplate, waMinDelaySec, waMaxDelaySec, waDailyLimit, waStartHour, waEndHour, waServiceStatus, view, notify]);
+
+  const handlePauseCampaign = useCallback(async () => {
+    if (!activeCampaignId) return;
+    try {
+      await post(`wa/campaigns/${activeCampaignId}/pause`);
+      notify('Campanha pausada.');
+      setCampaignData((prev: any) => prev ? { ...prev, status: 'paused' } : null);
+    } catch (err: any) {
+      notify(err.message || 'Falha ao pausar campanha.', true);
+    }
+  }, [activeCampaignId, notify]);
+
+  const handleResumeCampaign = useCallback(async () => {
+    if (!activeCampaignId) return;
+    try {
+      await post(`wa/campaigns/${activeCampaignId}/resume`);
+      notify('Campanha retomada.');
+      setCampaignData((prev: any) => prev ? { ...prev, status: 'running' } : null);
+    } catch (err: any) {
+      notify(err.message || 'Falha ao retomar campanha.', true);
+    }
+  }, [activeCampaignId, notify]);
+
+  const handleCancelCampaign = useCallback(async () => {
+    if (!activeCampaignId) return;
+    if (!window.confirm('Tem a certeza de que deseja cancelar esta campanha? Os envios pendentes serão interrompidos.')) return;
+    try {
+      await post(`wa/campaigns/${activeCampaignId}/cancel`);
+      notify('Campanha cancelada.');
+      setCampaignData((prev: any) => prev ? { ...prev, status: 'cancelled' } : null);
+    } catch (err: any) {
+      notify(err.message || 'Falha ao cancelar campanha.', true);
+    }
+  }, [activeCampaignId, notify]);
 
   const exportNoWhatsAppCsv = useCallback((list: Business[]) => {
     if (list.length === 0) {
@@ -1294,7 +1465,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     { view: 'search' as View, label: 'Encontrar clientes', icon: Compass },
     { view: 'saved-searches' as View, label: 'Buscas salvas', icon: Search },
     { view: 'leads' as View, label: 'Leads salvos', icon: Bookmark },
-    { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: 'Brevemente' },
+    { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: waServiceStatus?.connected ? '🟢 Online' : waServiceStatus?.status === 'waiting_qr' ? '🟡 Ler QR' : undefined },
     { view: 'portfolio' as View, label: 'Portfólio', icon: FileText, beta: true },
     { view: 'vault' as View, label: 'Cofre', icon: ShieldCheck },
   ];
@@ -2079,7 +2250,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             setIsBulkModalOpen(true);
                           }}
                         >
-                          <MessageCircle size={16} /> Disparo em lote ({selectedBizIds.length}) · Brevemente
+                          <MessageCircle size={16} /> Disparo em lote ({selectedBizIds.length})
                         </button>
                       </div>
                     </div>
@@ -2107,28 +2278,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 <MessageCircle size={20} color="#25D366" /> Disparo em Lote Personalizado
                               </h2>
                               <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
-                                Cada mensagem substitui automaticamente o nome real da empresa e detalhes individuais.
+                                Cada mensagem substitui automaticamente o nome real da empresa e detalhes individuais com fila anti-bloqueio.
                               </p>
                             </div>
                             <IconButton label="Fechar modal" onClick={() => setIsBulkModalOpen(false)}>
                               <X size={18} />
                             </IconButton>
-                          </div>
-
-                          <div style={{
-                            background: 'rgba(245, 158, 11, 0.14)',
-                            border: '1px solid rgba(245, 158, 11, 0.35)',
-                            borderRadius: 10,
-                            padding: '10px 14px',
-                            marginBottom: 12,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            color: '#FDE047',
-                            fontSize: 12.5
-                          }}>
-                            <Clock3 size={18} style={{ flexShrink: 0 }} />
-                            <span><strong>Disparos Automáticos via WhatsApp (Brevemente):</strong> A ligação via motor de disparo está em manutenção técnica. Pode pré-visualizar as mensagens personalizadas e usar o botão de envio individual para cada empresa sem qualquer limitação!</span>
                           </div>
 
                           {/* WhatsApp Status Banner */}
@@ -2274,54 +2429,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           )}
 
                           {/* Modal Footer & Actions */}
-                          {bulkDispatchRunning ? (
-                            <div style={{ marginTop: 16, borderTop: '1px solid var(--navy-border)', paddingTop: 16 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13 }}>
-                                <span>
-                                  A disparar <b>{bulkProgress.current} de {bulkProgress.total}</b>: <span style={{ color: '#60A5FA' }}>{bulkProgress.currentName}</span>
-                                </span>
-                                <span style={{ fontSize: 12, color: bulkProgress.status === 'waiting' ? '#FACC15' : '#25D366' }}>
-                                  {bulkProgress.status === 'waiting' ? `Aguardando intervalo seguro (${safeIntervalSec}s)...` : 'Enviando pelo Baileys...'}
-                                </span>
-                              </div>
-                              <div style={{ width: '100%', height: 8, background: 'rgba(255, 255, 255, 0.1)', borderRadius: 4, overflow: 'hidden', marginBottom: 14 }}>
-                                <div style={{
-                                  width: `${Math.round((bulkProgress.current / (bulkProgress.total || 1)) * 100)}%`,
-                                  height: '100%',
-                                  background: '#25D366',
-                                  transition: 'width 0.3s ease'
-                                }} />
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <button
-                                  type="button"
-                                  className="button outline compact"
-                                  style={{ color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                                  onClick={() => {
-                                    cancelBulkDispatchRef.current = true;
-                                    setBulkDispatchRunning(false);
-                                  }}
-                                >
-                                  Interromper disparo
-                                </button>
-                              </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, borderTop: '1px solid var(--navy-border)', paddingTop: 16, flexWrap: 'wrap', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94A3B8' }}>
+                              <ShieldCheck size={16} color="#34D399" />
+                              <span>Fila anti-bloqueio com Baileys persistente (20s-60s por mensagem).</span>
                             </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, borderTop: '1px solid var(--navy-border)', paddingTop: 16, flexWrap: 'wrap', gap: 12 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94A3B8' }}>
-                                <span>Intervalo anti-bloqueio:</span>
-                                <select
-                                  value={safeIntervalSec}
-                                  onChange={e => setSafeIntervalSec(Number(e.target.value))}
-                                  style={{ padding: '3px 8px', fontSize: 12, background: 'var(--navy-surface-alt)', color: '#FFFFFF', border: '1px solid var(--navy-border)', borderRadius: 6 }}
-                                >
-                                  <option value={8}>8 segundos (Rápido)</option>
-                                  <option value={10}>10 segundos (Recomendado)</option>
-                                  <option value={15}>15 segundos (Mais seguro)</option>
-                                  <option value={20}>20 segundos (Conservador)</option>
-                                </select>
-                              </div>
-                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <button
                                   type="button"
                                   className="button outline compact"
@@ -2334,9 +2447,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                     type="button"
                                     className="button compact"
                                     style={{ background: '#25D366', color: '#000', fontWeight: 800 }}
-                                    onClick={() => startBackgroundDispatch(withWaList)}
+                                    disabled={campaignLoading}
+                                    onClick={() => handleCreateAndStartCampaign(withWaList)}
                                   >
-                                    <Send size={15} /> Disparar para {withWaList.length} leads (Baileys)
+                                    <Send size={15} /> {campaignLoading ? 'A iniciar...' : `Iniciar Campanha (${withWaList.length} leads)`}
                                   </button>
                                 )}
                                 {withWaList.length > 0 && currentBiz && (
@@ -2359,7 +2473,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 )}
                               </div>
                             </div>
-                          )}
                         </div>
                       </div>
                     );
@@ -2545,43 +2658,68 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 <div className="page-heading">
                   <div>
                     <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <MessageCircle size={14} /> AUTOMAÇÃO DE DISPAROS <Pill tone="amber">BREVEMENTE</Pill>
+                      <MessageCircle size={14} /> AUTOMAÇÃO COMERCIAL INTELIGENTE <Pill tone="emerald">BAILEYS PROD</Pill>
                     </div>
                     <h1>Central de Integrações & WhatsApp.</h1>
-                    <p>Disparos automáticos em massa com mensagens personalizadas. (Em actualização técnica para maior estabilidade).</p>
+                    <p>Disparos automáticos em massa com mensagens personalizadas, rotação spintax e fila segura anti-bloqueio.</p>
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <button className="button secondary" onClick={() => checkWhatsAppStatus()} title="Atualizar estado">
                       <RefreshCw size={15} /> Verificar Conexão
                     </button>
-                    <button className="button" onClick={() => {
-                      notify('Os disparos automáticos via WhatsApp estão em manutenção técnica e retornarão brevemente. Utilize o botão directo do WhatsApp de cada empresa para contacto imediato.', true);
-                    }}>
-                      <Send size={15} /> Iniciar Disparo · Brevemente
+                    <button
+                      className="button"
+                      style={{ background: '#25D366', color: '#000', fontWeight: 800 }}
+                      disabled={campaignLoading || withWaList.length === 0}
+                      onClick={() => setShowConfirmModal(true)}
+                    >
+                      <Send size={15} /> Iniciar Campanha ({selectedWithWa > 0 ? selectedWithWa : withWaList.length})
                     </button>
                   </div>
                 </div>
 
-                <div style={{
-                  background: 'rgba(245, 158, 11, 0.12)',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
-                  borderRadius: 12,
-                  padding: '14px 18px',
-                  marginBottom: 20,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  color: '#FDE047',
-                  fontSize: 13
-                }}>
-                  <Clock3 size={20} style={{ flexShrink: 0 }} />
-                  <div>
-                    <strong>Integração de Disparos Automáticos em Atualização Técnica (Brevemente)</strong>
-                    <div style={{ color: '#CBD5E1', fontSize: 12, marginTop: 2 }}>
-                      A funcionalidade de disparos em lote está temporariamente a ser atualizada para evitar bloqueios e garantir maior taxa de entrega. O contacto manual via link direto do WhatsApp Web/Mobile permanece 100% disponível em todas as empresas!
+                {/* ══ GUIA DE BOAS PRÁTICAS ANTI-BLOQUEIO ══ */}
+                {showBestPractices && (
+                  <div style={{
+                    background: 'rgba(30, 41, 59, 0.7)',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    borderRadius: 12,
+                    padding: '16px 20px',
+                    marginBottom: 20,
+                    position: 'relative'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <strong style={{ fontSize: 14, color: '#60A5FA', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <ShieldCheck size={18} /> Guia de Boas Práticas para Prospeção Segura no WhatsApp
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => setShowBestPractices(false)}
+                        style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 12 }}
+                      >
+                        ✕ Ocultar Dicas
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, fontSize: 12.5, color: '#CBD5E1', lineHeight: 1.5 }}>
+                      <div>
+                        <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: 2 }}>📱 Chip Dedicado</strong>
+                        Utilize sempre um número móvel novo exclusivo para prospeção de vendas (nunca o seu número pessoal ou pessoal da família).
+                      </div>
+                      <div>
+                        <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: 2 }}>☕ Aquecimento</strong>
+                        Troque conversas normais por 1 a 2 semanas antes de disparar campanhas maiores para criar histórico na Meta.
+                      </div>
+                      <div>
+                        <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: 2 }}>✍️ Personalização & Spintax</strong>
+                        Use variáveis como &#123;nome_empresa&#125; e spintax &#123;Olá|Bom dia&#125; para que cada mensagem seja única e não aparente spam.
+                      </div>
+                      <div>
+                        <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: 2 }}>🚪 Opt-out Automático</strong>
+                        Se qualquer contacto responder "SAIR" ou "PARAR", o sistema adiciona-o automaticamente à lista de exclusão e nunca mais lhe envia mensagens.
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* ══ 1. PAINEL DE CONEXÃO WHATSAPP ══ */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 18, marginBottom: 24 }}>
@@ -2598,7 +2736,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         </span>
                       ) : waServiceStatus?.status === 'waiting_qr' ? (
                         <span style={{ background: 'rgba(234, 179, 8, 0.18)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#FACC15', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
-                          🟡 AGUARDANDO QR CODE
+                          🟡 A AGUARDAR QR CODE
+                        </span>
+                      ) : waWakingUp ? (
+                        <span style={{ background: 'rgba(59, 130, 246, 0.18)', border: '1px solid rgba(59, 130, 246, 0.4)', color: '#93C5FD', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
+                          🔵 A CONECTAR AO SERVIDOR...
                         </span>
                       ) : (
                         <span style={{ background: 'rgba(239, 68, 68, 0.18)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#FCA5A5', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99 }}>
@@ -2607,11 +2749,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       )}
                     </div>
                     <p style={{ margin: 0, fontSize: 13, color: '#94A3B8', lineHeight: 1.5 }}>
-                      Conexão direta e segura via WhatsApp. Sem intermediários, sem custos de API oficial e com total privacidade nos seus envios.
+                      Conexão direta e segura via Baileys multi-sessão com credenciais salvas na base de dados Supabase. Sobrevive a reinícios e mantém a sessão ativa.
                     </p>
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 'auto' }}>
-                      <button className="button secondary" onClick={fetchWhatsAppQr} style={{ fontSize: 12 }}>
-                        <RefreshCw size={14} /> Atualizar QR Code
+                      <button className="button secondary" onClick={fetchWhatsAppQr} disabled={waQrLoading} style={{ fontSize: 12 }}>
+                        <RefreshCw size={14} className={waQrLoading ? 'spin' : ''} /> {waQrLoading ? 'A gerar...' : 'Gerar / Atualizar QR Code'}
                       </button>
                       <button className="button secondary" onClick={handleResetWhatsApp} style={{ fontSize: 12, color: '#FCA5A5' }}>
                         Desconectar / Reset
@@ -2621,27 +2763,36 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
                   {/* QR Code / Conectado visual */}
                   <div className="panel" style={{ padding: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12 }}>
-                    {waServiceStatus?.connected ? (
+                    {waWakingUp ? (
+                      <>
+                        <LoaderCircle size={32} className="spin" color="#3B82F6" />
+                        <strong style={{ color: '#93C5FD', fontSize: 14 }}>A ligar ao servidor de WhatsApp...</strong>
+                        <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', maxWidth: 260 }}>
+                          O serviço está a inicializar (arranque a frio). O QR Code surgirá em instantes.
+                        </p>
+                      </>
+                    ) : waServiceStatus?.connected ? (
                       <>
                         <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'rgba(34, 197, 94, 0.15)', border: '2px solid rgba(34, 197, 94, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22C55E' }}>
                           <CheckCheck size={36} />
                         </div>
                         <div>
-                          <strong style={{ color: '#FFFFFF', fontSize: 16 }}>Sessão Activa & Autorizada</strong>
-                          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8' }}>O seu WhatsApp está sincronizado. Os disparos em lote saem directamente deste terminal.</p>
+                          <strong style={{ color: '#FFFFFF', fontSize: 16 }}>Sessão Ativa & Conectada</strong>
+                          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8' }}>Terminal sincronizado (+{waServiceStatus.user}). Pronto para disparos em massa.</p>
                         </div>
                       </>
                     ) : waServiceStatus?.qrDataUrl ? (
                       <>
-                        <img src={waServiceStatus.qrDataUrl} alt="QR Code WhatsApp" style={{ width: 150, height: 150, borderRadius: 10, border: '3px solid #3B82F6', background: '#FFFFFF', padding: 4 }} />
-                        <span style={{ fontSize: 12, color: '#93C5FD', fontWeight: 600 }}>Abra o WhatsApp &gt; Aparelhos conectados &gt; Ler QR Code</span>
+                        <img src={waServiceStatus.qrDataUrl} alt="QR Code WhatsApp" style={{ width: 160, height: 160, borderRadius: 10, border: '3px solid #3B82F6', background: '#FFFFFF', padding: 4 }} />
+                        <span style={{ fontSize: 12, color: '#93C5FD', fontWeight: 600 }}>WhatsApp &gt; Aparelhos conectados &gt; Conectar um aparelho</span>
+                        <small style={{ fontSize: 11, color: '#64748B' }}>Atualiza automaticamente a cada 50 segundos se expirar</small>
                       </>
                     ) : (
                       <>
                         <LoaderCircle size={32} className="spin" color="#3B82F6" />
-                        <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>A sincronizar estado do motor Baileys…</p>
-                        <button className="button secondary" onClick={() => checkWhatsAppStatus()} style={{ fontSize: 12 }}>
-                          Recarregar QR Code
+                        <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>A sincronizar estado do motor de WhatsApp…</p>
+                        <button className="button secondary" onClick={() => fetchWhatsAppQr()} style={{ fontSize: 12 }}>
+                          Gerar QR Code
                         </button>
                       </>
                     )}
@@ -2651,7 +2802,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <div className="panel" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <strong style={{ fontSize: 14, color: '#FFFFFF' }}>🚀 Disparo de Teste Imediato</strong>
-                      <span style={{ fontSize: 11, color: '#94A3B8' }}>Valide a entrega agora</span>
+                      <span style={{ fontSize: 11, color: '#94A3B8' }}>Normalização automática 258</span>
                     </div>
                     <label style={{ fontSize: 12, color: '#CBD5E1', display: 'flex', flexDirection: 'column', gap: 4 }}>
                       Número de teste (ex: 847404158):
@@ -2678,10 +2829,85 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       style={{ marginTop: 'auto', fontSize: 13, justifyContent: 'center' }}
                     >
                       {waTestSending ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}
-                      Enviar Teste ao Vivo
+                      {waServiceStatus?.connected ? 'Enviar Teste ao Vivo' : 'Conecte o WhatsApp para Testar'}
                     </button>
                   </div>
                 </div>
+
+                {/* ══ PAINEL DE CAMPANHA ATIVA / PROGRESSO EM TEMPO REAL ══ */}
+                {campaignData && (
+                  <div className="panel" style={{ padding: 22, marginBottom: 24, background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(59, 130, 246, 0.35)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: campaignData.status === 'running' ? '#22C55E' : campaignData.status === 'paused' ? '#FACC15' : '#3B82F6', boxShadow: campaignData.status === 'running' ? '0 0 12px #22C55E' : 'none' }} />
+                        <strong style={{ fontSize: 16, color: '#FFFFFF' }}>{campaignData.name || 'Campanha em Execução'}</strong>
+                        <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99, background: campaignData.status === 'running' ? 'rgba(34, 197, 94, 0.2)' : campaignData.status === 'paused' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: campaignData.status === 'running' ? '#4ADE80' : campaignData.status === 'paused' ? '#FDE047' : '#93C5FD' }}>
+                          {campaignData.status === 'running' ? '🚀 A ENVIAR NA FILA' : campaignData.status === 'paused' ? '⏸️ PAUSADA' : campaignData.status === 'completed' ? '🎉 CONCLUÍDA' : campaignData.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {campaignData.status === 'running' && (
+                          <button className="button secondary" onClick={handlePauseCampaign} style={{ fontSize: 12 }}>
+                            Pausar Campanha
+                          </button>
+                        )}
+                        {campaignData.status === 'paused' && (
+                          <button className="button" onClick={handleResumeCampaign} style={{ fontSize: 12, background: '#2563EB' }}>
+                            Retomar Campanha
+                          </button>
+                        )}
+                        {(campaignData.status === 'running' || campaignData.status === 'paused') && (
+                          <button className="button secondary" onClick={handleCancelCampaign} style={{ fontSize: 12, color: '#FCA5A5' }}>
+                            Cancelar
+                          </button>
+                        )}
+                        <button className="button secondary" onClick={() => exportCampaignCsv(campaignData, campaignData.recipients || [])} style={{ fontSize: 12 }}>
+                          <Download size={14} /> Exportar Relatório (CSV)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Barra de Progresso */}
+                    {(() => {
+                      const total = campaignData.stats?.total || 1;
+                      const processed = (campaignData.stats?.sent || 0) + (campaignData.stats?.failed || 0) + (campaignData.stats?.ignored || 0) + (campaignData.stats?.optout || 0);
+                      const percent = Math.min(100, Math.round((processed / total) * 100));
+                      return (
+                        <div style={{ marginBottom: 14 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#CBD5E1', marginBottom: 6 }}>
+                            <span>Progresso do lote: <b>{processed} de {total}</b> leads processados</span>
+                            <span style={{ fontWeight: 800, color: '#60A5FA' }}>{percent}%</span>
+                          </div>
+                          <div style={{ width: '100%', height: 10, background: 'rgba(255, 255, 255, 0.08)', borderRadius: 99, overflow: 'hidden' }}>
+                            <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #2563EB, #22C55E)', transition: 'width 0.4s ease' }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Badges de estatística */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+                      <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: 8, fontSize: 12, color: '#4ADE80' }}>
+                        <b>✅ Enviadas:</b> {campaignData.stats?.sent || 0}
+                      </div>
+                      <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, fontSize: 12, color: '#FCA5A5' }}>
+                        <b>❌ Falhas:</b> {campaignData.stats?.failed || 0}
+                      </div>
+                      <div style={{ padding: '8px 12px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: 8, fontSize: 12, color: '#FDE047' }}>
+                        <b>⚠️ Sem WhatsApp:</b> {campaignData.stats?.ignored || 0}
+                      </div>
+                      <div style={{ padding: '8px 12px', background: 'rgba(148, 163, 184, 0.12)', border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 8, fontSize: 12, color: '#CBD5E1' }}>
+                        <b>⛔ Opt-Out (SAIR):</b> {campaignData.stats?.optout || 0}
+                      </div>
+                    </div>
+
+                    {campaignData.last_error && (
+                      <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 8, color: '#FCA5A5', fontSize: 12.5 }}>
+                        <strong>Aviso de Segurança:</strong> {campaignData.last_error}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* ══ 2. MOTOR DE DISPARO EM MASSA ══ */}
                 <section className="panel" style={{ padding: 24, marginBottom: 24 }}>
@@ -2718,7 +2944,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>Template da Mensagem</span>
-                        <span style={{ fontSize: 11, color: '#94A3B8' }}>Variáveis dinâmicas suportadas</span>
+                        <span style={{ fontSize: 11, color: '#94A3B8' }}>{bulkTemplate.length} caracteres</span>
                       </div>
                       <textarea
                         value={bulkTemplate}
@@ -2727,13 +2953,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         style={{ width: '100%', padding: '12px 14px', borderRadius: 10, background: 'rgba(11, 19, 38, 0.9)', border: '1px solid rgba(59, 130, 246, 0.35)', color: '#FFFFFF', fontSize: 13, lineHeight: 1.6, resize: 'vertical' }}
                       />
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>Inserir tag:</span>
+                        <span style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>Tags & Spintax:</span>
                         {[
                           { label: '{nome_empresa}', tag: '{nome_empresa}' },
                           { label: '{cidade}', tag: '{cidade}' },
                           { label: '{nicho}', tag: '{nicho}' },
                           { label: '{servico}', tag: '{servico}' },
-                          { label: '{responsavel}', tag: '{responsavel}' }
+                          { label: '{responsavel}', tag: '{responsavel}' },
+                          { label: '{Olá|Bom dia|Boa tarde}', tag: '{Olá|Bom dia|Boa tarde}' }
                         ].map(t => (
                           <button
                             key={t.tag}
@@ -2746,30 +2973,74 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         ))}
                       </div>
 
-                      {/* Interval slider */}
-                      <div style={{ marginTop: 8, padding: 12, background: 'rgba(15, 23, 42, 0.6)', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#E2E8F0' }}>
-                            🛡️ Intervalo Anti-Bloqueio: <b>{safeIntervalSec} segundos</b>
+                      {/* Painel de Configurações Anti-Bloqueio */}
+                      <div style={{ marginTop: 8, padding: 14, background: 'rgba(15, 23, 42, 0.7)', borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#E2E8F0' }}>
+                            🛡️ Configuração da Fila Anti-Bloqueio
                           </span>
-                          <span style={{ fontSize: 11, color: '#34D399' }}>Recomendado: 10s</span>
+                          <span style={{ fontSize: 11, color: '#34D399' }}>Padrão Conservador</span>
                         </div>
-                        <input
-                          type="range"
-                          min={5}
-                          max={30}
-                          step={1}
-                          value={safeIntervalSec}
-                          onChange={e => setSafeIntervalSec(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: '#2563EB', cursor: 'pointer' }}
-                        />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                          <label style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                            Atraso Mínimo:
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                              <input
+                                type="number"
+                                min={10}
+                                max={120}
+                                value={waMinDelaySec}
+                                onChange={e => setWaMinDelaySec(Number(e.target.value))}
+                                style={{ width: '100%', padding: '5px 8px', fontSize: 12, borderRadius: 6, background: '#0B132B', border: '1px solid #3B82F6', color: '#FFFFFF' }}
+                              />
+                              <span style={{ fontSize: 11, color: '#64748B' }}>seg</span>
+                            </div>
+                          </label>
+
+                          <label style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                            Atraso Máximo:
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                              <input
+                                type="number"
+                                min={waMinDelaySec}
+                                max={240}
+                                value={waMaxDelaySec}
+                                onChange={e => setWaMaxDelaySec(Number(e.target.value))}
+                                style={{ width: '100%', padding: '5px 8px', fontSize: 12, borderRadius: 6, background: '#0B132B', border: '1px solid #3B82F6', color: '#FFFFFF' }}
+                              />
+                              <span style={{ fontSize: 11, color: '#64748B' }}>seg</span>
+                            </div>
+                          </label>
+
+                          <label style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                            Limite Diário:
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                              <input
+                                type="number"
+                                min={10}
+                                max={150}
+                                value={waDailyLimit}
+                                onChange={e => setWaDailyLimit(Number(e.target.value))}
+                                style={{ width: '100%', padding: '5px 8px', fontSize: 12, borderRadius: 6, background: '#0B132B', border: '1px solid #3B82F6', color: '#FFFFFF' }}
+                              />
+                              <span style={{ fontSize: 11, color: '#64748B' }}>envios</span>
+                            </div>
+                          </label>
+                        </div>
+
+                        {(waMinDelaySec < 20 || waDailyLimit > 50) && (
+                          <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 6, color: '#FCA5A5', fontSize: 11.5 }}>
+                            ⚠️ Atenção: Intervalos menores que 20s ou limites acima de 50 envios/dia aumentam o risco de suspensão do chip pela Meta.
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* Preview box */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>Pré-visualização em Tempo Real</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>Pré-visualização Individual</span>
                         <span style={{ fontSize: 11, color: '#60A5FA' }}>
                           {previewBiz ? `Empresa: ${previewBiz.name}` : 'Nenhuma empresa selecionada'}
                         </span>
@@ -2782,30 +3053,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         </div>
                         {previewText}
                       </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5, color: '#94A3B8' }}>
+                        <span>Caracteres renderizados: <b>{previewText.length}</b></span>
+                        <span style={{ color: '#34D399' }}>Spintax ativo dinamicamente</span>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Bulk progress bar if running */}
-                  {bulkDispatchRunning && (
-                    <div style={{ margin: '16px 0', padding: 16, background: 'rgba(37, 99, 235, 0.15)', border: '1px solid #3B82F6', borderRadius: 10 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <LoaderCircle size={16} className="spin" color="#60A5FA" />
-                          A enviar: <b>{bulkProgress.currentName}</b> ({bulkProgress.current} de {bulkProgress.total})
-                        </span>
-                        <button
-                          className="button secondary"
-                          onClick={() => { cancelBulkDispatchRef.current = true; }}
-                          style={{ padding: '4px 12px', fontSize: 12, color: '#FCA5A5' }}
-                        >
-                          Cancelar Disparo
-                        </button>
-                      </div>
-                      <div style={{ width: '100%', height: 8, background: 'rgba(15, 23, 42, 0.8)', borderRadius: 99, overflow: 'hidden' }}>
-                        <div style={{ width: `${(bulkProgress.current / Math.max(1, bulkProgress.total)) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #2563EB, #60A5FA)', transition: 'width 0.3s ease' }} />
-                      </div>
-                    </div>
-                  )}
 
                   {/* ══ SELEÇÃO & TABELA DE EMPRESAS ══ */}
                   <div style={{ marginTop: 20 }}>
@@ -2835,8 +3088,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         </button>
                       </div>
 
-                      {/* SELECT ALL BUTTON */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {/* SELECT ALL BUTTON & LAUNCH ACTION */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <button
                           type="button"
                           className="button secondary"
@@ -2858,9 +3111,19 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           />
                           {allDisplayedSelected ? 'Desmarcar Todos' : 'Selecionar Tudo'} ({displayedList.length})
                         </button>
-                        <span style={{ fontSize: 12, color: '#94A3B8' }}>
+                        <span style={{ fontSize: 12, color: '#94A3B8', marginRight: 6 }}>
                           Selecionadas: <strong style={{ color: '#60A5FA' }}>{selectedCount}</strong> de {activeSourceList.length}
                         </span>
+
+                        <button
+                          type="button"
+                          className="button"
+                          style={{ background: '#25D366', color: '#000', fontWeight: 800, fontSize: 13 }}
+                          disabled={campaignLoading || (selectedWithWa === 0 && withWaList.length === 0)}
+                          onClick={() => setShowConfirmModal(true)}
+                        >
+                          <Send size={15} /> Iniciar Campanha ({selectedWithWa > 0 ? selectedWithWa : withWaList.length} leads)
+                        </button>
                       </div>
                     </div>
 
@@ -3071,6 +3334,104 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     ))}
                   </div>
                 </section>
+
+                {/* ══ MODAL DE CONFIRMAÇÃO DA CAMPANHA ══ */}
+                {showConfirmModal && (() => {
+                  const targetList = selectedWithWa > 0
+                    ? withWaList.filter(b => selectedBizIds.includes(b.id))
+                    : withWaList;
+                  const firstTarget = targetList[0] || previewBiz;
+                  const firstMsg = firstTarget
+                    ? parseSpintaxClient(interpolateMessage(bulkTemplate, firstTarget, user.name || 'Chelton', filters.service || user.profile.service))
+                    : '';
+                  const isAggressive = waMinDelaySec < 20 || waDailyLimit > 50;
+
+                  return (
+                    <div className="bulk-modal-overlay" onClick={() => setShowConfirmModal(false)}>
+                      <div className="bulk-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                        <div className="bulk-modal-header">
+                          <div>
+                            <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8, color: '#FFFFFF' }}>
+                              <Send size={20} color="#25D366" /> Confirmar Início da Campanha
+                            </h2>
+                            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                              Reveja os parâmetros de segurança e o resumo da fila antes de disparar.
+                            </p>
+                          </div>
+                          <IconButton label="Fechar modal" onClick={() => setShowConfirmModal(false)}>
+                            <X size={18} />
+                          </IconButton>
+                        </div>
+
+                        {/* Summary Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 16 }}>
+                          <div style={{ background: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 10, padding: 12 }}>
+                            <span style={{ fontSize: 11, color: '#93C5FD', display: 'block' }}>Destinatários Válidos</span>
+                            <strong style={{ fontSize: 20, color: '#FFFFFF' }}>{targetList.length} leads</strong>
+                            <small style={{ fontSize: 11, color: '#60A5FA', display: 'block' }}>com WhatsApp confirmado</small>
+                          </div>
+                          <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: 10, padding: 12 }}>
+                            <span style={{ fontSize: 11, color: '#86EFAC', display: 'block' }}>Cadência Anti-Bloqueio</span>
+                            <strong style={{ fontSize: 18, color: '#FFFFFF' }}>{waMinDelaySec}s - {waMaxDelaySec}s</strong>
+                            <small style={{ fontSize: 11, color: '#4ADE80', display: 'block' }}>atraso aleatório entre envios</small>
+                          </div>
+                          <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: 12 }}>
+                            <span style={{ fontSize: 11, color: '#94A3B8', display: 'block' }}>Janela & Limite Diário</span>
+                            <strong style={{ fontSize: 16, color: '#FFFFFF' }}>{String(waStartHour).padStart(2, '0')}h - {String(waEndHour).padStart(2, '0')}h</strong>
+                            <small style={{ fontSize: 11, color: '#CBD5E1', display: 'block' }}>Máx {waDailyLimit} msgs/dia</small>
+                          </div>
+                        </div>
+
+                        {/* Anti-ban protections list */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12, marginBottom: 16, fontSize: 12, color: '#CBD5E1', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div>🛡️ <b>Simulação de digitação:</b> 2 a 5 segundos de status <i>digitando...</i> antes de cada mensagem.</div>
+                          <div>⏸️ <b>Pausa programada:</b> 7 minutos de descanso a cada 20 mensagens enviadas.</div>
+                          <div>🚪 <b>Opt-out ativo:</b> Quem responder &quot;SAIR&quot; ou &quot;PARAR&quot; é excluído automaticamente.</div>
+                          <div>🛑 <b>Proteção de falhas:</b> Pausa automática caso ocorram 5 falhas consecutivas.</div>
+                        </div>
+
+                        {isAggressive && (
+                          <div style={{ padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 8, color: '#FCA5A5', fontSize: 12, marginBottom: 16 }}>
+                            ⚠️ <b>Atenção:</b> Os valores de cadência ({waMinDelaySec}s) ou limite ({waDailyLimit}/dia) estão acima do recomendado. Valores agressivos aumentam o risco de suspensão temporária do chip pelo WhatsApp.
+                          </div>
+                        )}
+
+                        {/* First message preview */}
+                        {firstTarget && (
+                          <div style={{ marginBottom: 20 }}>
+                            <span style={{ fontSize: 12, color: '#94A3B8', display: 'block', marginBottom: 6 }}>
+                              Exemplo real da 1ª mensagem ({firstTarget.name}):
+                            </span>
+                            <div style={{ padding: 12, borderRadius: 8, background: '#0B132B', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#E2E8F0', fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: 140, overflowY: 'auto' }}>
+                              {firstMsg}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                          <button
+                            type="button"
+                            className="button secondary"
+                            onClick={() => setShowConfirmModal(false)}
+                            disabled={campaignLoading}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            className="button"
+                            style={{ background: '#25D366', color: '#000', fontWeight: 800, minWidth: 160 }}
+                            disabled={campaignLoading || targetList.length === 0}
+                            onClick={() => handleCreateAndStartCampaign(targetList)}
+                          >
+                            {campaignLoading ? 'A iniciar...' : `🚀 Iniciar (${targetList.length} disparos)`}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </>
             );
           })()}

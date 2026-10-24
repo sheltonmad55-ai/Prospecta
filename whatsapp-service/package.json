@@ -1,0 +1,24 @@
+{
+  "name": "prospecta-whatsapp-service",
+  "version": "1.0.0",
+  "description": "Microserviço dedicado para Baileys WhatsApp com sessões persistidas em Supabase/Postgres e fila anti-bloqueio para a Prospecta SaaS",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
