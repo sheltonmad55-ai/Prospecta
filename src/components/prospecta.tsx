@@ -749,7 +749,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [service, setService] = useState<string>(SERVICES[0]);
   const [messageLength, setMessageLength] = useState<'curta' | 'media' | 'longa'>('curta');
   const [customPrompt, setCustomPrompt] = useState('');
-  const [showPromptDetails, setShowPromptDetails] = useState(false);
+  const [approach, setApproach] = useState<'site_pronto' | 'atendente' | 'direta' | 'mpesa' | 'custom'>('site_pronto');
+  const [showPromptDetails, setShowPromptDetails] = useState(true);
   const [customizingVaultId, setCustomizingVaultId] = useState<string | null>(null);
   const [vaultCustomNiche, setVaultCustomNiche] = useState('');
   const [vaultCustomService, setVaultCustomService] = useState('');
@@ -1444,7 +1445,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       let result = await api<Job>('analyses', {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business, length: messageLength, customInstructions: customPrompt })
+        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business, length: messageLength, customInstructions: customPrompt, approach })
       });
       setJob(result);
       if (result.status === 'succeeded' && result.result) {
@@ -4458,71 +4459,143 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       </div>
                     </div>
 
-                    {/* Instruções personalizadas para a IA */}
-                    <div className="prompt-customizer-box">
-                      <button
-                        type="button"
-                        className="prompt-toggle-btn"
-                        onClick={() => setShowPromptDetails(!showPromptDetails)}
-                      >
-                        <span><SlidersHorizontal size={14} /> Personalizar instruções da IA {customPrompt.trim() && <span className="prompt-active-dot" />}</span>
-                        <span className="prompt-toggle-action">{showPromptDetails ? 'Ocultar' : 'Detalhar como quero a mensagem'}</span>
-                      </button>
-
-                      {(showPromptDetails || customPrompt.trim().length > 0) && (
-                        <div className="prompt-details-body">
-                          <textarea
-                            value={customPrompt}
-                            onChange={e => setCustomPrompt(e.target.value)}
-                            placeholder="Ex.: Mensagem bem curta para recepcionista ler rápido, focar em criação de Landing Page rápida, mencionar que vi no Google Maps, ou pedir apenas 2 minutos de áudio..."
-                            rows={2}
-                            className="prompt-textarea"
-                          />
-                          <div className="prompt-quick-chips">
-                            <span className="prompt-chips-label">Sugestões rápidas:</span>
-                            <button
-                              type="button"
-                              className="prompt-chip"
-                              onClick={() => setCustomPrompt('Mensagem super curta de 3 frases, directa para a atendente do WhatsApp ler em 5 segundos sem cansar.')}
-                            >
-                              ⚡ Super curta para atendente
-                            </button>
-                            <button
-                              type="button"
-                              className="prompt-chip"
-                              onClick={() => setCustomPrompt('Focar na criação de uma Landing Page moderna e rápida para converter quem pesquisa no Google Maps directamente para o WhatsApp.')}
-                            >
-                              🎯 Focar em Landing Page
-                            </button>
-                            <button
-                              type="button"
-                              className="prompt-chip"
-                              onClick={() => setCustomPrompt('Mencionar que encontrei a empresa no Google Maps com óptima reputação e elogiar o trabalho antes de propor a solução.')}
-                            >
-                              📍 Mencionar Google Maps
-                            </button>
-                            <button
-                              type="button"
-                              className="prompt-chip"
-                              onClick={() => setCustomPrompt('Perguntar gentilmente à atendente com quem devo falar sobre a presença digital e captação de clientes da empresa.')}
-                            >
-                              📱 Pedir contacto do responsável
-                            </button>
-                            <button
-                              type="button"
-                              className="prompt-chip"
-                              onClick={() => setCustomPrompt('Destacar facilidade de pagamento parcelado via M-Pesa / e-Mola.')}
-                            >
-                              💰 Facilitar com M-Pesa
-                            </button>
-                            {customPrompt && (
-                              <button type="button" className="prompt-chip danger" onClick={() => setCustomPrompt('')}>
-                                Limpar
-                              </button>
-                            )}
-                          </div>
+                    {/* Estratégia de Abordagem & Instruções personalizadas para a IA */}
+                    <div className="prompt-customizer-box" style={{ background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                      <div style={{ padding: '12px 14px 6px 14px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#93C5FD', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <SlidersHorizontal size={14} /> Estratégia de Abordagem da IA
+                          </span>
+                          <span style={{ fontSize: 11, color: '#38BDF8', fontWeight: 600 }}>Personalização Total</span>
                         </div>
-                      )}
+                        
+                        {/* Seletor visual de estratégia */}
+                        <div className="approach-selector">
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'site_pronto' && 'active')}
+                            onClick={() => {
+                              setApproach('site_pronto');
+                              setCustomPrompt('Já criei um website/rascunho visual moderno para esta empresa. Falar com a atendente do WhatsApp de forma simpática para ela ver em 1 minuto e mostrar ao responsável/gerente da empresa.');
+                            }}
+                          >
+                            <div className="approach-title">🚀 Já criei o Site / Demo</div>
+                            <div className="approach-desc">Pedir à atendente para ver e mostrar o site ao responsável.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'atendente' && 'active')}
+                            onClick={() => {
+                              setApproach('atendente');
+                              setCustomPrompt('Mensagem educada para a recepcionista/atendente: elogiar a empresa e pedir com quem falar sobre a presença digital e captação de clientes.');
+                            }}
+                          >
+                            <div className="approach-title">👩‍💼 Falar com Atendente</div>
+                            <div className="approach-desc">Descobrir quem é o decisor sem ser ignorado no WhatsApp.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'direta' && 'active')}
+                            onClick={() => {
+                              setApproach('direta');
+                              setCustomPrompt('Abordagem directa com diagnóstico de oportunidade no Google Maps e proposta de conversa de 5 minutos.');
+                            }}
+                          >
+                            <div className="approach-title">🎯 Diagnóstico Direto</div>
+                            <div className="approach-desc">Apresentar oportunidade comercial ao proprietário/diretor.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'mpesa' && 'active')}
+                            onClick={() => {
+                              setApproach('mpesa');
+                              setCustomPrompt('Destacar facilidade de adesão imediata com pagamentos parcelados via M-Pesa / e-Mola.');
+                            }}
+                          >
+                            <div className="approach-title">💰 Fechamento M-Pesa</div>
+                            <div className="approach-desc">Quebrar objeção de custo com parcelamento fácil em MT.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'custom' && 'active')}
+                            onClick={() => {
+                              setApproach('custom');
+                            }}
+                          >
+                            <div className="approach-title">✍️ Modo 100% Livre</div>
+                            <div className="approach-desc">Escrever diretrizes totalmente sob medida para a IA.</div>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="prompt-details-body" style={{ paddingTop: 10 }}>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#CBD5E1', marginBottom: 5 }}>
+                          Instruções / Contexto Adicional para a IA (Opcional):
+                        </label>
+                        <textarea
+                          value={customPrompt}
+                          onChange={e => setCustomPrompt(e.target.value)}
+                          placeholder="Ex.: Já criei um site para esta empresa. Falar com a atendente do WhatsApp para ela ver o modelo de 1 min e mostrar ao chefe..."
+                          rows={2}
+                          className="prompt-textarea"
+                        />
+                        <div className="prompt-quick-chips">
+                          <span className="prompt-chips-label">Atalhos rápidos:</span>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => {
+                              setApproach('site_pronto');
+                              setCustomPrompt('Já criei um website/rascunho visual moderno para esta empresa. Falar com a atendente do WhatsApp de forma amigável para ela ver em 1 minuto e mostrar ao responsável.');
+                            }}
+                          >
+                            🚀 Já criei o site (P/ Atendente mostrar ao chefe)
+                          </button>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => {
+                              setApproach('atendente');
+                              setCustomPrompt('Mensagem super curta de 3 frases, directa para a atendente do WhatsApp ler em 5 segundos sem cansar.');
+                            }}
+                          >
+                            ⚡ Super curta para atendente
+                          </button>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => {
+                              setApproach('atendente');
+                              setCustomPrompt('Perguntar gentilmente à atendente com quem devo falar sobre a presença digital e captação de clientes da empresa.');
+                            }}
+                          >
+                            📱 Pedir contacto do responsável
+                          </button>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => setCustomPrompt('Focar na criação de uma Landing Page moderna e rápida para converter quem pesquisa no Google Maps directamente para o WhatsApp.')}
+                          >
+                            🎯 Focar em Landing Page
+                          </button>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => setCustomPrompt('Destacar facilidade de pagamento parcelado via M-Pesa / e-Mola.')}
+                          >
+                            💰 Facilitar com M-Pesa
+                          </button>
+                          {customPrompt && (
+                            <button type="button" className="prompt-chip danger" onClick={() => setCustomPrompt('')}>
+                              Limpar
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <div className="editor-heading">
                       <div className="step-label"><span>2</span><div><h2>Prepare uma boa conversa.</h2><p>{analysis ? 'Reveja, personalize e guarde a mensagem.' : 'Uma nova análise inclui a primeira mensagem.'}</p></div></div>
@@ -4530,6 +4603,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     </div>
                     <div className="vault-quick-bar">
                       <span className="vault-quick-label"><ShieldCheck size={13} /> Modelos do Cofre:</span>
+                      <button
+                        type="button"
+                        className="vault-quick-pill highlight"
+                        style={{ background: 'rgba(37, 99, 235, 0.25)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 }}
+                        onClick={() => {
+                          setApproach('site_pronto');
+                          setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\nO meu nome é ${user?.name || 'Chelton'}. Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!\n${user?.name || 'Chelton'}`);
+                          notify('Abordagem "Já Criei o Site (P/ Atendente)" inserida!');
+                        }}
+                      >
+                        🚀 Já Criei o Site (P/ Atendente)
+                      </button>
                       <button type="button" className="vault-quick-pill" onClick={() => {
                         setDraft(getCoherentVaultScript('primeiro-contato', service, business, user.name, messageLength));
                         notify(`Modelo de Primeiro Contato (${service}) inserido!`);

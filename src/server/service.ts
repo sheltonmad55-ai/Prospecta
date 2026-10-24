@@ -267,14 +267,14 @@ export function getAnalysis(user:User,businessId:string) {
  const row=db().prepare('SELECT * FROM analyses WHERE workspace_id=? AND business_id=? ORDER BY created_at DESC LIMIT 1').get(user.workspaceId,businessId) as Row|undefined;
  return row?{...JSON.parse(String(row.data)),id:row.id,businessId:row.business_id,draftMessage:row.draft,createdAt:row.created_at} as Analysis:null;
 }
-export function requestAnalysis(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business,length:'curta'|'media'|'longa'='media',customInstructions=''):Job {
+export function requestAnalysis(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business,length:'curta'|'media'|'longa'='media',customInstructions='',approach=''):Job {
  if (businessData && businessData.id) {
   try {
    db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(businessData.id, JSON.stringify(businessData), 'live', now());
   } catch {}
  }
  const business=getBusiness(businessId,user);if(business.suppressed) throw new AppError('Este contacto está marcado para não contactar.',409);
- const payload={businessId,tone,service:service||user.profile.service,name:user.name,profile:user.profile,evidence:business.evidence,length,customInstructions};
+ const payload={businessId,tone,service:service||user.profile.service,name:user.name,profile:user.profile,evidence:business.evidence,length,customInstructions,approach};
  const payloadHash=hash(JSON.stringify(payload));
  return transaction(()=>{
   const previous=db().prepare("SELECT * FROM jobs WHERE workspace_id=? AND kind='analysis' AND idempotency_key=?").get(user.workspaceId,key) as Row|undefined;
@@ -290,8 +290,8 @@ export function requestAnalysis(user:User,businessId:string,tone:string,service:
   return {id:jobId,status:'queued'};
  });
 }
-export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business,length:'curta'|'media'|'longa'='media',customInstructions=''):Promise<Job> {
- const initial = requestAnalysis(user, businessId, tone, service, key, fresh, businessData, length, customInstructions);
+export async function requestAnalysisAsync(user:User,businessId:string,tone:string,service:string,key:string,fresh=false,businessData?:Business,length:'curta'|'media'|'longa'='media',customInstructions='',approach=''):Promise<Job> {
+ const initial = requestAnalysis(user, businessId, tone, service, key, fresh, businessData, length, customInstructions, approach);
  if (initial.status === 'succeeded' || initial.status === 'failed') {
    return initial;
  }
@@ -454,7 +454,7 @@ async function processAnalysis(job:Row) {
  const payload=JSON.parse(String(job.payload));
  try {
   if(db().prepare('SELECT business_id FROM suppressions WHERE workspace_id=? AND business_id=?').get(job.workspace_id,payload.businessId))throw new Error('Contacto marcado para não contactar.');
-  const result=await analyse(getBusiness(payload.businessId),payload.profile,payload.name,payload.tone,payload.service,payload.length||'media',payload.customInstructions||'');
+  const result=await analyse(getBusiness(payload.businessId),payload.profile,payload.name,payload.tone,payload.service,payload.length||'media',payload.customInstructions||'',payload.approach||'');
   transaction(()=>{
    const current=db().prepare('SELECT status,attempts FROM jobs WHERE id=?').get(job.id) as {status:string;attempts:number};
    if(!current || current.status!=='running')return;
@@ -481,4 +481,36 @@ export function grant(user:User,workspaceId:string,units:number,reason:string) {
  if(user.role!=='admin')throw new AppError('Acesso reservado à administração.',403);
  if(!db().prepare('SELECT id FROM workspaces WHERE id=?').get(workspaceId))throw new AppError('Espaço de trabalho não encontrado.',404);
  transaction(()=>{db().prepare('INSERT INTO credit_entries VALUES(?,?,?,?,?,?,?)').run(id(),workspaceId,null,'grant',units,reason,now());audit(user,'credits.grant',workspaceId);});
+}
+export async function grantAsync(user:User,workspaceId:string,units:number,reason:string):Promise<void> {
+ grant(user, workspaceId, units, reason);
+ if (supabaseConfigured()) {
+  try {
+   const client = supabaseAdmin();
+   if (client?.auth?.admin) {
+    const { data: uData } = await client.auth.admin.getUserById(workspaceId);
+    if (uData?.user) {
+     const currentMeta = uData.user.user_metadata || {};
+     const currentAvail = currentMeta.credits?.available || 0;
+     await client.auth.admin.updateUserById(workspaceId, {
+      user_metadata: {
+       ...currentMeta,
+       credits: {
+        available: currentAvail + units,
+        reserved: 0,
+        spent: currentMeta.credits?.spent || 0
+       }
+      }
+     });
+    }
+   }
+   if (client) {
+    await client.from('workspaces').update({
+     profile: { credits: { available: units, reserved: 0, spent: 0 } }
+    }).or(`id.eq.${workspaceId},owner_id.eq.${workspaceId}`);
+   }
+  } catch (err) {
+   console.warn('[grantAsync supabase error]:', err);
+  }
+ }
 }

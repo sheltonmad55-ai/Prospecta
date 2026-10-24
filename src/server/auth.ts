@@ -169,12 +169,31 @@ export function getUserSubscription(userId: string): UserSubscription {
 
     if (sub) {
       const isExpired = sub.status === 'expired' || Boolean(sub.expiresAt && new Date(sub.expiresAt).getTime() < Date.now());
-      return {
-        plan: sub.plan,
-        status: isExpired ? 'expired' : sub.status,
-        expiresAt: sub.expiresAt,
-        months: sub.months
-      };
+      if (!isExpired) {
+        return {
+          plan: sub.plan,
+          status: sub.status,
+          expiresAt: sub.expiresAt,
+          months: sub.months
+        };
+      }
+    }
+
+    // Fallback: verificar se o perfil do workspace em SQLite tem subscrição ativa
+    const wsRow = db().prepare('SELECT profile FROM workspaces WHERE user_id=? OR id=?').get(userId, userId) as { profile: string } | undefined;
+    if (wsRow?.profile) {
+      const p = JSON.parse(wsRow.profile);
+      if (p?.subscription && (p.subscription.plan === 'essential' || p.subscription.plan === 'pro')) {
+        const isExpired = p.subscription.status === 'expired' || Boolean(p.subscription.expiresAt && new Date(p.subscription.expiresAt).getTime() < Date.now());
+        if (!isExpired) {
+          return {
+            plan: p.subscription.plan,
+            status: p.subscription.status || 'active',
+            expiresAt: p.subscription.expiresAt || '',
+            months: p.subscription.months || 1
+          };
+        }
+      }
     }
   } catch {}
   return {
@@ -185,13 +204,13 @@ export function getUserSubscription(userId: string): UserSubscription {
   };
 }
 
-export function setUserSubscription(
+export async function setUserSubscription(
   userId: string,
   plan: PlanType,
   months = 1,
   status: SubscriptionStatus = 'active',
   customExpiresAt?: string
-): UserSubscription {
+): Promise<UserSubscription> {
   const startsAt = now();
   let expiresAt = '';
   if (customExpiresAt) {
@@ -224,15 +243,22 @@ export function setUserSubscription(
       const client = supabaseAdmin();
       if (client) {
         if (client.auth?.admin) {
-          Promise.resolve(client.auth.admin.updateUserById(userId, {
-            user_metadata: { subscription: subObj }
-          })).catch(() => {});
+          const { data: uData } = await client.auth.admin.getUserById(userId);
+          const currentMeta = uData?.user?.user_metadata || {};
+          await client.auth.admin.updateUserById(userId, {
+            user_metadata: {
+              ...currentMeta,
+              subscription: subObj
+            }
+          });
         }
-        Promise.resolve(client.from('workspaces').update({
+        await client.from('workspaces').update({
           profile: { subscription: subObj }
-        }).eq('owner_id', userId)).catch(() => {});
+        }).or(`id.eq.${userId},owner_id.eq.${userId}`);
       }
-    } catch {}
+    } catch (err) {
+      console.warn('[setUserSubscription supabase sync error]:', err);
+    }
   }
 
   return subObj;
@@ -293,7 +319,16 @@ export function userById(userId: string): User | null {
   }
 }
 
-export function ensureUserAndWorkspace(user: { id: string; name?: string; email?: string; role?: User['role']; workspaceId?: string; profile?: Partial<Profile> }): User {
+export function ensureUserAndWorkspace(user: {
+  id: string;
+  name?: string;
+  email?: string;
+  role?: User['role'];
+  workspaceId?: string;
+  profile?: Partial<Profile>;
+  subscription?: UserSubscription;
+  credits?: Credits;
+}): User {
   const timestamp = now();
   const workspaceId = user.workspaceId || user.id;
   const rawEmail = (user.email || '').toLowerCase().trim();
@@ -322,14 +357,39 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
       const existingWorkspace = db().prepare('SELECT id, profile FROM workspaces WHERE user_id=? OR id=?').get(user.id, workspaceId) as { id: string; profile: string } | undefined;
 
       if (existingWorkspace) {
-        let existingProfile = {};
+        let existingProfile: any = {};
         try {
           existingProfile = existingWorkspace.profile ? JSON.parse(existingWorkspace.profile) : {};
         } catch {}
         const mergedProfile = { ...defaultProfile, ...existingProfile, ...(user.profile || {}) };
+        if (user.subscription) mergedProfile.subscription = user.subscription;
         db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify(mergedProfile), existingWorkspace.id);
       } else {
-        db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(workspaceId, user.id, JSON.stringify(profileToSave), timestamp);
+        const initialProfile = { ...profileToSave, ...(user.subscription ? { subscription: user.subscription } : {}) };
+        db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(workspaceId, user.id, JSON.stringify(initialProfile), timestamp);
+      }
+
+      // Se houver subscrição ativa passada, persistir na tabela subscriptions do SQLite
+      if (user.subscription && user.subscription.plan && user.subscription.status === 'active') {
+        db().prepare(`
+          INSERT INTO subscriptions (id, user_id, plan, status, months, starts_at, expires_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id(), user.id, user.subscription.plan, user.subscription.status, user.subscription.months || 1, timestamp, user.subscription.expiresAt || '', timestamp, timestamp);
+      }
+
+      // Se houver créditos, garantir no credit_entries do SQLite
+      const targetCredits = user.credits?.available || (user.subscription?.plan === 'pro' ? 450 : user.subscription?.plan === 'essential' ? 150 : 0);
+      if (targetCredits > 0) {
+        const existingCredits = db().prepare('SELECT COALESCE(SUM(units),0) as total FROM credit_entries WHERE workspace_id=? AND kind="grant"').get(workspaceId) as { total: number } | undefined;
+        if (!existingCredits || existingCredits.total < targetCredits) {
+          const delta = targetCredits - (existingCredits?.total || 0);
+          if (delta > 0) {
+            db().prepare(`
+              INSERT INTO credit_entries (id, workspace_id, job_id, kind, units, description, created_at)
+              VALUES (?, ?, NULL, 'grant', ?, 'Créditos sincronizados do plano', ?)
+            `).run(id(), workspaceId, delta, timestamp);
+          }
+        }
       }
     });
   } catch (err) {
@@ -353,7 +413,19 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
   }
 
   const loaded = userById(user.id);
-  if (loaded) return loaded;
+  if (loaded) {
+    if (user.subscription && user.subscription.status === 'active' && (!loaded.subscription || loaded.subscription.status !== 'active')) {
+      loaded.subscription = user.subscription;
+    }
+    if (user.credits && user.credits.available > (loaded.credits?.available || 0)) {
+      loaded.credits = user.credits;
+    }
+    return loaded;
+  }
+
+  const subscription = user.subscription || getUserSubscription(user.id);
+  const hasPlan = isAdmin || hasActivePlan({ id: user.id, role, subscription } as User);
+  const cr = hasPlan ? (user.credits || credits(workspaceId)) : { available: 0, reserved: 0, spent: 0 };
 
   return {
     id: user.id,
@@ -362,7 +434,8 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
     workspaceId,
     role,
     profile: profileToSave,
-    credits: { available: 0, reserved: 0, spent: 0 }
+    credits: cr,
+    subscription
   };
 }
 
@@ -623,6 +696,9 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
         let metaBusinessName: string | undefined;
         let email = local?.email || emailHint;
 
+        let metaSubscription: UserSubscription | undefined;
+        let metaCredits: Credits | undefined;
+
         if (client.auth?.admin) {
           const { data: uData } = await client.auth.admin.getUserById(userId);
           if (uData?.user) {
@@ -631,10 +707,25 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
             metaBusinessName = meta.businessName;
             metaName = meta.businessName || meta.name || meta.full_name;
             metaProfile = meta.profile;
+            if (meta.subscription && meta.subscription.plan) {
+              metaSubscription = meta.subscription;
+            }
+            if (meta.credits) {
+              metaCredits = meta.credits;
+            }
           }
         }
 
-        if (wsData || metaProfile || metaName) {
+        const rawProfile = wsData?.profile || metaProfile || {};
+        const parsedProfile = typeof rawProfile === 'string' ? JSON.parse(rawProfile) : rawProfile;
+        if (!metaSubscription && parsedProfile?.subscription?.plan) {
+          metaSubscription = parsedProfile.subscription;
+        }
+        if (!metaCredits && parsedProfile?.credits) {
+          metaCredits = parsedProfile.credits;
+        }
+
+        if (wsData || metaProfile || metaName || metaSubscription) {
           const candidateName = metaBusinessName || 
             (metaName && metaName.toLowerCase() !== 'droop store' ? metaName : '') || 
             (wsData?.name && wsData.name.toLowerCase() !== 'droop store' ? wsData.name : '') || 
@@ -644,8 +735,6 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
             ? candidateName
             : 'Chelton Madime';
 
-          const rawProfile = wsData?.profile || metaProfile || {};
-          const parsedProfile = typeof rawProfile === 'string' ? JSON.parse(rawProfile) : rawProfile;
           const resolvedProfile: Profile = {
             ...defaultProfile,
             ...parsedProfile,
@@ -659,7 +748,9 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
             email,
             workspaceId: resolvedWsId,
             role: local?.role || 'owner',
-            profile: resolvedProfile
+            profile: resolvedProfile,
+            subscription: metaSubscription,
+            credits: metaCredits
           });
         }
       }

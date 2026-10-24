@@ -4,7 +4,7 @@ import { PROVINCES, STAGES, hasActivePaidPlan, getPlanMaxLeads } from '../../../
 import { db, id, now, transaction } from '../../../server/db.ts';
 import { AppError, audit, checkPassword, cookie, createSession, createUser, credits, encodeSignedSession, ensureUserAndWorkspace, getUser, getUserAsync, getUserSubscription, hash, passwordHash, rateLimit, requireActivePlan, requireAdmin, requireUser, saveUserProfile, sessionToken, setUserSubscription, supabase, supabaseAdmin, supabaseConfigured, syncAllUsersFromSupabase, userById } from '../../../server/auth.ts';
 import { getWhatsAppServiceConfig } from '../../../server/wa-proxy.ts';
-import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase, syncSearchesFromSupabase } from '../../../server/service.ts';
+import { activity, cancelJob, dashboard, getAnalysis, getBusiness, grant, grantAsync, listLeads, listSearches, readJob, readSearch, requestAnalysis, requestAnalysisAsync, saveLead, startSearch, startSearchAsync, syncLeadsFromSupabase, syncSearchesFromSupabase } from '../../../server/service.ts';
 import { mode, validPhone } from '../../../server/providers.ts';
 import { parseCsv } from '../../../server/import.ts';
 import { beginGoogleOAuth, completeGoogleOAuth, consumeGoogleFlow, flowCookie, googleConfigured, publicOrigin, recordConsent } from '../../../server/google-oauth.ts';
@@ -317,9 +317,9 @@ async function handler(request:Request,context:Context):Promise<Response> {
    return reply({opportunities:opps});
   }
   if(route==='analyses' && method==='POST') {
-   const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional(),businessData:z.any().optional(),length:z.enum(['curta','media','longa']).optional().default('media'),customInstructions:z.string().max(1000).optional().default('')}).parse(input);
+   const data=z.object({businessId:z.string().max(100),tone:z.enum(['Profissional','Amigável','Consultivo']).default('Profissional'),service:z.string().max(120).default(''),fresh:z.boolean().optional(),businessData:z.any().optional(),length:z.enum(['curta','media','longa']).optional().default('media'),customInstructions:z.string().max(2000).optional().default(''),approach:z.string().max(100).optional().default('')}).parse(input);
    const key=request.headers.get('idempotency-key');if(!key||key.length>100)throw new AppError('É necessária uma chave de operação válida.');
-   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh,data.businessData,data.length,data.customInstructions);
+   const result=await requestAnalysisAsync(user,data.businessId,data.tone,data.service,key,!!data.fresh,data.businessData,data.length,data.customInstructions,data.approach);
    return reply(result, 202);
   }
   if(path[0]==='jobs' && path[1]) {if(path[2]==='cancel' && method==='POST')return reply(cancelJob(user,path[1]));if(method==='GET')return reply(readJob(user,path[1]));}
@@ -460,7 +460,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
       const targetUser = db().prepare('SELECT id, name FROM users WHERE id=?').get(data.userId);
       if (!targetUser) throw new AppError('Utilizador não encontrado.', 404);
 
-      const sub = setUserSubscription(
+      const sub = await setUserSubscription(
         data.userId,
         data.plan,
         data.months,
@@ -470,9 +470,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
       if (data.grantPlanCredits && (data.plan === 'essential' || data.plan === 'pro')) {
         const creditsToAdd = data.plan === 'essential' ? 150 * data.months : 450 * data.months;
         const ws = db().prepare('SELECT id FROM workspaces WHERE user_id=? OR id=?').get(data.userId, data.userId) as { id: string } | undefined;
-        if (ws) {
-          grant(user, ws.id, creditsToAdd, `Ativação Plano ${data.plan === 'essential' ? 'Essencial' : 'Pro'} (${data.months} mês/meses)`);
-        }
+        const targetWs = ws?.id || data.userId;
+        await grantAsync(user, targetWs, creditsToAdd, `Ativação Plano ${data.plan === 'essential' ? 'Essencial' : 'Pro'} (${data.months} mês/meses)`);
       }
       audit(user, 'subscription.update', `${data.userId}:${data.plan}:${data.months}`);
       return reply({ ok: true, subscription: sub });
@@ -495,7 +494,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
         targetWs = ws?.id || data.userId;
       }
       if (!targetWs) throw new AppError('Espaço de trabalho ou utilizador não encontrado.', 404);
-      grant(user,targetWs,data.units,data.reason);
+      await grantAsync(user,targetWs,data.units,data.reason);
       return reply({ok:true});
     }
     if(path[1]==='jobs' && path[3]==='retry' && method==='POST')throw new AppError('A análise falhada libertou o crédito. Inicie uma nova análise na ficha da empresa.');
