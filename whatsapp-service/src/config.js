@@ -10,4 +10,9 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   timezone: process.env.TZ || 'Africa/Maputo',
   logLevel: process.env.LOG_LEVEL || 'info',
+  nodeEnv: process.env.NODE_ENV || 'development',
+  isProduction: (process.env.NODE_ENV || '').toLowerCase() === 'production',
+  disableRestore: process.env.WA_DISABLE_RESTORE === 'true' || process.env.DISABLE_RESTORE === 'true',
 };
+
+

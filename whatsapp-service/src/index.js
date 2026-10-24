@@ -71,7 +71,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ ok: false, error: err.message || 'Erro interno no microserviço.' });
 });
 
-// Arranque do servidor
+// Arranque do servidor com verificação estrita de base de dados
+try {
+  await db.verifyConnection();
+} catch (dbErr) {
+  console.error('[Startup Fatal]:', dbErr.message);
+  process.exit(1);
+}
+
 const server = app.listen(config.port, async () => {
   console.log(`====================================================`);
   console.log(`🚀 PROSPECTA WHATSAPP SERVICE EM EXECUÇÃO`);
@@ -82,11 +89,15 @@ const server = app.listen(config.port, async () => {
   console.log(`====================================================`);
 
   // Restaura todas as sessões e retoma campanhas ativas
-  try {
-    await waManager.restoreAllSessions();
-    await queueManager.restoreActiveCampaigns();
-  } catch (initErr) {
-    console.error('[Startup] Falha na auto-recuperação inicial:', initErr.message);
+  if (config.disableRestore) {
+    console.log('[Startup] ⚠️ Restauração automática de sessões e campanhas DESATIVADA (WA_DISABLE_RESTORE=true). Nenhuma sessão remota será reconectada.');
+  } else {
+    try {
+      await waManager.restoreAllSessions();
+      await queueManager.restoreActiveCampaigns();
+    } catch (initErr) {
+      console.error('[Startup] Falha na auto-recuperação inicial:', initErr.message);
+    }
   }
 });
 

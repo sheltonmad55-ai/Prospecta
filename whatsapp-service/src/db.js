@@ -23,9 +23,48 @@ const memStore = {
   wa_campaign_recipients: new Map(), // key: id, val: object
 };
 
+function getStore() {
+  if (config.isProduction && !supabase) {
+    throw new Error('[DB FATAL] Em produção (NODE_ENV=production), o Supabase é obrigatório e não está acessível. O uso de memória temporária como reserva é estritamente proibido.');
+  }
+  return memStore;
+}
+
 export const db = {
   isSupabaseConnected() {
     return !!supabase;
+  },
+
+  async verifyConnection() {
+    if (config.isProduction) {
+      if (!config.supabaseUrl || !config.supabaseKey) {
+        throw new Error('[DB FATAL] Em produção (NODE_ENV=production), SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórios. O uso de memória temporária como reserva é estritamente proibido.');
+      }
+      if (!supabase) {
+        throw new Error('[DB FATAL] Cliente Supabase não pôde ser inicializado em produção.');
+      }
+      const { error } = await supabase
+        .from('wa_auth')
+        .select('key', { count: 'exact', head: true });
+      if (error) {
+        throw new Error(`[DB FATAL] Supabase inacessível ao arrancar em produção: ${error.message}. O serviço não pode arrancar sem base de dados persistente.`);
+      }
+      console.log('[DB] ✅ Conexão com Supabase validada com sucesso em produção.');
+    } else {
+      if (supabase) {
+        const { error } = await supabase
+          .from('wa_auth')
+          .select('key', { count: 'exact', head: true });
+        if (error) {
+          console.warn(`[DB] Supabase inacessível em ambiente local/testes (${error.message}). A alternar para armazenamento em memória temporária (memStore).`);
+          supabase = null;
+        } else {
+          console.log('[DB] ✅ Conexão com Supabase ativa em ambiente local.');
+        }
+      } else {
+        console.warn('[DB] ⚠️ SUPABASE_URL/KEY não configurados: usando armazenamento em memória temporária apenas para testes locais.');
+      }
+    }
   },
 
   // ----------------------------------------------------
