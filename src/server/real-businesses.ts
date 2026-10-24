@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { PROVINCES, getCountryByCode, type CountryOption, type Business, type Evidence } from '../lib/contracts.ts';
 import { db, now } from './db.ts';
 import { validPhone, normalize } from './providers.ts';
+import { supabaseAdmin, supabaseConfigured } from './auth.ts';
 
 
 /**
@@ -872,6 +873,25 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
       upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
       collected.push(biz);
     }
+  }
+
+  if (collected.length > 0 && supabaseConfigured()) {
+    try {
+      const client = supabaseAdmin();
+      if (client) {
+        const records = collected.map(b => ({
+          id: b.id,
+          source_key: 'live',
+          source_id: b.id,
+          data: b,
+          observed_at: b.observedAt || observedAt,
+          is_demo: false
+        }));
+        for (let i = 0; i < records.length; i += 25) {
+          Promise.resolve(client.from('businesses').upsert(records.slice(i, i + 25), { onConflict: 'id' })).catch(() => {});
+        }
+      }
+    } catch {}
   }
 
   return collected;

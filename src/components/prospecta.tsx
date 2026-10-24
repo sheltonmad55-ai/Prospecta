@@ -1328,7 +1328,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     await run(async () => {
       const searchParams = customFilters || filters;
       if (page && searchResult?.allResults && searchResult.allResults.length > 0) {
-        const pageSize = 8;
+        const pageSize = 12;
         const total = searchResult.allResults.length;
         const pages = Math.max(1, Math.ceil(total / pageSize));
         const safePage = Math.min(Math.max(1, page), pages);

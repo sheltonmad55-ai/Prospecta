@@ -181,6 +181,39 @@ export async function startSearchAsync(user:User,filters:SearchFilters):Promise<
  }
  return readSearch(user,searchId);
 }
+export async function readSearchAsync(user: User, searchId: string, page = 1): Promise<SearchResult> {
+  let row = db().prepare('SELECT * FROM searches WHERE workspace_id=? AND id=?').get(user.workspaceId, searchId) as Row | undefined;
+  if (!row && supabaseConfigured()) {
+    await syncSearchesFromSupabase(user);
+    row = db().prepare('SELECT * FROM searches WHERE workspace_id=? AND id=?').get(user.workspaceId, searchId) as Row | undefined;
+  }
+  if (!row) throw new AppError('Pesquisa não encontrada.', 404);
+
+  const ids = JSON.parse(String(row.results)) as string[];
+  if (supabaseConfigured() && ids.length > 0) {
+    try {
+      const existing = db().prepare(`SELECT id FROM businesses WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids) as { id: string }[];
+      const existingIds = new Set(existing.map(e => e.id));
+      const missingIds = ids.filter(id => !existingIds.has(id));
+      if (missingIds.length > 0) {
+        const client = supabaseAdmin();
+        if (client) {
+          const { data } = await client.from('businesses').select('id, data, source_key').in('id', missingIds.slice(0, 100));
+          if (data && data.length > 0) {
+            transaction(() => {
+              for (const b of data) {
+                db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(b.id, typeof b.data === 'string' ? b.data : JSON.stringify(b.data), b.source_key || 'live', now());
+              }
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return readSearch(user, searchId, page);
+}
+
 export function readSearch(user:User,searchId:string,page=1):SearchResult {
  const row=db().prepare('SELECT * FROM searches WHERE workspace_id=? AND id=?').get(user.workspaceId,searchId) as Row|undefined;
  if(!row) throw new AppError('Pesquisa não encontrada.',404);
@@ -199,9 +232,10 @@ export function readSearch(user:User,searchId:string,page=1):SearchResult {
  }
  const maxAllowed = getPlanMaxLeads(user);
  const boundedBiz = allBiz.slice(0, maxAllowed);
- const pages=Math.max(1,Math.ceil(boundedBiz.length/8));
+ const pageSize = 12;
+ const pages=Math.max(1,Math.ceil(boundedBiz.length/pageSize));
  const safePage=Math.min(Math.max(1,page),pages);
- const results = boundedBiz.slice((safePage-1)*8, safePage*8);
+ const results = boundedBiz.slice((safePage-1)*pageSize, safePage*pageSize);
  return {
   id:searchId,
   status:row.status as SearchResult['status'],

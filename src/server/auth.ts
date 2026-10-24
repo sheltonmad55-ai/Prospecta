@@ -369,18 +369,21 @@ export function ensureUserAndWorkspace(user: {
         db().prepare('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(workspaceId, user.id, JSON.stringify(initialProfile), timestamp);
       }
 
-      // Se houver subscrição ativa passada, persistir na tabela subscriptions do SQLite
+      // Se houver subscrição ativa passada, persistir na tabela subscriptions do SQLite se ainda não existir
       if (user.subscription && user.subscription.plan && user.subscription.status === 'active') {
-        db().prepare(`
-          INSERT INTO subscriptions (id, user_id, plan, status, months, starts_at, expires_at, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(id(), user.id, user.subscription.plan, user.subscription.status, user.subscription.months || 1, timestamp, user.subscription.expiresAt || '', timestamp, timestamp);
+        const existingSub = db().prepare('SELECT id FROM subscriptions WHERE user_id=? AND status=? LIMIT 1').get(user.id, 'active');
+        if (!existingSub) {
+          db().prepare(`
+            INSERT INTO subscriptions (id, user_id, plan, status, months, starts_at, expires_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(id(), user.id, user.subscription.plan, user.subscription.status, user.subscription.months || 1, timestamp, user.subscription.expiresAt || '', timestamp, timestamp);
+        }
       }
 
       // Se houver créditos, garantir no credit_entries do SQLite
       const targetCredits = user.credits?.available || (user.subscription?.plan === 'pro' ? 450 : user.subscription?.plan === 'essential' ? 150 : 0);
       if (targetCredits > 0) {
-        const existingCredits = db().prepare('SELECT COALESCE(SUM(units),0) as total FROM credit_entries WHERE workspace_id=? AND kind="grant"').get(workspaceId) as { total: number } | undefined;
+        const existingCredits = db().prepare("SELECT COALESCE(SUM(units),0) as total FROM credit_entries WHERE workspace_id=? AND kind='grant'").get(workspaceId) as { total: number } | undefined;
         if (!existingCredits || existingCredits.total < targetCredits) {
           const delta = targetCredits - (existingCredits?.total || 0);
           if (delta > 0) {
