@@ -15,10 +15,10 @@ ENV PORT=3001
 WORKDIR /app
 
 # Copiar ficheiros de dependências primeiro para cache do Docker
-COPY package.json ./
+COPY package*.json ./
 
-# Instalar dependências de produção
-RUN npm install --omit=dev --legacy-peer-deps
+# Instalar dependências exatas de produção via lockfile
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # Copiar código-fonte
 COPY src/ ./src/

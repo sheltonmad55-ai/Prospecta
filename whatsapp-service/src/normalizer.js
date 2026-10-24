@@ -40,3 +40,6 @@ export function toJid(phone) {
   if (!clean) return null;
   return `${clean}@s.whatsapp.net`;
 }
+
+export const normalizeMozPhone = normalizeMzPhone;
+

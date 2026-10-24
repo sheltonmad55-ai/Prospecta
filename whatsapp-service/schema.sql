@@ -85,14 +85,19 @@ ALTER TABLE public.wa_optout ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wa_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wa_campaign_recipients ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Service Role Full Access wa_auth" ON public.wa_auth
-  FOR ALL USING (auth.role() = 'service_role');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wa_auth' AND policyname = 'Service Role Full Access wa_auth') THEN
+    CREATE POLICY "Service Role Full Access wa_auth" ON public.wa_auth FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wa_optout' AND policyname = 'Service Role Full Access wa_optout') THEN
+    CREATE POLICY "Service Role Full Access wa_optout" ON public.wa_optout FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wa_campaigns' AND policyname = 'Service Role Full Access wa_campaigns') THEN
+    CREATE POLICY "Service Role Full Access wa_campaigns" ON public.wa_campaigns FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wa_campaign_recipients' AND policyname = 'Service Role Full Access wa_campaign_recipients') THEN
+    CREATE POLICY "Service Role Full Access wa_campaign_recipients" ON public.wa_campaign_recipients FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+END $$;
 
-CREATE POLICY "Service Role Full Access wa_optout" ON public.wa_optout
-  FOR ALL USING (auth.role() = 'service_role');
-
-CREATE POLICY "Service Role Full Access wa_campaigns" ON public.wa_campaigns
-  FOR ALL USING (auth.role() = 'service_role');
-
-CREATE POLICY "Service Role Full Access wa_campaign_recipients" ON public.wa_campaign_recipients
-  FOR ALL USING (auth.role() = 'service_role');
