@@ -95,7 +95,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
      if(error)throw new AppError(error.message || 'Não foi possível criar a conta. Verifique os dados ou tente entrar.');
      if(!auth.user)throw new AppError('Não foi possível criar a conta.');
      if(!auth.session)return reply({confirmationRequired:true,message:'Confirme o seu e-mail e entre na sua conta.'});
-     const isAdminEmail = data.email === 'sheltonmad55@gmail.com' || data.email === 'sheltonmad5@gmail.com';
+     const isAdminEmail = data.email === 'sheltonmad55@gmail.com';
      const user: import('@/lib/contracts').User = {
        id: auth.user.id,
        name: data.name,
@@ -114,7 +114,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
      return reply({user, token: session},200,{'Set-Cookie':cookie(session,request)});
     }
     if(db().prepare('SELECT id FROM users WHERE email=?').get(data.email))throw new AppError('Este e-mail já tem uma conta. Experimente entrar.');
-    const isAdminEmail = data.email === 'sheltonmad55@gmail.com' || data.email === 'sheltonmad5@gmail.com';
+    const isAdminEmail = data.email === 'sheltonmad55@gmail.com';
     const user=createUser(data.name,data.email,data.password,!!data.consent,isAdminEmail ? 'admin' : 'owner');
     if(data.phone)db().prepare('UPDATE workspaces SET profile=? WHERE id=?').run(JSON.stringify({...user.profile,phone:validPhone(data.phone)}),user.workspaceId);
     recordConsent(user.id,!!data.consent,'email');
@@ -125,7 +125,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
    }
    if(action==='login' && method==='POST') {
     const data=z.object({email:z.email().transform(s=>s.toLowerCase()),password:z.string().min(1).max(128)}).parse(input);
-    const isAdminEmail = data.email === 'sheltonmad55@gmail.com' || data.email === 'sheltonmad5@gmail.com';
+    const isAdminEmail = data.email === 'sheltonmad55@gmail.com';
     if(mode()==='live' || supabaseConfigured()) {
      const {data:auth,error}=await supabase().auth.signInWithPassword({email:data.email,password:data.password});
      if(error||!auth.user||!auth.session) {
@@ -529,7 +529,7 @@ async function handler(request:Request,context:Context):Promise<Response> {
         } catch {}
       }
 
-      const isTargetAdmin = targetRole === 'admin' || targetEmail === 'sheltonmad55@gmail.com' || targetEmail === 'sheltonmad5@gmail.com';
+      const isTargetAdmin = targetRole === 'admin' || targetEmail === 'sheltonmad55@gmail.com';
       if (isTargetAdmin) {
         throw new AppError('Não é permitido eliminar outro administrador.', 403);
       }

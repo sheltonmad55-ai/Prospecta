@@ -79,7 +79,7 @@ export async function syncAllUsersFromSupabase(): Promise<number> {
       if (!error && data && Array.isArray(data.users)) {
         for (const u of data.users) {
           const rawEmail = (u.email || '').toLowerCase().trim();
-          const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com';
+          const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com';
           const role = isAdminEmail ? 'admin' : (u.app_metadata?.role || u.user_metadata?.role || 'owner');
           const name = u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Utilizador';
           db().prepare(`
@@ -268,7 +268,7 @@ export function userById(userId: string): User | null {
     const rawName = row.name;
     const safeName = (rawName && rawName.toLowerCase() !== 'droop store') ? rawName : 'Chelton Madime';
     const rawEmail = (row.email || '').toLowerCase().trim();
-    const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com' || row.role === 'admin';
+    const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || row.role === 'admin';
     if (isAdmin) {
       parsedProfile.onboarded = true;
     }
@@ -297,7 +297,7 @@ export function ensureUserAndWorkspace(user: { id: string; name?: string; email?
   const timestamp = now();
   const workspaceId = user.workspaceId || user.id;
   const rawEmail = (user.email || '').toLowerCase().trim();
-  const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com' || user.role === 'admin';
+  const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || user.role === 'admin';
   const role = isAdmin ? 'admin' : (user.role || 'owner');
   const profileToSave: Profile = {
     ...defaultProfile,
@@ -700,7 +700,7 @@ export async function requireUser(request: Request): Promise<User> {
 export async function requireActivePlan(request: Request): Promise<User> {
   const user = await requireUser(request);
   const rawEmail = (user.email || '').toLowerCase().trim();
-  const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com';
+  const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com';
   if (user.role === 'admin' || isAdminEmail) {
     return user;
   }
@@ -713,14 +713,14 @@ export async function requireActivePlan(request: Request): Promise<User> {
 export async function requireAdmin(request: Request): Promise<User> {
   const user = await requireUser(request);
   const rawEmail = (user.email || '').toLowerCase().trim();
-  const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com' || rawEmail === 'sheltonmad5@gmail.com';
+  const isAdminEmail = rawEmail === 'sheltonmad55@gmail.com';
 
   let isDbAdmin = user.role === 'admin' || isAdminEmail;
   try {
     const dbUser = db().prepare('SELECT role, email FROM users WHERE id=?').get(user.id) as { role: string; email: string } | undefined;
     if (dbUser) {
       const email = (dbUser.email || '').toLowerCase().trim();
-      if (dbUser.role === 'admin' || email === 'sheltonmad55@gmail.com' || email === 'sheltonmad5@gmail.com') {
+      if (dbUser.role === 'admin' || email === 'sheltonmad55@gmail.com') {
         isDbAdmin = true;
       } else {
         isDbAdmin = false;
@@ -733,7 +733,7 @@ export async function requireAdmin(request: Request): Promise<User> {
         if (data?.user) {
           const email = (data.user.email || '').toLowerCase().trim();
           const role = data.user.app_metadata?.role || data.user.user_metadata?.role;
-          if (role === 'admin' || email === 'sheltonmad55@gmail.com' || email === 'sheltonmad5@gmail.com') {
+          if (role === 'admin' || email === 'sheltonmad55@gmail.com') {
             isDbAdmin = true;
           }
         }

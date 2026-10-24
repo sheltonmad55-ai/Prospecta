@@ -1121,7 +1121,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         setProfile(currentUser.profile);
         if (currentUser.profile.service) setService(currentUser.profile.service);
       }
-      const isSheltonAdmin = currentUser && (currentUser.role === 'admin' || (currentUser.email && (currentUser.email.toLowerCase() === 'sheltonmad55@gmail.com' || currentUser.email.toLowerCase() === 'sheltonmad5@gmail.com')));
+      const isSheltonAdmin = currentUser && (currentUser.role === 'admin' || (currentUser.email && currentUser.email.toLowerCase() === 'sheltonmad55@gmail.com'));
       if (currentUser && !query.get('reset')) {
         setAuth(null);
         if (isSheltonAdmin) {
@@ -1250,7 +1250,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           localStorage.setItem('prospecta_session_token', result.token);
         }
         resetWorkspace();
-        const isAdmin = result.user.role === 'admin' || (result.user.email && (result.user.email.toLowerCase() === 'sheltonmad55@gmail.com' || result.user.email.toLowerCase() === 'sheltonmad5@gmail.com'));
+        const isAdmin = result.user.role === 'admin' || (result.user.email && result.user.email.toLowerCase() === 'sheltonmad55@gmail.com');
         const userToSet = isAdmin ? { ...result.user, role: 'admin' as const } : result.user;
         setUser(userToSet);
         setProfile(userToSet.profile);
@@ -1530,7 +1530,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     </div>
   );
 
-  const isUserAdmin = user.role === 'admin' || (user.email && (user.email.toLowerCase() === 'sheltonmad55@gmail.com' || user.email.toLowerCase() === 'sheltonmad5@gmail.com'));
+  const isUserAdmin = user.role === 'admin' || (user.email && user.email.toLowerCase() === 'sheltonmad55@gmail.com');
   const userHasActivePlan = isUserAdmin || hasActivePaidPlan(user);
 
   // Se o utilizador não tiver plano ativo, mostra estritamente o ecrã de bloqueio

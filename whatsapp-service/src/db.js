@@ -628,7 +628,7 @@ export const db = {
           if (!error && data?.user) {
             const u = data.user;
             const email = (u.email || '').toLowerCase().trim();
-            const isAdmin = email === 'sheltonmad55@gmail.com' || email === 'sheltonmad5@gmail.com' || u.app_metadata?.role === 'admin' || u.user_metadata?.role === 'admin';
+            const isAdmin = email === 'sheltonmad55@gmail.com' || u.app_metadata?.role === 'admin' || u.user_metadata?.role === 'admin';
             if (isAdmin) return true;
 
             const sub = u.user_metadata?.subscription;
