@@ -194,7 +194,22 @@ async function handler(request:Request,context:Context):Promise<Response> {
   if(route==='profile' && (method==='PUT' || method==='POST')) {
    const user = await requireUser(request);
    rateLimit(`user:${user.id}`,240,60000);
-   const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120).default('Criação de websites'),pitch:z.string().max(1000).default(''),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),phone:z.string().max(30).default(''),nationwide:z.boolean().default(true),onboarded:z.boolean().default(true)}).parse(input);
+   const data=z.object({
+     name:z.string().trim().min(2).max(100).optional(),
+     service:z.string().min(2).max(120).default('Criação de websites'),
+     pitch:z.string().max(1000).default(''),
+     province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),
+     phone:z.string().max(30).default(''),
+     nationwide:z.boolean().default(true),
+     onboarded:z.boolean().default(true),
+     objections:z.array(z.object({
+       id:z.string(),
+       objection:z.string(),
+       counter:z.string(),
+       category:z.string().optional(),
+       createdAt:z.string()
+     })).optional()
+   }).parse(input);
    if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).');
    const updatedUser = await saveUserProfile(user.id, {
      name: data.name,
@@ -203,7 +218,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
      province: data.province,
      phone: data.phone ? validPhone(data.phone) || '' : '',
      nationwide: data.nationwide,
-     onboarded: data.onboarded
+     onboarded: data.onboarded,
+     objections: data.objections
    });
    const token = sessionToken(request);
    const headers: Record<string, string> = token ? { 'Set-Cookie': cookie(token, request) } : {};
@@ -227,7 +243,22 @@ async function handler(request:Request,context:Context):Promise<Response> {
   }
 
   if(false && (method==='PUT' || method==='POST')) {
-   const data=z.object({name:z.string().trim().min(2).max(100).optional(),service:z.string().min(2).max(120).default('Criação de websites'),pitch:z.string().max(1000).default(''),province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),phone:z.string().max(30).default(''),nationwide:z.boolean().default(true),onboarded:z.boolean().default(true)}).parse(input);
+   const data=z.object({
+     name:z.string().trim().min(2).max(100).optional(),
+     service:z.string().min(2).max(120).default('Criação de websites'),
+     pitch:z.string().max(1000).default(''),
+     province:z.string().refine(s=>!s||PROVINCES.includes(s as typeof PROVINCES[number])).default(''),
+     phone:z.string().max(30).default(''),
+     nationwide:z.boolean().default(true),
+     onboarded:z.boolean().default(true),
+     objections:z.array(z.object({
+       id:z.string(),
+       objection:z.string(),
+       counter:z.string(),
+       category:z.string().optional(),
+       createdAt:z.string()
+     })).optional()
+   }).parse(input);
    if(data.phone && !validPhone(data.phone))throw new AppError('Indique um número válido (ex: Moçambique +258, Angola +244, Portugal +351, Brasil +55).');
    const updatedUser = await saveUserProfile(user.id, {
      name: data.name,
@@ -236,7 +267,8 @@ async function handler(request:Request,context:Context):Promise<Response> {
      province: data.province,
      phone: data.phone ? validPhone(data.phone) || '' : '',
      nationwide: data.nationwide,
-     onboarded: data.onboarded
+     onboarded: data.onboarded,
+     objections: data.objections
    });
    const token = sessionToken(request);
    const headers: Record<string, string> = token ? { 'Set-Cookie': cookie(token, request) } : {};
@@ -330,7 +362,30 @@ async function handler(request:Request,context:Context):Promise<Response> {
    db().prepare('UPDATE analyses SET draft=? WHERE id=? AND workspace_id=?').run(body,path[1],user.workspaceId);return reply({analysis:getAnalysis(user,row.business_id)});
   }
   if(route==='leads' && method==='GET') { await syncLeadsFromSupabase(user); return reply({leads:listLeads(user)}); }
-  if(route==='leads' && method==='POST'){const {businessId}=z.object({businessId:z.string()}).parse(input);return reply({lead:saveLead(user,businessId)});}
+  if(route==='leads' && method==='POST'){
+    const payload = z.object({
+      businessId: z.string().optional(),
+      businessData: z.any().optional(),
+      businesses: z.array(z.any()).optional()
+    }).parse(input);
+
+    if (payload.businesses && Array.isArray(payload.businesses) && payload.businesses.length > 0) {
+      const savedList = [];
+      for (const biz of payload.businesses) {
+        if (biz && biz.id) {
+          try {
+            savedList.push(saveLead(user, biz.id, biz));
+          } catch (err) {
+            console.warn('[bulk saveLead warning]:', err);
+          }
+        }
+      }
+      return reply({ leads: savedList, count: savedList.length });
+    }
+
+    if (!payload.businessId) throw new AppError('businessId é obrigatório.', 400);
+    return reply({ lead: saveLead(user, payload.businessId, payload.businessData) });
+  }
   if(path[0]==='leads' && path[1]) {
    const lead=listLeads(user).find(l=>l.id===path[1]);if(!lead)throw new AppError('Oportunidade não encontrada.',404);
    if(path[2]==='activities' && method==='POST'){const data=z.object({type:z.enum(['note','contact_confirmed','response_reported','copied','whatsapp_opened']),note:z.string().min(1).max(2000)}).parse(input);activity(user,lead.id,data.type,data.note);return reply({ok:true});}

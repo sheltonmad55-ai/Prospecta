@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from
 import { createClient } from '@supabase/supabase-js';
 import { db, id, now, transaction } from './db.ts';
 import { mode } from './providers.ts';
-import { PLANS_ACTIVE, hasActivePlan, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription } from '../lib/contracts.ts';
+import { PLANS_ACTIVE, hasActivePlan, type Credits, type PlanType, type Profile, type SubscriptionStatus, type User, type UserSubscription, type UserObjection } from '../lib/contracts.ts';
 
 export class AppError extends Error {
   status: number;
@@ -442,7 +442,7 @@ export function ensureUserAndWorkspace(user: {
   };
 }
 
-export async function saveUserProfile(userId: string, data: { name?: string; businessName?: string; service?: string; pitch?: string; province?: string; phone?: string; nationwide?: boolean; onboarded?: boolean }): Promise<User> {
+export async function saveUserProfile(userId: string, data: { name?: string; businessName?: string; service?: string; pitch?: string; province?: string; phone?: string; nationwide?: boolean; onboarded?: boolean; objections?: UserObjection[] }): Promise<User> {
   const existing = userById(userId);
   const currentProfile = existing?.profile || { ...defaultProfile };
   const updatedProfile: Profile = {
@@ -453,7 +453,8 @@ export async function saveUserProfile(userId: string, data: { name?: string; bus
     province: data.province ?? currentProfile.province,
     phone: data.phone !== undefined ? data.phone : currentProfile.phone,
     nationwide: data.nationwide !== undefined ? data.nationwide : currentProfile.nationwide,
-    onboarded: data.onboarded !== undefined ? data.onboarded : true
+    onboarded: data.onboarded !== undefined ? data.onboarded : true,
+    objections: data.objections !== undefined ? data.objections : currentProfile.objections
   };
 
   const workspaceId = existing?.workspaceId || userId;

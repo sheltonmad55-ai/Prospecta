@@ -28,7 +28,14 @@ const profileSchema = z.object({
   province: z.string().refine(s => !s || PROVINCES.includes(s as typeof PROVINCES[number])).default(''),
   phone: z.string().max(30).default(''),
   nationwide: z.boolean().default(true),
-  onboarded: z.boolean().default(true)
+  onboarded: z.boolean().default(true),
+  objections: z.array(z.object({
+    id: z.string(),
+    objection: z.string(),
+    counter: z.string(),
+    category: z.string().optional(),
+    createdAt: z.string().default(() => new Date().toISOString())
+  })).optional()
 });
 
 async function handleSaveProfile(request: Request) {
@@ -48,7 +55,8 @@ async function handleSaveProfile(request: Request) {
       province: data.province,
       phone: data.phone ? validPhone(data.phone) || '' : '',
       nationwide: data.nationwide,
-      onboarded: data.onboarded
+      onboarded: data.onboarded,
+      objections: data.objections
     });
 
     // Refresh and keep session cookies alive for 30 days

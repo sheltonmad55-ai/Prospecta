@@ -40,12 +40,18 @@ campaignsRouter.post('/', async (req, res) => {
       recipients,
     });
 
-    // Inicia imediatamente o processamento na fila
-    queueManager.startCampaign(campaign.id).catch(() => {});
+    // Inicia imediatamente o processamento na fila se não for agendada para o futuro
+    const isFutureSchedule = settings?.scheduledAt && new Date(settings.scheduledAt) > new Date();
+    if (!isFutureSchedule) {
+      queueManager.startCampaign(campaign.id).catch(() => {});
+    } else {
+      console.log(`[Campaigns] Campanha ${campaign.id} criada com agendamento para ${settings.scheduledAt}.`);
+    }
 
     return res.status(201).json({
       ok: true,
       campaign,
+      isScheduled: isFutureSchedule,
     });
   } catch (err) {
     return res.status(500).json({

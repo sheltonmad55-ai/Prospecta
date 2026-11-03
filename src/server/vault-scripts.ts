@@ -1262,10 +1262,10 @@ Se quiser, posso te ligar por 5 minutinhos apenas para tirar dúvidas rápidas. 
     id: 'up-05',
     category: 'pos-venda',
     categoryLabel: 'Upsell, Cross-sell e Downsell',
-    title: 'Bundle — Código Zero + Komunika',
-    scenario: 'Pacote conjunto de estratégia + automação.',
-    keyPhrases: ['bundle', 'Código Zero', 'Komunika'],
-    template: `(Bundle — Código Zero + Komunika) [NOME], já que tu vais aprender a vender pelo WhatsApp no [PRODUTO], faz todo sentido tu já saíres com a ferramenta que automatiza isso: o Komunika. Eu já incluo um plano pra ti dentro do pacote. Te mostro como fica?`
+    title: 'Bundle Estratégico — Prospecção + WhatsApp',
+    scenario: 'Pacote conjunto de estratégia de captação + automação comercial.',
+    keyPhrases: ['bundle', 'automação', 'WhatsApp'],
+    template: `(Bundle Estratégico) [NOME], já que vamos estruturar o teu fluxo de captação no [PRODUTO], faz todo sentido tu já teres a ferramenta que agiliza o atendimento e não deixa nenhum cliente à espera no WhatsApp. Posso incluir isso no mesmo pacote com condição especial. Mostro-te como fica?`
   },
   {
     id: 'up-06',
@@ -1311,11 +1311,154 @@ Se quiser, posso te ligar por 5 minutinhos apenas para tirar dúvidas rápidas. 
     scenario: 'Última tentativa de conserto de falha antes do cancelamento definitivo.',
     keyPhrases: ['prazo curto pra resolver', 'ofereço o reembolso'],
     template: `Entendo a tua chateação, [NOME], e tu tens razão em cobrar. Me dá [prazo curto] pra resolver [problema]? Se eu não resolver, eu mesmo te ofereço o reembolso. Pode ser?`
+  },
+  // ─── 8. PROSPECÇÃO POR CHAMADA TELEFÓNICA (COLD CALL) ──────────────────
+  {
+    id: 'tel-01',
+    category: 'chamada',
+    categoryLabel: 'Prospecção por Chamada (Cold Call)',
+    title: 'Passar da Recepção / Balcão (Cold Call)',
+    scenario: 'Quando quem atende é a recepcionista ou atendente e você precisa falar com o proprietário ou diretor.',
+    keyPhrases: ['passar da recepção', 'falar com o responsável', 'direção técnica', 'estar disponível'],
+    template: `— Bom dia! Daqui fala [NOME], tudo bem consigo?
+— Olhe, estou a ligar a pedido da minha direção para falar com o proprietário ou responsável comercial do(a) [EMPRESA] sobre uma actualização da presença da empresa no Google aqui em [LOCALIDADE].
+— Ele encontra-se disponível no momento ou tem um contacto directo para eu falar com ele durante 2 minutos?`
+  },
+  {
+    id: 'tel-02',
+    category: 'chamada',
+    categoryLabel: 'Prospecção por Chamada (Cold Call)',
+    title: 'Quando o Responsável Não se Encontra',
+    scenario: 'A recepcionista diz que o dono não está no escritório ou está em atendimento.',
+    keyPhrases: ['não se encontra', 'deixar recado', 'telemóvel directo', 'melhor hora'],
+    template: `— Compreendo perfeitamente, sei que a rotina aqui em [LOCALIDADE] é muito corrida.
+— A que horas o Senhor Dr. / Gerente costuma estar no escritório com mais calma?
+— Posso deixar o meu contacto de WhatsApp consigo, ou prefere dar-me o número directo de atendimento dele para eu enviar uma nota de 3 linhas com o rascunho visual que preparámos para o(a) [EMPRESA]?`
+  },
+  {
+    id: 'tel-03',
+    category: 'chamada',
+    categoryLabel: 'Prospecção por Chamada (Cold Call)',
+    title: 'Promessa de Retorno Não Cumprida',
+    scenario: 'Ligou anteriormente e disseram que o responsável entraria em contacto, mas ninguém ligou.',
+    keyPhrases: ['disseram que iam ligar', 'liguei a semana passada', 'não incomodar', 'desenho prévio'],
+    template: `— Olá, boa tarde! Daqui é [NOME]. Liguei na semana passada e a colega da recepção tinha indicado que o responsável entraria em contacto.
+— Como não recebi chamada e sei que estão com muito trabalho, decidi ligar só para confirmar se conseguiram ver o rascunho que adiantámos para o(a) [EMPRESA], ou se prefere que eu ligue amanhã às 10h?`
+  },
+
+  // ─── 9. PROSPECÇÃO PRESENCIAL / PORTA A PORTA ──────────────────────────
+  {
+    id: 'pres-01',
+    category: 'porta-a-porta',
+    categoryLabel: 'Prospecção Presencial / Balcão',
+    title: 'Abordagem no Balcão com Protótipo no Telemóvel (30 Segundos)',
+    scenario: 'Entrar na loja, clínica ou restaurante com o telemóvel na mão com o protótipo/site aberto pronto para mostrar.',
+    keyPhrases: ['telemóvel na mão', '30 segundos', 'rascunho pronto', 'sem compromisso'],
+    template: `— Bom dia / Boa tarde! Tudo bem consigo?
+— Meu nome é [NOME]. Eu estive a analisar as buscas de clientes aqui na zona de [LOCALIDADE] e notei que muita gente procura [CATEGORIA] no Google mas acaba por ir aos concorrentes porque o(a) [EMPRESA] ainda não tem uma página interactiva no telemóvel.
+— Eu não vim tomar o vosso tempo: adiantámos este modelo funcional aqui no telemóvel (mostra o ecrã em 5 segundos com botão M-Pesa/WhatsApp).
+— O responsável encontra-se aqui para dar uma vista de olhos de 1 minuto sem qualquer compromisso?`
+  },
+  {
+    id: 'pres-02',
+    category: 'porta-a-porta',
+    categoryLabel: 'Prospecção Presencial / Balcão',
+    title: 'Responsável Ausente no Local (Pegar Contacto Directo)',
+    scenario: 'Você foi pessoalmente até o local, mas o dono não está presente.',
+    keyPhrases: ['responsável ausente', 'deixar rasto', 'contacto do telemóvel'],
+    template: `— Compreendo perfeitamente! Como sei que o proprietário está sempre em movimento, eu preparei uma demonstração interactiva para o(a) [EMPRESA].
+— Qual é o contacto de WhatsApp onde ele costuma responder a assuntos comerciais? Vou enviar o link de demonstração directo para ele ver no telemóvel em 30 segundos, com a menção de que passei cá hoje.`
+  },
+
+  // ─── 10. ANTI-VÁCUO E RETOMADA NO WHATSAPP ─────────────────────────────
+  {
+    id: 'vac-01',
+    category: 'vacuo',
+    categoryLabel: 'Anti-Vácuo & Retomada',
+    title: 'Descarte Elegante após Vácuo Total',
+    scenario: 'Enviou proposta ou mensagem inicial pelo WhatsApp e o lead visualizou mas não respondeu.',
+    keyPhrases: ['vácuo', 'descarte elegante', 'não é prioridade', 'tirar da lista'],
+    template: `Olá, [NOME] / equipa do(a) [EMPRESA], tudo bem?
+Como não tive retorno da mensagem anterior sobre a modernização da presença online do(a) [EMPRESA], presumo que este não seja o momento ou a prioridade da vossa direcção agora.
+Sem qualquer problema! Só para não vos incomodar mais no WhatsApp, posso fechar o vosso processo aqui na lista ou faz sentido voltarmos a falar no próximo mês? Um abraço!`
+  },
+  {
+    id: 'vac-02',
+    category: 'vacuo',
+    categoryLabel: 'Anti-Vácuo & Retomada',
+    title: 'Pergunta Rápida de 1 a 10',
+    scenario: 'Lead esfriou ou parou de responder no meio da negociação.',
+    keyPhrases: ['escala de 1 a 10', 'feedback sincero', 'o que faltou'],
+    template: `Olá [NOME]! Sei que a vossa rotina aí em [LOCALIDADE] é super corrida.
+Numa escala de 1 a 10, quão prioritário é para o(a) [EMPRESA] parar de perder contactos no WhatsApp e começar a receber pedidos automáticos ainda este mês?
+Se for 1, fico tranquilo e não vos tomo mais tempo; se for acima de 6, podemos acertar um formato leve via M-Pesa para arrancar já.`
+  },
+  {
+    id: 'vac-03',
+    category: 'vacuo',
+    categoryLabel: 'Anti-Vácuo & Retomada',
+    title: 'Quebra de Vácuo Clínicas/Empresas (Redes Sociais & Demonstração Grátis)',
+    scenario: 'Disparou para clínicas ou empresas locais e não teve retorno. Quebra o silêncio tocando na desqualificação dos leads recebidos e oferecendo uma demonstração sem compromisso.',
+    keyPhrases: ['saída do vácuo', 'redes sociais', 'leads desqualificados', 'demonstração grátis', 'clínicas'],
+    template: `Tudo óptimo obrigado, fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens que recebem 😅
+Então, estive a ver a vossa presença e redes sociais em [LOCALIDADE]. Entretanto, tal como outras clínicas e empresas que venho ajudando, os leads chegam muitas vezes desqualificados — seja desde a marcação e não comparecimento até dúvidas básicas por falta de informações.
+O mais importante para resolver isso é um website oficial onde os clientes possam consultar informações e ficar contextualizados com os vossos excelentes serviços antes de chamar no WhatsApp.
+Gostava de vos mostrar uma demonstração grátis de como isso ficaria, sem nenhum compromisso 👏 Faz sentido partilhar o link convosco?`
+  },
+
+  // ─── 11. QUEBRA DE OBJEÇÕES MOÇAMBIQUE ──────────────────────────────────
+  {
+    id: 'obj-01',
+    category: 'objecoes',
+    categoryLabel: 'Quebra de Objeções Moçambique',
+    title: 'Já temos um sobrinho/amigo a tratar disso',
+    scenario: 'O empresário diz que tem um conhecido ou familiar que mexe com informática ou redes sociais.',
+    keyPhrases: ['sobrinho', 'amigo', 'profissionalismo', 'resultados imediatos'],
+    template: `Compreendo perfeitamente, e é excelente já terem alguém de confiança por perto!
+A única diferença é que amigos e sobrinhos normalmente têm outras ocupações e não conseguem dar suporte comercial diário nem configurar automações que cobrem orçamentos 24 horas por dia.
+O nosso sistema entrega uma estrutura profissional pronta em 48h, integrada com WhatsApp e M-Pesa, sem sobrecarregar a família. Faz sentido ver uma demonstração de 2 minutos?`
+  },
+  {
+    id: 'obj-02',
+    category: 'objecoes',
+    categoryLabel: 'Quebra de Objeções Moçambique',
+    title: 'O mercado está em crise / Sem orçamento agora',
+    scenario: 'O prospect diz que a economia está parada ou não tem dinheiro para investir.',
+    keyPhrases: ['crise', 'sem orçamento', 'investimento que se paga', 'perder vendas'],
+    template: `Entendo a sua preocupação, Dr. / Senhor(a) [NOME], a situação económica exige cuidado redobrado com cada Metical.
+Mas é exactamente em momentos de maior aperto que o seu negócio não se pode dar ao luxo de perder nenhum cliente que pesquisa por [CATEGORIA] no telemóvel e acaba no concorrente.
+Com apenas 1 a 2 novos clientes que fechem graças ao site ou resposta rápida no WhatsApp, este investimento já fica 100% pago. Podemos inclusivamente parcelar via M-Pesa / e-Mola para não pesar no vosso caixa mensal.`
+  },
+  {
+    id: 'obj-03',
+    category: 'objecoes',
+    categoryLabel: 'Quebra de Objeções Moçambique',
+    title: 'Os nossos clientes vêm apenas por passa-palavra',
+    scenario: 'Empresário diz que não precisa de internet porque já tem clientes por recomendação.',
+    keyPhrases: ['passa palavra', 'recomendação', 'confirmar no google', 'credibilidade'],
+    template: `O passa-palavra é sem dúvida o melhor canal que existe!
+A questão é: quando um cliente recebe uma recomendação do(a) [EMPRESA], a primeira coisa que ele faz hoje em dia é procurar o vosso nome no telemóvel para ver morada, horário e fotos.
+Se não encontrar nada oficial, ou encontrar apenas uma página sem telefone válido, ele perde a confiança ou vai ao concorrente mais visível. A nossa solução serve justamente para proteger e multiplicar as recomendações que já recebe!`
+  },
+  {
+    id: 'obj-04',
+    category: 'objecoes',
+    categoryLabel: 'Quebra de Objeções Moçambique',
+    title: 'Mande uma apresentação por email que depois vemos',
+    scenario: 'Tentativa clássica de dispensar o comercial dizendo para mandar email que nunca será aberto.',
+    keyPhrases: ['mande por email', 'ninguém lê email', 'WhatsApp directo', '1 minuto'],
+    template: `Posso sim enviar por email com todo o gosto!
+Mas como sei por experiência que caixas de correio em Moçambique recebem centenas de propostas que acabam no esquecimento, prefiro não lhe fazer perder tempo com PDFs longos.
+Eu preparo um link de demonstração interactivo de 30 segundos no WhatsApp. Posso mandar para o seu número directo? Dá uma vista de olhos no telemóvel quando tiver 1 minuto de pausa.`
   }
 ];
 
 export const VAULT_CATEGORIES = [
   { id: 'todos', label: 'Todos os scripts' },
+  { id: 'chamada', label: '📞 Prospecção por Chamada (Cold Call)' },
+  { id: 'porta-a-porta', label: '🚪 Prospecção Presencial / Balcão' },
+  { id: 'vacuo', label: '⏳ Anti-Vácuo & Retomada' },
+  { id: 'objecoes', label: '🛡️ Quebra de Objeções Moçambique' },
   { id: 'primeiro-contato', label: 'Primeiro Contato (Frio)' },
   { id: 'sem-site', label: 'Empresas Sem Site' },
   { id: 'qualificacao', label: 'Qualificação & Quebra-gelo' },
@@ -1371,6 +1514,9 @@ export function buildVaultPromptMatrix(params?: {
   hasPhone?: boolean;
   service?: string;
   professionalName?: string;
+  approach?: string;
+  customInstructions?: string;
+  objections?: { objection: string; counter: string }[];
 }): string {
   const businessName = params?.businessName || '{{empresa}}';
   const category = params?.category || 'negócio local';
@@ -1421,8 +1567,30 @@ export function buildVaultPromptMatrix(params?: {
   * Proposta: Página rápida, profissional e otimizada para telemóveis com botão direto para o WhatsApp.`;
   }
 
+
+  let extraKnowledge = '';
+  if (params?.objections && params.objections.length > 0) {
+    extraKnowledge += `\n\n4. BASE DE CONHECIMENTO DE OBJEÇÕES LOCAIS DE MOÇAMBIQUE (TREINO DO UTILIZADOR):\nO utilizador treinou as seguintes respostas a objeções comuns. Antecipe-as e quebre-as com naturalidade:\n` +
+      params.objections.map(o => `   - Quando o cliente diz: "${o.objection}" -> Quebra / Resposta pronta: "${o.counter}"`).join('\n');
+  }
+
+  if (params?.customInstructions && params.customInstructions.trim()) {
+    extraKnowledge += `\n\n5. ADAPTAÇÃO SOLICITADA PELO PROFISSIONAL (IDEIA DO UTILIZADOR):\n"${params.customInstructions.trim()}"\nIncorpore estritamente este direcionamento na abordagem.`;
+  }
+
+  let canalDirective = '';
+  if (params?.approach === 'call') {
+    canalDirective = `\n- CANAL ESCOLHIDO: CHAMADA TELEFÓNICA (COLD CALL). Redija um script falado natural, com cumprimentos respeitosos em Moçambique, passando pela recepção para falar com o proprietário/doutor.`;
+  } else if (params?.approach === 'door') {
+    canalDirective = `\n- CANAL ESCOLHIDO: PORTA A PORTA / PRESENCIAL. Redija um guião para o vendedor dizer no balcão com o telemóvel na mão mostrando o protótipo em 30 segundos.`;
+  } else if (params?.approach === 'vacuo' || params?.approach === 'vacuo_redes') {
+    canalDirective = `\n- CANAL ESCOLHIDO: ANTI-VÁCUO / REDES SOCIAIS / FOLLOW-UP. O lead não respondeu às mensagens anteriores. Comece de forma calorosa e empática ("fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens"), mencione que viu a presença e redes sociais em ${locality}, aponte a dor de leads desqualificados e ofereça demonstração grátis sem compromisso.`;
+  } else if (params?.approach === 'retorno') {
+    canalDirective = `\n- CANAL ESCOLHIDO: RETORNO DE PROMESSA. O contacto disse antes que o responsável iria ligar ou não se encontrava.`;
+  }
+
   return `
-[MATRIZ OFICIAL DE SCRIPTS COMERCIAIS - COFRE CÓDIGO ZERO / PROSPECTA MZ]
+[MATRIZ OFICIAL DE SCRIPTS COMERCIAIS - COFRE PROSPECTA MZ]
 Utilize a psicologia de vendas e os princípios destes roteiros testados em Moçambique para redigir a mensagem de abordagem (draftMessage) e estruturar as hipóteses comerciais para qualquer setor de atividade:
 
 1. MATRIZ DE ABORDAGEM INICIAL RECOMENDADA (${!hasWebsite ? 'EMPRESA SEM WEBSITE PRÓPRIO' : 'PRIMEIRO CONTATO PROFISSIONAL'}):
@@ -1439,7 +1607,7 @@ ${primaryTemplate.template
 
 2. DIRETRIZES DO SERVIÇO EM FOCO:${serviceStrategy}
 
-3. REGRAS DE CONVERSÃO E ADAPTAÇÃO LOCAL PARA MOÇAMBIQUE:
+3. REGRAS DE CONVERSÃO E ADAPTAÇÃO LOCAL PARA MOÇAMBIQUE:${canalDirective}${extraKnowledge}
 - Contexto de Moçambique: Em Moçambique, a maioria das decisões e contactos comerciais passa directamente pelo WhatsApp e pagamentos por M-Pesa e e-Mola.
 - Ausência de site (empresas sem site): Se a empresa não possui website identificado, destaque como isso faz pessoas desistirem antes de chamar no WhatsApp, e ofereça um rascunho visual/demonstração sem compromisso.
 - Proposta de Valor: Foco em parar a sangria de clientes perdidos por respostas lentas ou falta de credibilidade.

@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  AlertTriangle, ArrowDownLeft, ArrowRight, ArrowUpRight, Bookmark, Building2, CalendarDays,
-  Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock3,
+  AlertTriangle, ArrowDownLeft, ArrowRight, ArrowUpRight, Bookmark, Building2, Calendar, CalendarDays,
+  Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock, Clock3,
   Compass, Copy, Database, Download, ExternalLink, FileText, Flame, Globe2,
   LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Play, Plus,
   Radar, RefreshCw, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
-  Users, Wallet, X
+  Upload, Users, Wallet, X
 } from 'lucide-react';
 import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
@@ -18,7 +18,7 @@ import {
   PLANS, hasActivePaidPlan, getPlanMaxLeads,
   type Analysis, type Business, type Dashboard, type Job, type Lead,
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
-  type VaultScript, type CountryOption, type PlanType, type SubscriptionStatus
+  type VaultScript, type CountryOption, type PlanType, type SubscriptionStatus, type UserObjection
 } from '@/lib/contracts';
 
 type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'integrations' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
@@ -89,7 +89,11 @@ const post = <T,>(path: string, data: unknown = {}) => api<T>(path, { method: 'P
 
 
 function getCoherentVaultScript(
-  type: 'primeiro-contato' | 'sem-site' | 'esta-caro' | 'fechamento-mpesa' | 'followup',
+  type: 'primeiro-contato' | 'sem-site' | 'esta-caro' | 'fechamento-mpesa' | 'followup' |
+        'call-recepcao' | 'call-ausente' | 'call-retorno' |
+        'porta-prototipo' | 'porta-ausente' |
+        'vacuo-descarte' | 'vacuo-escala' |
+        'obj-sobrinho' | 'obj-crise' | 'obj-passapalavra' | 'obj-email',
   serviceName: string,
   biz: Business,
   userName: string,
@@ -274,6 +278,98 @@ Assim que enviarem o comprovativo por aqui, dou início imediato ao desenvolvime
 Conseguiram analisar a proposta de ${serviceName.toLowerCase()} que vos enviei ontem? Sei que a rotina do negócio é sempre corrida!
 
 Se preferirem, posso mandar um áudio de 1 minuto a resumir os principais ganhos para vocês, ou tirar qualquer dúvida rápida. Como está a vossa disponibilidade hoje?`;
+  }
+
+  // ─── CANAL: CHAMADA TELEFÓNICA (COLD CALL) ───
+  if (type === 'call-recepcao') {
+    return `— Bom dia! Daqui fala ${sender}, tudo bem consigo?
+
+— Olhe, estou a ligar a pedido da minha direcção técnica para falar 2 minutos com o Dr./proprietário do(a) ${bizName} sobre uma actualização importante da presença da empresa no Google aqui em ${loc}.
+
+— Ele encontra-se disponível no momento ou tem um contacto directo para eu falar com ele sem vos fazer perder tempo?`;
+  }
+
+  if (type === 'call-ausente') {
+    return `— Compreendo perfeitamente, sei que a rotina com os clientes aqui em ${loc} é muito corrida!
+
+— A que horas o Senhor Dr. / Gerente costuma estar disponível com mais calma?
+
+— Posso deixar o meu contacto de WhatsApp consigo, ou prefere dar-me o número directo dele para eu enviar uma nota de 3 linhas com a prévia visual que preparámos para o(a) ${bizName}?`;
+  }
+
+  if (type === 'call-retorno') {
+    return `— Olá, boa tarde! Daqui fala ${sender}. Liguei na semana passada e indicaram-me que o responsável comercial entraria em contacto comigo.
+
+— Como não recebi a chamada e imagino que estejam com muito trabalho, decidi ligar só para confirmar se conseguiram ver o rascunho de ${serviceName.toLowerCase()} que adiantámos para o(a) ${bizName}, ou se prefere que eu ligue noutro horário?`;
+  }
+
+  // ─── CANAL: PORTA A PORTA / BALCÃO ───
+  if (type === 'porta-prototipo') {
+    return `— Bom dia / Boa tarde! Tudo bem consigo?
+
+— Meu nome é ${sender}. Estive a analisar as pesquisas no Google aqui na zona de ${loc} e notei que muita gente procura ${cat} no telemóvel, mas o(a) ${bizName} ainda não tem uma página interactiva com botão para o WhatsApp.
+
+— Eu não vim tomar o vosso tempo de trabalho: já adiantei este modelo funcional aqui no meu telemóvel (mostra o ecrã em 5 segundos com botão WhatsApp/M-Pesa).
+
+— O responsável encontra-se aqui para dar uma vista de olhos rápida de 1 minuto sem qualquer compromisso?`;
+  }
+
+  if (type === 'porta-ausente') {
+    return `— Compreendo perfeitamente! Como sei que a gerência está sempre em movimento, eu preparei uma demonstração interactiva para o(a) ${bizName}.
+
+— Qual é o contacto de WhatsApp onde o responsável costuma responder a assuntos comerciais? Vou enviar o link directo para ele ver no telemóvel em 30 segundos, com a menção de que estive cá pessoalmente.`;
+  }
+
+  // ─── CANAL: ANTI-VÁCUO & FOLLOW-UP ───
+  if (type === 'vacuo-descarte') {
+    return `Olá, equipa do(a) ${bizName}, tudo bem?
+
+Como não tive retorno da mensagem anterior sobre a modernização de ${serviceName.toLowerCase()} para o vosso negócio, presumo que este não seja o momento ou a prioridade da vossa direcção agora.
+
+Sem qualquer problema! Só para não vos incomodar mais no WhatsApp, posso fechar o vosso processo aqui na nossa lista ou faz sentido voltarmos a falar no próximo mês?
+
+Um abraço e continuação de bom trabalho!`;
+  }
+
+  if (type === 'vacuo-escala') {
+    return `Olá ${bizName}! Sei que a vossa rotina aí em ${loc} é super corrida.
+
+Numa escala de 1 a 10, quão prioritário é para o vosso negócio começar a atrair mais clientes qualificados no WhatsApp com ${serviceName.toLowerCase()} ainda este mês?
+
+Se for 1, fico tranquilo e não vos tomo mais tempo; se for acima de 6, podemos acertar um formato leve via M-Pesa para arrancarmos já sem pesar no vosso caixa.`;
+  }
+
+  // ─── CANAL: QUEBRA DE OBJEÇÕES MOÇAMBIQUE ───
+  if (type === 'obj-sobrinho') {
+    return `Compreendo perfeitamente, equipa do(a) ${bizName}, e é óptimo já terem alguém de confiança por perto!
+
+A única questão é que amigos e familiares normalmente têm outras ocupações e não conseguem dar suporte comercial diário nem configurar automações que respondam orçamentos 24 horas por dia.
+
+A nossa solução entrega uma estrutura profissional pronta em 48h, integrada com WhatsApp e M-Pesa, sem sobrecarregar a família. Faz sentido ver uma demonstração de 2 minutos?`;
+  }
+
+  if (type === 'obj-crise') {
+    return `Entendo perfeitamente a sua preocupação, a situação económica exige cuidado redobrado com cada Metical.
+
+Mas é exactamente em momentos de maior aperto que o(a) ${bizName} não pode deixar escapar clientes que pesquisam por ${cat} em ${loc} e acabam a comprar no concorrente.
+
+Com apenas 1 a 2 novos clientes que fechem graças a esta melhoria, este investimento já fica 100% pago. Podemos inclusivamente parcelar via M-Pesa / e-Mola para facilitar o vosso fluxo de caixa mensal.`;
+  }
+
+  if (type === 'obj-passapalavra') {
+    return `O passa-palavra é sem dúvida o melhor canal que existe!
+
+A questão é: quando alguém recomenda o(a) ${bizName}, a primeira coisa que a pessoa faz hoje em dia é procurar o vosso nome no telemóvel para ver morada, fotos e horários.
+
+Se não encontrar uma página oficial rápida com botão de WhatsApp, ela perde a confiança ou vai ao concorrente que apareceu primeiro. A nossa proposta serve justamente para blindar e multiplicar as recomendações que já recebem!`;
+  }
+
+  if (type === 'obj-email') {
+    return `Posso sim enviar por email com todo o gosto!
+
+Mas como sei por experiência que em Moçambique as caixas de correio recebem centenas de propostas que ninguém tem tempo de ler, prefiro não lhe fazer perder tempo com PDFs longos.
+
+Eu preparo um link de demonstração interactivo de 30 segundos no WhatsApp. Posso mandar para o seu contacto directo? Dá uma vista de olhos no telemóvel quando tiver uma pausa de 1 minuto.`;
   }
 
   return '';
@@ -605,7 +701,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [waTestPhone, setWaTestPhone] = useState('847404158');
   const [waTestMessage, setWaTestMessage] = useState('Olá! Teste de integração do WhatsApp com a Prospecta SaaS concluído com sucesso 🚀');
   const [waTestSending, setWaTestSending] = useState(false);
-  const [integrationSource, setIntegrationSource] = useState<'search' | 'leads'>('search');
+  const [integrationSource, setIntegrationSource] = useState<'search' | 'leads' | 'imported'>('search');
   const [integrationFilter, setIntegrationFilter] = useState<'all' | 'with_wa' | 'no_wa'>('all');
   const [safeIntervalSec, setSafeIntervalSec] = useState<number>(20);
   const [waMinDelaySec, setWaMinDelaySec] = useState<number>(20);
@@ -613,6 +709,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [waDailyLimit, setWaDailyLimit] = useState<number>(15);
   const [waStartHour, setWaStartHour] = useState<number>(8);
   const [waEndHour, setWaEndHour] = useState<number>(19);
+  const [waScheduleEnabled, setWaScheduleEnabled] = useState(false);
+  const [waScheduledAt, setWaScheduledAt] = useState('');
+  const [importedBusinesses, setImportedBusinesses] = useState<Business[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importInputText, setImportInputText] = useState('');
+  const [importActiveTab, setImportActiveTab] = useState<'file' | 'paste'>('paste');
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [campaignData, setCampaignData] = useState<any>(null);
   const [campaignLoading, setCampaignLoading] = useState(false);
@@ -749,7 +851,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [service, setService] = useState<string>(SERVICES[0]);
   const [messageLength, setMessageLength] = useState<'curta' | 'media' | 'longa'>('curta');
   const [customPrompt, setCustomPrompt] = useState('');
-  const [approach, setApproach] = useState<'site_pronto' | 'atendente' | 'direta' | 'mpesa' | 'custom'>('site_pronto');
+  const [approach, setApproach] = useState<'site_pronto' | 'atendente' | 'direta' | 'mpesa' | 'call' | 'door' | 'vacuo' | 'vacuo_redes' | 'retorno' | 'custom'>('site_pronto');
+  const [activePlaybookTab, setActivePlaybookTab] = useState<'whatsapp' | 'call' | 'door' | 'vacuo' | 'objecoes'>('whatsapp');
+  const [newObjectionText, setNewObjectionText] = useState('');
+  const [newCounterText, setNewCounterText] = useState('');
+  const [isSavingObjection, setIsSavingObjection] = useState(false);
   const [showPromptDetails, setShowPromptDetails] = useState(true);
   const [customizingVaultId, setCustomizingVaultId] = useState<string | null>(null);
   const [vaultCustomNiche, setVaultCustomNiche] = useState('');
@@ -887,8 +993,22 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         }
       }));
 
-      const res = await post<{ ok: boolean; campaign: any }>('wa/campaigns', {
-        name: `Campanha ${new Date().toLocaleDateString('pt-MZ')} (${withWaList.length} leads)`,
+      const scheduledIso = (waScheduleEnabled && waScheduledAt) ? new Date(waScheduledAt).toISOString() : null;
+      if (waScheduleEnabled) {
+        if (!scheduledIso || isNaN(new Date(scheduledIso).getTime())) {
+          notify('Por favor, defina uma data e hora válidas para o agendamento.', true);
+          setCampaignLoading(false);
+          return;
+        }
+        if (new Date(scheduledIso) <= new Date()) {
+          notify('A data e hora de agendamento devem ser futuras.', true);
+          setCampaignLoading(false);
+          return;
+        }
+      }
+
+      const res = await post<{ ok: boolean; campaign: any; isScheduled?: boolean }>('wa/campaigns', {
+        name: `Campanha ${waScheduleEnabled ? 'Agendada ' : ''}${new Date().toLocaleDateString('pt-MZ')} (${withWaList.length} leads)`,
         messageTemplate: bulkTemplate,
         recipients,
         settings: {
@@ -899,7 +1019,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           endHour: waEndHour,
           pauseEvery: 20,
           pauseDurationMinutes: 7,
-          confirmWarmupOverride
+          confirmWarmupOverride,
+          scheduledAt: scheduledIso
         }
       });
 
@@ -908,7 +1029,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         setCampaignData(res.campaign);
         setShowConfirmModal(false);
         setIsBulkModalOpen(false);
-        notify(`🚀 Campanha criada com sucesso! ${withWaList.length} leads em processamento na fila segura.`);
+        if (waScheduleEnabled && scheduledIso) {
+          notify(`📅 Campanha agendada com sucesso para ${new Date(scheduledIso).toLocaleString('pt-MZ')}! (${withWaList.length} leads programados)`);
+        } else {
+          notify(`🚀 Campanha criada com sucesso! ${withWaList.length} leads em processamento na fila segura.`);
+        }
         if (view !== 'integrations') {
           setView('integrations');
         }
@@ -918,7 +1043,94 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     } finally {
       setCampaignLoading(false);
     }
-  }, [filters, user, bulkTemplate, waMinDelaySec, waMaxDelaySec, waDailyLimit, waStartHour, waEndHour, confirmWarmupOverride, waServiceStatus, view, notify]);
+  }, [filters, user, bulkTemplate, waMinDelaySec, waMaxDelaySec, waDailyLimit, waStartHour, waEndHour, confirmWarmupOverride, waServiceStatus, view, notify, waScheduleEnabled, waScheduledAt]);
+
+  const handleImportContacts = useCallback((textData: string) => {
+    if (!textData || !textData.trim()) {
+      notify('Por favor forneça os contactos por ficheiro ou texto.', true);
+      return;
+    }
+    const lines = textData.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      notify('Nenhuma linha encontrada no ficheiro ou texto.', true);
+      return;
+    }
+
+    const newBizList: Business[] = [];
+    const currentCountry = filters.country || 'MZ';
+    const stamp = new Date().toISOString();
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (i === 0 && (line.toLowerCase().includes('nome') || line.toLowerCase().includes('telefone') || line.toLowerCase().includes('phone'))) {
+        continue;
+      }
+      const parts = line.split(/[;,\t]/).map(p => p.trim().replace(/^[\"\']|[\"\']$/g, ''));
+      let name = '';
+      let rawPhone = '';
+      let category = 'Contacto Importado';
+      let locality = 'Maputo';
+
+      if (parts.length === 1) {
+        rawPhone = parts[0];
+        name = `Contacto ${rawPhone}`;
+      } else if (parts.length === 2) {
+        if (/[\d+]{7,}/.test(parts[0]) && !/[\d+]{7,}/.test(parts[1])) {
+          rawPhone = parts[0];
+          name = parts[1];
+        } else {
+          name = parts[0];
+          rawPhone = parts[1];
+        }
+      } else {
+        name = parts[0];
+        rawPhone = parts[1];
+        if (parts[2]) category = parts[2];
+        if (parts[3]) locality = parts[3];
+      }
+
+      let digits = rawPhone.replace(/\D/g, '');
+      let formattedPhone = rawPhone;
+      if (digits.length === 9 && ['82', '83', '84', '85', '86', '87'].some(p => digits.startsWith(p))) {
+        formattedPhone = `+258${digits}`;
+      } else if (digits.length >= 8 && !rawPhone.startsWith('+')) {
+        formattedPhone = `+${digits}`;
+      }
+
+      const id = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${i}`;
+      const biz: Business = {
+        id,
+        name: name || `Lead ${formattedPhone}`,
+        category,
+        province: locality.toLowerCase().includes('matola') ? 'Maputo Província' : 'Maputo Cidade',
+        locality,
+        country: currentCountry,
+        description: 'Contacto importado externamente para campanha de WhatsApp',
+        phone: formattedPhone,
+        website: null,
+        instagram: null,
+        source: 'Importado',
+        observedAt: stamp,
+        isDemo: false,
+        evidence: [
+          { id: `${id}-name`, field: 'name', value: name, source: 'Lista Importada', observedAt: stamp }
+        ]
+      };
+      newBizList.push(biz);
+    }
+
+    if (newBizList.length === 0) {
+      notify('Nenhum contacto válido pôde ser extraído.', true);
+      return;
+    }
+
+    setImportedBusinesses(prev => [...newBizList, ...prev]);
+    setSelectedBizIds(prev => Array.from(new Set([...prev, ...newBizList.map(b => b.id)])));
+    setIntegrationSource('imported');
+    setShowImportModal(false);
+    setImportInputText('');
+    notify(`✅ ${newBizList.length} contactos importados com sucesso e prontos para disparo!`);
+  }, [filters, notify]);
 
   const handlePauseCampaign = useCallback(async () => {
     if (!activeCampaignId) return;
@@ -1431,12 +1643,81 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
   async function saveBusiness(b: Business) {
     await run(async () => {
-      const result = await post<{ lead: Lead }>('leads', { businessId: b.id });
+      const result = await post<{ lead: Lead }>('leads', { businessId: b.id, businessData: b });
       setSelectedLead(result.lead);
       if (business?.id === b.id) setBusiness({ ...b, saved: true });
       setSearchResult(prev => prev ? { ...prev, results: prev.results.map(item => item.id === b.id ? { ...item, saved: true } : item) } : prev);
       notify('Empresa guardada nas suas oportunidades.');
     });
+  }
+
+  async function bulkSaveBusinesses(businessesToSave: Business[]) {
+    if (!businessesToSave || businessesToSave.length === 0) return;
+    await run(async () => {
+      const res = await post<{ leads?: Lead[]; count?: number }>('leads', {
+        businesses: businessesToSave
+      });
+      const savedIds = new Set(businessesToSave.map(b => b.id));
+      setSearchResult(prev => prev ? {
+        ...prev,
+        results: prev.results.map(item => savedIds.has(item.id) ? { ...item, saved: true } : item)
+      } : prev);
+      notify(`🎉 ${res?.count || businessesToSave.length} empresa(s) guardada(s) com sucesso em Leads Salvos!`);
+    });
+  }
+
+  async function saveObjections(updatedList: UserObjection[]) {
+    if (!user) return;
+    setIsSavingObjection(true);
+    // Actualização optimista imediata na interface
+    setUser(prev => prev ? { ...prev, profile: { ...prev.profile, objections: updatedList } } : prev);
+    setProfile(prev => prev ? { ...prev, objections: updatedList } : prev);
+    try {
+      const payload = {
+        name: user.name,
+        service: user.profile.service,
+        pitch: user.profile.pitch,
+        province: user.profile.province,
+        phone: user.profile.phone,
+        nationwide: user.profile.nationwide,
+        onboarded: true,
+        objections: updatedList
+      };
+      const res = await api<{ success?: boolean; user?: User }>('profile', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const updatedUser = res?.user || (res as unknown as User);
+      if (updatedUser && updatedUser.profile) {
+        setUser(updatedUser);
+        setProfile(updatedUser.profile);
+      }
+      notify('Base de Conhecimento da IA actualizada com sucesso! 🧠');
+    } catch (err: any) {
+      notify(err?.message || 'Erro ao guardar objeções', true);
+    } finally {
+      setIsSavingObjection(false);
+    }
+  }
+
+  function suggestCounterForObjection(objection: string): string {
+    const o = objection.toLowerCase();
+    if (o.includes('sobrinho') || o.includes('amigo') || o.includes('conhecido') || o.includes('primo')) {
+      return 'Compreendo perfeitamente, e é óptimo já terem alguém de confiança por perto! A única questão é que amigos e familiares normalmente têm outros afazeres e não conseguem dar suporte comercial diário nem configurar automações que respondam orçamentos 24 horas por dia. A nossa estrutura entrega um sistema profissional pronto em 48h, integrado com WhatsApp e M-Pesa, sem sobrecarregar a família. Faz sentido ver uma demonstração de 2 minutos?';
+    }
+    if (o.includes('crise') || o.includes('caro') || o.includes('dinheiro') || o.includes('orçamento') || o.includes('preço') || o.includes('pagar')) {
+      return 'Entendo perfeitamente a sua preocupação com o momento económico. Mas é exactamente agora que o vosso negócio não se pode dar ao luxo de perder nenhum cliente que procura no telemóvel e acaba a comprar no concorrente. Com apenas 1 a 2 novos clientes que fechem graças a este sistema, o investimento já fica 100% pago. Podemos inclusive parcelar via M-Pesa / e-Mola para não pesar no vosso caixa mensal.';
+    }
+    if (o.includes('passa-palavra') || o.includes('recomend') || o.includes('indicaç')) {
+      return 'O passa-palavra é sem dúvida o melhor canal que existe! A questão é: quando alguém recomenda a vossa empresa, a primeira coisa que o cliente faz no telemóvel é pesquisar o vosso nome no Google para confirmar endereço, fotos e horários. Se não encontrar uma página oficial rápida com botão de WhatsApp, ela perde a confiança ou vai ao concorrente mais visível. A nossa solução serve justamente para proteger e multiplicar as recomendações que já recebem!';
+    }
+    if (o.includes('email') || o.includes('e-mail') || o.includes('apresentação') || o.includes('proposta')) {
+      return 'Posso sim enviar por email com todo o gosto! Mas como sei por experiência que em Moçambique as caixas de correio recebem centenas de propostas que ninguém tem tempo de ler, prefiro não lhe fazer perder tempo com PDFs longos. Eu preparo um link interactivo de demonstração de 30 segundos no WhatsApp. Posso mandar para o seu contacto directo? Dá uma vista de olhos no telemóvel quando tiver 1 minuto de pausa.';
+    }
+    if (o.includes('depois') || o.includes('mais tarde') || o.includes('mês que vem') || o.includes('proximo ano') || o.includes('próximo mês')) {
+      return 'Compreendo perfeitamente o vosso timing. Só para ter uma ideia e poder organizar a nossa equipa técnica aqui em Moçambique: o que precisaria acontecer até lá para ser o momento ideal? Pergunto porque podemos já adiantar o modelo visual sem custos, e quando decidirem arrancar o sistema já estará pronto a gerar clientes.';
+    }
+    return `Compreendo perfeitamente a vossa posição. No mercado de Moçambique, o que mais vemos são empresas a perderem oportunidades diárias por não terem um canal ágil no WhatsApp. O nosso trabalho é entregar uma solução prática, com adesão facilitada via M-Pesa / e-Mola, que se paga com os primeiros contactos. Faz sentido fazermos um teste rápido de 2 minutos sem qualquer compromisso?`;
   }
 
   async function generate(fresh = false) {
@@ -2476,16 +2757,20 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             >
                               {allDisplayedSelected ? 'Desmarcar lista' : `Selecionar visíveis (${displayedResults.length})`}
                             </button>
-                            {resultsSubTab === 'no_whatsapp' && noWaList.length > 0 && (
-                              <button
-                                type="button"
-                                className="button outline compact"
-                                style={{ fontSize: 11, padding: '4px 10px' }}
-                                onClick={() => exportBusinessesToCsv(noWaList, `prospecta_sem_whatsapp_${searchResult.filters.niche || 'leads'}.csv`)}
-                              >
-                                <Download size={13} /> Exportar CSV
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              className="button outline compact"
+                              style={{ fontSize: 11, padding: '4px 10px' }}
+                              onClick={() => {
+                                const listToExport = displayedResults.length > 0 ? displayedResults : (searchResult.results || []);
+                                const tabName = resultsSubTab === 'no_whatsapp' ? 'sem_whatsapp' : resultsSubTab === 'with_whatsapp' ? 'com_whatsapp' : 'todos';
+                                exportBusinessesToCsv(listToExport, `prospecta_${tabName}_${searchResult.filters.niche || 'leads'}.csv`);
+                                notify(`Exportadas ${listToExport.length} empresas para CSV!`);
+                              }}
+                              title="Exportar empresas desta aba para CSV compatível com Excel"
+                            >
+                              <Download size={13} /> Exportar Lista ({displayedResults.length})
+                            </button>
                           </div>
                         </div>
 
@@ -2694,6 +2979,32 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         </button>
                         <button
                           type="button"
+                          className="button outline compact"
+                          style={{ fontSize: 12 }}
+                          onClick={() => {
+                            const selectedBusinesses = (searchResult?.results || []).filter(b => selectedBizIds.includes(b.id));
+                            exportBusinessesToCsv(selectedBusinesses, `prospecta_selecionados_${selectedBusinesses.length}_empresas.csv`);
+                            notify(`Exportadas ${selectedBusinesses.length} empresas selecionadas para CSV!`);
+                          }}
+                          title="Descarregar ficheiro CSV dos contactos selecionados"
+                        >
+                          <Download size={14} /> Exportar ({selectedBizIds.length})
+                        </button>
+                        <button
+                          type="button"
+                          className="button outline compact"
+                          style={{ fontSize: 12, borderColor: '#3B82F6', color: '#93C5FD' }}
+                          disabled={busy}
+                          onClick={() => {
+                            const selectedBusinesses = (searchResult?.results || []).filter(b => selectedBizIds.includes(b.id));
+                            bulkSaveBusinesses(selectedBusinesses);
+                          }}
+                          title="Guardar todas as empresas selecionadas em Leads Salvos"
+                        >
+                          <Bookmark size={14} /> Guardar Selecionados ({selectedBizIds.length})
+                        </button>
+                        <button
+                          type="button"
                           className="button compact"
                           style={{ background: '#25D366', color: '#000', fontWeight: 700, fontSize: 13 }}
                           onClick={() => {
@@ -2792,6 +3103,121 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             )}
                           </div>
 
+                          {/* Seletor Rápido de Estratégia de Abordagem */}
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <label style={{ fontSize: 12, color: '#CBD5E1', fontWeight: 600 }}>
+                                Estratégia de Abordagem Personalizada:
+                              </label>
+                              {vaultScripts.length > 0 && (
+                                <select
+                                  style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: 6, color: '#93C5FD', fontSize: 11, padding: '3px 8px' }}
+                                  onChange={e => {
+                                    const s = vaultScripts.find(item => item.id === e.target.value);
+                                    if (s) {
+                                      const adapted = s.template
+                                        .replace(/\[EMPRESA\]|\{\{empresa\}\}/gi, '{nome_empresa}')
+                                        .replace(/\[NOME\]|\{\{nome\}\}/gi, '{responsavel}')
+                                        .replace(/\[LOCALIDADE\]|\{\{localidade\}\}/gi, '{cidade}')
+                                        .replace(/\[CATEGORIA\]|\{\{categoria\}\}/gi, '{nicho}')
+                                        .replace(/\[SERVIÇO\]|\{\{servico\}\}/gi, '{servico}');
+                                      setBulkTemplate(adapted);
+                                      notify(`Script "${s.title}" do Cofre aplicado ao lote!`);
+                                    }
+                                  }}
+                                  defaultValue=""
+                                >
+                                  <option value="" disabled>📁 Inserir Script do Cofre ({vaultScripts.length} disponíveis)...</option>
+                                  {vaultScripts.map(s => (
+                                    <option key={s.id} value={s.id}>{s.title}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+                              <button
+                                type="button"
+                                style={{
+                                  background: 'rgba(30, 41, 59, 0.65)',
+                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  borderRadius: 8,
+                                  padding: '8px 10px',
+                                  textAlign: 'left',
+                                  color: '#FFF',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  setBulkTemplate('Olá, tudo bem com a equipa de atendimento do(a) {nome_empresa}?\n\nO meu nome é {responsavel}. Estive a acompanhar o vosso trabalho de {nicho} em {cidade} e tomei a iniciativa de adiantar e desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSeria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem compromisso?');
+                                  notify('Abordagem "Site Pronto / Demo" aplicada!');
+                                }}
+                              >
+                                <strong style={{ fontSize: 12, display: 'block', color: '#60A5FA' }}>🚀 Site Pronto / Demo</strong>
+                                <small style={{ fontSize: 11, color: '#94A3B8' }}>Pedir à atendente para mostrar rascunho visual já desenhado.</small>
+                              </button>
+
+                              <button
+                                type="button"
+                                style={{
+                                  background: 'rgba(30, 41, 59, 0.65)',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  borderRadius: 8,
+                                  padding: '8px 10px',
+                                  textAlign: 'left',
+                                  color: '#FFF',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  setBulkTemplate('Tudo ótimo obrigado, fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens que recebem 😅\n\nEntão, estive a ver a presença e redes sociais do(a) {nome_empresa} em {cidade}. Entretanto, tal como outras empresas e clínicas que venho ajudando, os contactos muitas vezes chegam desqualificados ou com dúvidas básicas por falta de um website oficial com informações claras dos vossos serviços.\n\nEu gostava de mostrar uma demonstração grátis de como isso ficaria, sem nenhum compromisso 👏 Faz sentido partilhar o link convosco?');
+                                  notify('Abordagem "Anti-Vácuo & Redes Sociais" aplicada!');
+                                }}
+                              >
+                                <strong style={{ fontSize: 12, display: 'block', color: '#FBBF24' }}>🔥 Anti-Vácuo & Redes Sociais</strong>
+                                <small style={{ fontSize: 11, color: '#94A3B8' }}>Quebra o silêncio com a dor de leads desqualificados e demo grátis.</small>
+                              </button>
+
+                              <button
+                                type="button"
+                                style={{
+                                  background: 'rgba(30, 41, 59, 0.65)',
+                                  border: '1px solid rgba(147, 51, 234, 0.3)',
+                                  borderRadius: 8,
+                                  padding: '8px 10px',
+                                  textAlign: 'left',
+                                  color: '#FFF',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  setBulkTemplate('Olá, bom dia! Tudo bem com quem está a atender no WhatsApp do(a) {nome_empresa}?\n\nO meu nome é {responsavel}. Estive a ver a reputação da vossa empresa em {cidade} e notei uma grande procura pelos vossos serviços.\n\nPreparei uma proposta rápida para trazer ainda mais clientes qualificados directamente para este vosso WhatsApp através de uma presença digital moderna.\n\nCom quem posso falar na equipa sobre a presença digital e captação de clientes da empresa? Seria possível passar este contacto ao responsável?');
+                                  notify('Abordagem "Falar com Atendente" aplicada!');
+                                }}
+                              >
+                                <strong style={{ fontSize: 12, display: 'block', color: '#C084FC' }}>👩‍💼 Falar com Atendente</strong>
+                                <small style={{ fontSize: 11, color: '#94A3B8' }}>Descobrir o tomador de decisão com gentileza no balcão.</small>
+                              </button>
+
+                              <button
+                                type="button"
+                                style={{
+                                  background: 'rgba(30, 41, 59, 0.65)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  borderRadius: 8,
+                                  padding: '8px 10px',
+                                  textAlign: 'left',
+                                  color: '#FFF',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  setBulkTemplate('Olá, equipa do(a) {nome_empresa}! Tudo bem?\n\nO meu nome é {responsavel}. Estive a analisar o vosso segmento em {cidade} e preparei uma proposta prática para {servico} que se paga logo nos primeiros clientes.\n\nPara facilitar ao máximo neste momento, disponibilizamos adesão facilitada com parcelamento via M-Pesa / e-Mola em Moçambique.\n\nFaz sentido ver uma demonstração de 2 minutos sem qualquer compromisso?');
+                                  notify('Abordagem "Facilidade M-Pesa" aplicada!');
+                                }}
+                              >
+                                <strong style={{ fontSize: 12, display: 'block', color: '#34D399' }}>💰 Fechamento M-Pesa</strong>
+                                <small style={{ fontSize: 11, color: '#94A3B8' }}>Quebra objeção de custo com parcelamento facilitado em MT.</small>
+                              </button>
+                            </div>
+                          </div>
+
                           {/* Variáveis dinâmicas inseríveis */}
                           <div style={{ marginBottom: 8 }}>
                             <label style={{ fontSize: 12, color: '#CBD5E1', fontWeight: 600, display: 'block', marginBottom: 6 }}>
@@ -2879,6 +3305,89 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             </div>
                           )}
 
+                          {/* Seção de Agendamento do Disparo */}
+                          {withWaList.length > 0 && (
+                            <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 10, padding: '12px 14px', marginTop: 14 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <Calendar size={18} color={waScheduleEnabled ? '#A855F7' : '#94A3B8'} />
+                                  <div>
+                                    <strong style={{ fontSize: 13, color: '#F8FAFC' }}>
+                                      {waScheduleEnabled ? '📅 Disparo Programado (Agendamento Ativo)' : '⚡ Disparo Imediato'}
+                                    </strong>
+                                    <small style={{ display: 'block', fontSize: 11, color: '#94A3B8' }}>
+                                      {waScheduleEnabled
+                                        ? 'As mensagens sairão automaticamente pelo Baileys na data e hora selecionadas.'
+                                        : 'A fila começará a enviar assim que clicar no botão abaixo.'}
+                                    </small>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.35)', borderRadius: 8, padding: 3, gap: 4 }}>
+                                  <button
+                                    type="button"
+                                    style={{
+                                      padding: '5px 12px',
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      borderRadius: 6,
+                                      background: !waScheduleEnabled ? '#2563EB' : 'transparent',
+                                      color: '#FFF',
+                                      border: 'none',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => setWaScheduleEnabled(false)}
+                                  >
+                                    ⚡ Disparar Agora
+                                  </button>
+                                  <button
+                                    type="button"
+                                    style={{
+                                      padding: '5px 12px',
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      borderRadius: 6,
+                                      background: waScheduleEnabled ? '#A855F7' : 'transparent',
+                                      color: '#FFF',
+                                      border: 'none',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                      setWaScheduleEnabled(true);
+                                      if (!waScheduledAt) {
+                                        const d = new Date(Date.now() + 60 * 60 * 1000);
+                                        setWaScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+                                      }
+                                    }}
+                                  >
+                                    📅 Agendar Envio
+                                  </button>
+                                </div>
+                              </div>
+                              {waScheduleEnabled && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                                  <label style={{ fontSize: 12, color: '#CBD5E1', fontWeight: 600 }}>Data e hora de início:</label>
+                                  <input
+                                    type="datetime-local"
+                                    value={waScheduledAt}
+                                    onChange={e => setWaScheduledAt(e.target.value)}
+                                    min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                                    style={{
+                                      background: 'rgba(30, 41, 59, 0.9)',
+                                      border: '1px solid rgba(168, 85, 247, 0.5)',
+                                      borderRadius: 6,
+                                      padding: '6px 10px',
+                                      color: '#FFF',
+                                      fontSize: 12
+                                    }}
+                                  />
+                                  <span style={{ fontSize: 11, color: '#C084FC', background: 'rgba(168, 85, 247, 0.15)', padding: '3px 8px', borderRadius: 4 }}>
+                                    ⏰ Envio inteligente em segundo plano
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {/* Modal Footer & Actions */}
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, borderTop: '1px solid var(--navy-border)', paddingTop: 16, flexWrap: 'wrap', gap: 12 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94A3B8' }}>
@@ -2897,11 +3406,21 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                   <button
                                     type="button"
                                     className="button compact"
-                                    style={{ background: '#25D366', color: '#000', fontWeight: 800 }}
+                                    style={{
+                                      background: waScheduleEnabled ? '#A855F7' : '#25D366',
+                                      color: waScheduleEnabled ? '#FFF' : '#000',
+                                      fontWeight: 800
+                                    }}
                                     disabled={campaignLoading}
                                     onClick={() => handleCreateAndStartCampaign(withWaList)}
                                   >
-                                    <Send size={15} /> {campaignLoading ? 'A iniciar...' : `Iniciar Campanha (${withWaList.length} leads)`}
+                                    {campaignLoading ? (
+                                      'A processar...'
+                                    ) : waScheduleEnabled ? (
+                                      <><Calendar size={15} /> Agendar Disparo ({withWaList.length} leads)</>
+                                    ) : (
+                                      <><Send size={15} /> Iniciar Agora ({withWaList.length} leads)</>
+                                    )}
                                   </button>
                                 )}
                                 {withWaList.length > 0 && currentBiz && (
@@ -3074,7 +3593,9 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           {user.profile.onboarded && view === 'integrations' && (() => {
             const activeSourceList: Business[] = integrationSource === 'search'
               ? (searchResult?.results || [])
-              : leads.map(l => l.business);
+              : integrationSource === 'leads'
+                ? leads.map(l => l.business)
+                : importedBusinesses;
 
             const withWaList = activeSourceList.filter(b => isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ'));
             const noWaList = activeSourceList.filter(b => !isLikelyWhatsApp(b.phone, b.country || filters.country || 'MZ'));
@@ -3118,13 +3639,24 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     <button className="button secondary" onClick={() => checkWhatsAppStatus()} title="Atualizar estado">
                       <RefreshCw size={15} /> Verificar Conexão
                     </button>
+                    <button className="button secondary" onClick={() => setShowImportModal(true)} title="Importar contactos externos de planilha ou texto">
+                      <Upload size={15} /> Importar Contactos
+                    </button>
+                    <button
+                      className="button secondary"
+                      onClick={() => exportBusinessesToCsv(displayedList, `prospecta_contatos_${new Date().toISOString().slice(0, 10)}.csv`)}
+                      disabled={displayedList.length === 0}
+                      title="Exportar lista atual para CSV compatível com Excel"
+                    >
+                      <Download size={15} /> Exportar Lista ({displayedList.length})
+                    </button>
                     <button
                       className="button"
                       style={{ background: '#25D366', color: '#000', fontWeight: 800 }}
                       disabled={campaignLoading || withWaList.length === 0}
                       onClick={() => setShowConfirmModal(true)}
                     >
-                      <Send size={15} /> Iniciar Campanha ({selectedWithWa > 0 ? selectedWithWa : withWaList.length})
+                      <Send size={15} /> Iniciar / Agendar ({selectedWithWa > 0 ? selectedWithWa : withWaList.length})
                     </button>
                   </div>
                 </div>
@@ -3290,13 +3822,26 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   <div className="panel" style={{ padding: 22, marginBottom: 24, background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(59, 130, 246, 0.35)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: campaignData.status === 'running' ? '#22C55E' : campaignData.status === 'paused' ? '#FACC15' : '#3B82F6', boxShadow: campaignData.status === 'running' ? '0 0 12px #22C55E' : 'none' }} />
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: campaignData.status === 'running' ? '#22C55E' : campaignData.status === 'paused' ? '#FACC15' : (campaignData.settings?.scheduledAt ? '#A855F7' : '#3B82F6'), boxShadow: campaignData.status === 'running' ? '0 0 12px #22C55E' : 'none' }} />
                         <strong style={{ fontSize: 16, color: '#FFFFFF' }}>{campaignData.name || 'Campanha em Execução'}</strong>
-                        <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99, background: campaignData.status === 'running' ? 'rgba(34, 197, 94, 0.2)' : campaignData.status === 'paused' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: campaignData.status === 'running' ? '#4ADE80' : campaignData.status === 'paused' ? '#FDE047' : '#93C5FD' }}>
-                          {campaignData.status === 'running' ? '🚀 A ENVIAR NA FILA' : campaignData.status === 'paused' ? '⏸️ PAUSADA' : campaignData.status === 'completed' ? '🎉 CONCLUÍDA' : campaignData.status.toUpperCase()}
+                        <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99, background: campaignData.status === 'running' ? 'rgba(34, 197, 94, 0.2)' : campaignData.status === 'paused' ? 'rgba(234, 179, 8, 0.2)' : (campaignData.settings?.scheduledAt ? 'rgba(168, 85, 247, 0.2)' : 'rgba(59, 130, 246, 0.2)'), color: campaignData.status === 'running' ? '#4ADE80' : campaignData.status === 'paused' ? '#FDE047' : (campaignData.settings?.scheduledAt ? '#D8B4FE' : '#93C5FD') }}>
+                          {campaignData.status === 'running'
+                            ? '🚀 A ENVIAR NA FILA'
+                            : campaignData.status === 'paused'
+                              ? '⏸️ PAUSADA'
+                              : (campaignData.settings?.scheduledAt && new Date(campaignData.settings.scheduledAt) > new Date())
+                                ? `📅 AGENDADA PARA ${new Date(campaignData.settings.scheduledAt).toLocaleString('pt-MZ')}`
+                                : campaignData.status === 'completed'
+                                  ? '🎉 CONCLUÍDA'
+                                  : campaignData.status.toUpperCase()}
                         </span>
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {campaignData.settings?.scheduledAt && new Date(campaignData.settings.scheduledAt) > new Date() && campaignData.status !== 'running' && (
+                          <button className="button" onClick={handleResumeCampaign} style={{ fontSize: 12, background: '#22C55E', color: '#000', fontWeight: 800 }}>
+                            <Play size={13} fill="#000" /> Iniciar Agora (Antecipar)
+                          </button>
+                        )}
                         {campaignData.status === 'running' && (
                           <button className="button secondary" onClick={handlePauseCampaign} style={{ fontSize: 12 }}>
                             Pausar Campanha
@@ -3307,7 +3852,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             Retomar Campanha
                           </button>
                         )}
-                        {(campaignData.status === 'running' || campaignData.status === 'paused') && (
+                        {(campaignData.status === 'running' || campaignData.status === 'paused' || (campaignData.settings?.scheduledAt && new Date(campaignData.settings.scheduledAt) > new Date())) && (
                           <button className="button secondary" onClick={handleCancelCampaign} style={{ fontSize: 12, color: '#FCA5A5' }}>
                             Cancelar
                           </button>
@@ -3420,20 +3965,44 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     </div>
 
                     {/* Fonte de dados */}
-                    <div style={{ display: 'flex', gap: 8, background: 'rgba(15, 23, 42, 0.8)', padding: 4, borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 6, background: 'rgba(15, 23, 42, 0.8)', padding: 4, borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                        <button
+                          className={cls('tab-btn', integrationSource === 'search' && 'active')}
+                          onClick={() => setIntegrationSource('search')}
+                          style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'search' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                        >
+                          Resultados da Pesquisa ({searchResult?.results.length || 0})
+                        </button>
+                        <button
+                          className={cls('tab-btn', integrationSource === 'leads' && 'active')}
+                          onClick={() => setIntegrationSource('leads')}
+                          style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'leads' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                        >
+                          Leads Salvos ({leads.length})
+                        </button>
+                        <button
+                          className={cls('tab-btn', integrationSource === 'imported' && 'active')}
+                          onClick={() => setIntegrationSource('imported')}
+                          style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'imported' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                        >
+                          📥 Importados ({importedBusinesses.length})
+                        </button>
+                      </div>
                       <button
-                        className={cls('tab-btn', integrationSource === 'search' && 'active')}
-                        onClick={() => setIntegrationSource('search')}
-                        style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'search' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                        className="button secondary"
+                        onClick={() => setShowImportModal(true)}
+                        style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
                       >
-                        Resultados da Pesquisa ({searchResult?.results.length || 0})
+                        <Upload size={14} /> Importar Lista
                       </button>
                       <button
-                        className={cls('tab-btn', integrationSource === 'leads' && 'active')}
-                        onClick={() => setIntegrationSource('leads')}
-                        style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: integrationSource === 'leads' ? '#2563EB' : 'transparent', color: '#FFFFFF' }}
+                        className="button secondary"
+                        onClick={() => exportBusinessesToCsv(displayedList, `prospecta_contatos_${new Date().toISOString().slice(0, 10)}.csv`)}
+                        disabled={displayedList.length === 0}
+                        style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
                       >
-                        Leads Salvos / CRM ({leads.length})
+                        <Download size={14} /> Exportar ({displayedList.length})
                       </button>
                     </div>
                   </div>
@@ -3906,16 +4475,189 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             <small style={{ fontSize: 11, color: '#60A5FA', display: 'block' }}>com WhatsApp confirmado</small>
                           </div>
                           <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: 10, padding: 12 }}>
-                            <span style={{ fontSize: 11, color: '#86EFAC', display: 'block' }}>Cadência Anti-Bloqueio</span>
+                            <span style={{ fontSize: 11, color: '#86EFAC', display: 'block' }}>Cadência Selecionada</span>
                             <strong style={{ fontSize: 18, color: '#FFFFFF' }}>{waMinDelaySec}s - {waMaxDelaySec}s</strong>
-                            <small style={{ fontSize: 11, color: '#4ADE80', display: 'block' }}>atraso aleatório entre envios</small>
+                            <small style={{ fontSize: 11, color: '#4ADE80', display: 'block' }}>intervalo entre cada mensagem</small>
                           </div>
                           <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: 12 }}>
-                            <span style={{ fontSize: 11, color: '#94A3B8', display: 'block' }}>Janela & Limite Diário</span>
-                            <strong style={{ fontSize: 16, color: '#FFFFFF' }}>{String(waStartHour).padStart(2, '0')}h - {String(waEndHour).padStart(2, '0')}h</strong>
-                            <small style={{ fontSize: 11, color: isOverWarmup ? '#FCA5A5' : '#CBD5E1', display: 'block' }}>
-                              Máx {waDailyLimit} msgs/dia {warmupInfo ? `(Dia ${warmupInfo.dayNumber})` : ''}
+                            <span style={{ fontSize: 11, color: '#94A3B8', display: 'block' }}>Momento do Envio</span>
+                            <strong style={{ fontSize: 15, color: '#FFFFFF' }}>{waScheduleEnabled ? '📅 Agendado' : '🚀 Imediato'}</strong>
+                            <small style={{ fontSize: 11, color: waScheduleEnabled ? '#C084FC' : '#4ADE80', display: 'block' }}>
+                              {waScheduleEnabled && waScheduledAt ? new Date(waScheduledAt).toLocaleString('pt-MZ') : 'Inicia logo após confirmar'}
                             </small>
+                          </div>
+                        </div>
+
+                        {/* ══ CONFIGURAÇÃO DE AGENDAMENTO ══ */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: waScheduleEnabled ? 12 : 0 }}>
+                            <strong style={{ fontSize: 13, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Calendar size={16} color="#60A5FA" /> Momento do Disparo
+                            </strong>
+                            <div style={{ display: 'flex', gap: 6, background: 'rgba(255, 255, 255, 0.05)', padding: 3, borderRadius: 8 }}>
+                              <button
+                                type="button"
+                                onClick={() => setWaScheduleEnabled(false)}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  background: !waScheduleEnabled ? '#2563EB' : 'transparent',
+                                  color: '#FFFFFF'
+                                }}
+                              >
+                                🚀 Disparar Imediatamente
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWaScheduleEnabled(true);
+                                  if (!waScheduledAt) {
+                                    const d = new Date();
+                                    d.setHours(d.getHours() + 1);
+                                    d.setMinutes(0);
+                                    setWaScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+                                  }
+                                }}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  background: waScheduleEnabled ? '#2563EB' : 'transparent',
+                                  color: '#FFFFFF'
+                                }}
+                              >
+                                📅 Agendar Horário
+                              </button>
+                            </div>
+                          </div>
+
+                          {waScheduleEnabled && (
+                            <div style={{ padding: '10px 12px', background: 'rgba(37, 99, 235, 0.12)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: 8 }}>
+                              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#CBD5E1' }}>
+                                <span style={{ fontWeight: 600, color: '#93C5FD' }}>Escolha a data e hora do início do disparo:</span>
+                                <input
+                                  type="datetime-local"
+                                  value={waScheduledAt}
+                                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                                  onChange={e => setWaScheduledAt(e.target.value)}
+                                  style={{
+                                    padding: '8px 12px',
+                                    borderRadius: 6,
+                                    background: 'rgba(15, 23, 42, 0.9)',
+                                    border: '1px solid #3B82F6',
+                                    color: '#FFFFFF',
+                                    fontSize: 13,
+                                    fontWeight: 600
+                                  }}
+                                />
+                              </label>
+                              <small style={{ display: 'block', marginTop: 6, color: '#93C5FD', fontSize: 11.5 }}>
+                                ⏰ O robô iniciará automaticamente o envio para os {targetList.length} leads no horário programado, respeitando os intervalos configurados abaixo.
+                              </small>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ══ CONFIGURAÇÃO DO INTERVALO ENTRE DISPAROS (CADÊNCIA) ══ */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <strong style={{ fontSize: 13, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Clock size={16} color="#4ADE80" /> Intervalo Entre Mensagens (Cadência Anti-Bloqueio)
+                            </strong>
+                            <span style={{ fontSize: 12, color: '#4ADE80', fontWeight: 700 }}>
+                              {waMinDelaySec}s a {waMaxDelaySec}s aleatório
+                            </span>
+                          </div>
+
+                          {/* Presets rápidos */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 10 }}>
+                            <button
+                              type="button"
+                              onClick={() => { setWaMinDelaySec(15); setWaMaxDelaySec(30); }}
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                textAlign: 'center',
+                                border: '1px solid ' + (waMinDelaySec === 15 && waMaxDelaySec === 30 ? '#22C55E' : 'rgba(255,255,255,0.1)'),
+                                background: waMinDelaySec === 15 && waMaxDelaySec === 30 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.04)',
+                                color: waMinDelaySec === 15 && waMaxDelaySec === 30 ? '#4ADE80' : '#CBD5E1',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ⚡ Rápido (15-30s)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setWaMinDelaySec(30); setWaMaxDelaySec(60); }}
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                textAlign: 'center',
+                                border: '1px solid ' + (waMinDelaySec === 30 && waMaxDelaySec === 60 ? '#22C55E' : 'rgba(255,255,255,0.1)'),
+                                background: waMinDelaySec === 30 && waMaxDelaySec === 60 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.04)',
+                                color: waMinDelaySec === 30 && waMaxDelaySec === 60 ? '#4ADE80' : '#CBD5E1',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🛡️ Padrão Seguro (30-60s)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setWaMinDelaySec(60); setWaMaxDelaySec(120); }}
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                textAlign: 'center',
+                                border: '1px solid ' + (waMinDelaySec === 60 && waMaxDelaySec === 120 ? '#22C55E' : 'rgba(255,255,255,0.1)'),
+                                background: waMinDelaySec === 60 && waMaxDelaySec === 120 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.04)',
+                                color: waMinDelaySec === 60 && waMaxDelaySec === 120 ? '#4ADE80' : '#CBD5E1',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🧊 Conservador (60-120s)
+                            </button>
+                          </div>
+
+                          {/* Ajuste fino personalizado */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#94A3B8', flexWrap: 'wrap' }}>
+                            <span>Ajuste Manual:</span>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              Mín:
+                              <input
+                                type="number"
+                                min={10}
+                                max={300}
+                                value={waMinDelaySec}
+                                onChange={e => setWaMinDelaySec(Math.max(10, parseInt(e.target.value) || 10))}
+                                style={{ width: 60, padding: '4px 6px', background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: '#FFFFFF', textAlign: 'center' }}
+                              />
+                              seg
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              Máx:
+                              <input
+                                type="number"
+                                min={waMinDelaySec}
+                                max={600}
+                                value={waMaxDelaySec}
+                                onChange={e => setWaMaxDelaySec(Math.max(waMinDelaySec, parseInt(e.target.value) || waMinDelaySec))}
+                                style={{ width: 60, padding: '4px 6px', background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: '#FFFFFF', textAlign: 'center' }}
+                              />
+                              seg
+                            </label>
                           </div>
                         </div>
 
@@ -3983,13 +4725,167 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             disabled={campaignLoading || targetList.length === 0 || (isOverWarmup && !confirmWarmupOverride)}
                             onClick={() => handleCreateAndStartCampaign(targetList)}
                           >
-                            {campaignLoading ? 'A iniciar...' : `🚀 Iniciar (${targetList.length} disparos)`}
+                            {campaignLoading ? 'A processar...' : waScheduleEnabled ? `📅 Agendar (${targetList.length} disparos)` : `🚀 Iniciar (${targetList.length} disparos)`}
                           </button>
                         </div>
                       </div>
                     </div>
                   );
                 })()}
+
+                {/* ══ MODAL DE IMPORTAÇÃO DE CONTACTOS (CSV / TEXTO) ══ */}
+                {showImportModal && (
+                  <div className="bulk-modal-overlay" onClick={() => setShowImportModal(false)}>
+                    <div className="bulk-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                      <div className="bulk-modal-header">
+                        <div>
+                          <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8, color: '#FFFFFF' }}>
+                            <Upload size={20} color="#3B82F6" /> Importar Lista de Contactos
+                          </h2>
+                          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                            Importe contactos externos via ficheiro CSV/Excel ou colando uma lista de telefones e nomes.
+                          </p>
+                        </div>
+                        <IconButton label="Fechar modal" onClick={() => setShowImportModal(false)}>
+                          <X size={18} />
+                        </IconButton>
+                      </div>
+
+                      {/* Tabs de tipo de importação */}
+                      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10, marginBottom: 16 }}>
+                        <button
+                          type="button"
+                          onClick={() => setImportActiveTab('paste')}
+                          style={{
+                            padding: '7px 16px',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            border: 'none',
+                            cursor: 'pointer',
+                            background: importActiveTab === 'paste' ? '#2563EB' : 'transparent',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <Copy size={15} /> Colar Contactos / Telefones
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setImportActiveTab('file')}
+                          style={{
+                            padding: '7px 16px',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            border: 'none',
+                            cursor: 'pointer',
+                            background: importActiveTab === 'file' ? '#2563EB' : 'transparent',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <FileText size={15} /> Ficheiro CSV / Excel (.csv)
+                        </button>
+                      </div>
+
+                      {importActiveTab === 'paste' ? (
+                        <div style={{ marginBottom: 18 }}>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12.5, color: '#CBD5E1' }}>
+                            <span>Cole a sua lista de contactos (uma linha por contacto):</span>
+                            <div style={{ fontSize: 11, color: '#93C5FD', background: 'rgba(37, 99, 235, 0.1)', padding: '8px 12px', borderRadius: 6, lineHeight: 1.4 }}>
+                              💡 <b>Formatos aceites automaticamente:</b><br />
+                              • <code>Clínica Central, 847404158, Odontologia, Maputo</code><br />
+                              • <code>Restaurante Mar, 829988776</code><br />
+                              • Apenas números de telefone: <code>841234567</code> ou <code>+258841234567</code>
+                            </div>
+                            <textarea
+                              value={importInputText}
+                              onChange={e => setImportInputText(e.target.value)}
+                              placeholder={`Clínica Sorriso Matola, 841234567, Odontologia, Matola\nRestaurante Baixa, 829988776, Gastronomia, Maputo\n875554433`}
+                              rows={8}
+                              style={{
+                                width: '100%',
+                                padding: '10px 12px',
+                                borderRadius: 8,
+                                background: 'rgba(15, 23, 42, 0.9)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                resize: 'vertical'
+                              }}
+                            />
+                          </label>
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: 18 }}>
+                          <label
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '2px dashed rgba(59, 130, 246, 0.4)',
+                              borderRadius: 12,
+                              padding: 30,
+                              background: 'rgba(15, 23, 42, 0.6)',
+                              cursor: 'pointer',
+                              textAlign: 'center'
+                            }}
+                          >
+                            <Upload size={36} color="#60A5FA" style={{ marginBottom: 10 }} />
+                            <strong style={{ color: '#FFFFFF', fontSize: 14 }}>Selecione um ficheiro CSV ou TXT</strong>
+                            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94A3B8', maxWidth: 420 }}>
+                              Ficheiros exportados do Excel, Google Sheets ou ficheiros de texto delimitados por vírgula ou ponto-e-vírgula.
+                            </p>
+                            <input
+                              type="file"
+                              accept=".csv,.txt"
+                              style={{ display: 'none' }}
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = ev => {
+                                    const content = ev.target?.result as string;
+                                    if (content) handleImportContacts(content);
+                                  };
+                                  reader.readAsText(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => setShowImportModal(false)}
+                        >
+                          Cancelar
+                        </button>
+                        {importActiveTab === 'paste' && (
+                          <button
+                            type="button"
+                            className="button"
+                            style={{ background: '#2563EB', color: '#FFFFFF', fontWeight: 700 }}
+                            disabled={!importInputText.trim()}
+                            onClick={() => handleImportContacts(importInputText)}
+                          >
+                            Processar e Adicionar à Lista
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             );
           })()}
@@ -4000,7 +4896,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               <div className="page-heading">
                 <div>
                   <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ShieldCheck size={14} /> SCRIPTS DE PROSPECÇÃO, NEGOCIAÇÃO E FECHAMENTO</div>
-                  <h1>Cofre de Scripts · Código Zero & Prospecta</h1>
+                  <h1>Cofre de Scripts Comerciais · Prospecta</h1>
                   <p>Modelos comerciais de alta conversão testados em Moçambique para WhatsApp, abordagem fria, objeções e M-Pesa / e-Mola.</p>
                 </div>
               </div>
@@ -4018,12 +4914,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 </div>
                 <div className="vault-category-pills">
                   {[
-                    { key: 'all', label: `Todos (${vaultScripts.length || 23})` },
+                    { key: 'all', label: `Todos (${vaultScripts.length || 32})` },
+                    { key: 'chamada', label: '📞 Chamada (Cold Call)' },
+                    { key: 'porta-a-porta', label: '🚪 Porta a Porta / Balcão' },
+                    { key: 'vacuo', label: '⏳ Anti-Vácuo & Retomada' },
+                    { key: 'objecoes', label: '🛡️ Objeções Moçambique' },
                     { key: 'primeiro-contato', label: 'Primeiro Contato (Frio)' },
                     { key: 'sem-site', label: 'Empresas Sem Site' },
                     { key: 'qualificacao', label: 'Qualificação & Diagnóstico' },
                     { key: 'oferta', label: 'Apresentação da Oferta' },
-                    { key: 'objecoes', label: 'Quebra de Objeções' },
                     { key: 'fechamento', label: 'Fechamento M-Pesa / e-Mola' },
                     { key: 'followup', label: 'Follow-up e Retomada' },
                     { key: 'pos-venda', label: 'Pós-venda e Depoimentos' },
@@ -4037,6 +4936,167 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       {cat.label}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* ══ PAINEL: TREINO DA IA COM OBJEÇÕES EM MOÇAMBIQUE ══════════════ */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.35)',
+                borderRadius: 14,
+                padding: '20px 22px',
+                marginBottom: 26,
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#60A5FA', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      <Sparkles size={16} /> Base de Conhecimento e Treino da IA Comercial (Moçambique)
+                    </div>
+                    <h2 style={{ fontSize: 18, margin: '4px 0 2px 0', color: '#F8FAFC' }}>Ensine à IA como responder às objeções reais dos seus clientes</h2>
+                    <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>
+                      Cada objeção guardada aqui é injetada automaticamente na inteligência da Prospecta. Ao gerar roteiros para chamadas, porta a porta ou WhatsApp, a IA já antecipa estes argumentos.
+                    </p>
+                  </div>
+                  <span style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#93C5FD', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 600 }}>
+                    🧠 {(user?.profile?.objections || []).length} objeções ativas na memória
+                  </span>
+                </div>
+
+                {/* Lista de objeções cadastradas */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: 12, marginBottom: 18 }}>
+                  {(user?.profile?.objections || []).map(obj => (
+                    <div key={obj.id} style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: '12px 14px', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase' }}>🛡️ Objeção do Cliente:</span>
+                        <button
+                          type="button"
+                          className="text-button"
+                          style={{ color: '#EF4444', fontSize: 11, padding: 0 }}
+                          title="Remover objeção"
+                          onClick={() => {
+                            const remaining = (user?.profile?.objections || []).filter(o => o.id !== obj.id);
+                            saveObjections(remaining);
+                          }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#E2E8F0', margin: '0 0 8px 0' }}>"{obj.objection}"</p>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#38BDF8', marginBottom: 4, textTransform: 'uppercase' }}>⚡ Resposta / Quebra Treinada:</div>
+                      <p style={{ fontSize: 12, color: '#CBD5E1', margin: 0, lineHeight: 1.45, background: 'rgba(0,0,0,0.25)', padding: '6px 8px', borderRadius: 6 }}>
+                        {obj.counter}
+                      </p>
+                    </div>
+                  ))}
+                  {(!user?.profile?.objections || user.profile.objections.length === 0) && (
+                    <div style={{ gridColumn: '1 / -1', background: 'rgba(15, 23, 42, 0.4)', border: '1px dashed rgba(255, 255, 255, 0.15)', borderRadius: 10, padding: '16px 20px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
+                      Nenhuma objeção personalizada adicionada ainda. Adicione uma abaixo ou clique nas sugestões rápidas para treinar a IA agora mesmo.
+                    </div>
+                  )}
+                </div>
+
+                {/* Sugestões rápidas para Moçambique */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600 }}>Sugestões rápidas para Moçambique:</span>
+                  {[
+                    { label: '🛡️ "Já temos sobrinho/amigo a tratar"', obj: 'Já temos um sobrinho ou conhecido a tratar da página', counter: 'Compreendo perfeitamente, e é excelente já terem alguém de confiança por perto! A única questão é que amigos e sobrinhos normalmente têm outras ocupações e não conseguem dar suporte comercial diário nem configurar automações no WhatsApp que cobrem orçamentos 24h. O nosso sistema entrega uma estrutura profissional pronta em 48h com suporte garantido e M-Pesa integrado. Faz sentido ver uma demonstração de 2 minutos?' },
+                    { label: '🛡️ "Mercado em crise / sem dinheiro"', obj: 'O mercado está em crise / não temos dinheiro para investir agora', counter: 'Entendo perfeitamente a sua preocupação com o momento económico. Mas é exactamente em momentos de maior aperto que o seu negócio não pode deixar escapar nenhum cliente que pesquisa por si no telemóvel e acaba a comprar no concorrente. Com apenas 1 a 2 novos clientes que fechem graças a este sistema, o investimento já fica 100% pago. Podemos inclusivamente parcelar via M-Pesa / e-Mola para não pesar no vosso caixa mensal.' },
+                    { label: '🛡️ "Só funcionamos por passa-palavra"', obj: 'Os nossos clientes vêm apenas pelo passa-palavra e recomendação', counter: 'O passa-palavra é sem dúvida o melhor canal que existe! A questão é: quando alguém recomenda a vossa empresa, a primeira coisa que o cliente faz no telemóvel é procurar o vosso nome no Google para confirmar morada, fotos e horários. Se não encontrar uma página oficial rápida com botão de WhatsApp, ela perde a confiança ou vai ao concorrente mais visível. A nossa solução serve justamente para proteger e multiplicar as recomendações que já recebem!' },
+                    { label: '🛡️ "Mande apresentação por email"', obj: 'Mande uma apresentação por email que a gerência depois analisa', counter: 'Posso sim enviar por email com todo o gosto! Mas como sei por experiência que em Moçambique as caixas de correio recebem centenas de propostas que ninguém tem tempo de ler, prefiro não lhe fazer perder tempo com PDFs longos. Eu preparo um link interactivo de demonstração de 30 segundos no WhatsApp. Posso mandar para o seu contacto directo? Dá uma vista de olhos no telemóvel quando tiver 1 minuto de pausa.' }
+                  ].map(sug => (
+                    <button
+                      key={sug.label}
+                      type="button"
+                      className="prompt-chip"
+                      style={{ fontSize: 11, background: 'rgba(30, 41, 59, 0.7)', borderColor: 'rgba(59, 130, 246, 0.3)', color: '#CBD5E1' }}
+                      onClick={() => {
+                        setNewObjectionText(sug.obj);
+                        setNewCounterText(sug.counter);
+                      }}
+                    >
+                      {sug.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Formulário para cadastrar nova objeção */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#E2E8F0', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Plus size={15} color="#38BDF8" /> Treinar Nova Objeção / Argumento Local
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#94A3B8', marginBottom: 4 }}>
+                        O que o cliente costuma dizer? (Objeção em Moçambique):
+                      </label>
+                      <input
+                        value={newObjectionText}
+                        onChange={e => setNewObjectionText(e.target.value)}
+                        placeholder="Ex.: 'Já temos quem faça', 'Disseram que é muito caro', 'Não preciso de site'..."
+                        style={{ width: '100%', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: 8, padding: '8px 12px', color: '#FFF', fontSize: 13 }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8' }}>
+                          Como a Prospecta deve quebrar essa objeção?:
+                        </label>
+                        {newObjectionText && (
+                          <button
+                            type="button"
+                            className="text-button"
+                            style={{ fontSize: 11, color: '#38BDF8', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+                            onClick={() => {
+                              const suggested = suggestCounterForObjection(newObjectionText);
+                              setNewCounterText(suggested);
+                              notify('Sugestão de resposta gerada pela IA!');
+                            }}
+                          >
+                            <Sparkles size={12} /> Sugerir Quebra com IA
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        value={newCounterText}
+                        onChange={e => setNewCounterText(e.target.value)}
+                        placeholder="Ex.: Explicar que a solução se paga em 2 clientes e parcelar no M-Pesa..."
+                        rows={2}
+                        style={{ width: '100%', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: 8, padding: '8px 12px', color: '#FFF', fontSize: 13 }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                    {(newObjectionText || newCounterText) && (
+                      <button
+                        type="button"
+                        className="button outline compact"
+                        onClick={() => { setNewObjectionText(''); setNewCounterText(''); }}
+                      >
+                        Limpar
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="button compact"
+                      disabled={!newObjectionText.trim() || !newCounterText.trim() || isSavingObjection}
+                      onClick={() => {
+                        const newObj: UserObjection = {
+                          id: crypto.randomUUID(),
+                          objection: newObjectionText.trim(),
+                          counter: newCounterText.trim(),
+                          category: 'local-mz',
+                          createdAt: new Date().toISOString()
+                        };
+                        const updated = [...(user?.profile?.objections || []), newObj];
+                        saveObjections(updated);
+                        setNewObjectionText('');
+                        setNewCounterText('');
+                      }}
+                    >
+                      {isSavingObjection ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />} Salvar na Memória da IA
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -4469,7 +5529,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           <span style={{ fontSize: 11, color: '#38BDF8', fontWeight: 600 }}>Personalização Total</span>
                         </div>
                         
-                        {/* Seletor visual de estratégia */}
+                        {/* Seletor visual de estratégia e canais */}
                         <div className="approach-selector">
                           <button
                             type="button"
@@ -4485,6 +5545,66 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
                           <button
                             type="button"
+                            className={cls('approach-card', approach === 'call' && 'active')}
+                            onClick={() => {
+                              setApproach('call');
+                              setCustomPrompt('Chamada telefónica (Cold Call): passar educadamente pela recepção/balcão para falar com o Dr./proprietário da empresa sobre atualizar a presença digital.');
+                            }}
+                          >
+                            <div className="approach-title">📞 Chamada (Cold Call)</div>
+                            <div className="approach-desc">Passar da recepção por telefone e falar com o decisor.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'door' && 'active')}
+                            onClick={() => {
+                              setApproach('door');
+                              setCustomPrompt('Porta a porta presencial: abordar no balcão com telemóvel na mão mostrando o protótipo de 30 segundos sem tomar tempo.');
+                            }}
+                          >
+                            <div className="approach-title">🚪 Porta a Porta (30s)</div>
+                            <div className="approach-desc">Apresentar protótipo no telemóvel ao vivo no balcão.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'vacuo' && 'active')}
+                            onClick={() => {
+                              setApproach('vacuo');
+                              setCustomPrompt('Anti-vácuo no WhatsApp: mandei mensagem anterior e não responderam. Fazer descarte elegante ou pergunta sincera de 1 a 10 sem pressionar.');
+                            }}
+                          >
+                            <div className="approach-title">⏳ Anti-Vácuo & Retomada</div>
+                            <div className="approach-desc">Recuperar lead que não respondeu com descarte elegante.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'vacuo_redes' && 'active')}
+                            onClick={() => {
+                              setApproach('vacuo_redes');
+                              setCustomPrompt('Anti-Vácuo & Redes Sociais: fiz tentativa de contacto antes e imagino que tenha ficado perdida em tantas mensagens recebidas. Mencionar que vi a presença e redes sociais em Moçambique, notar que os leads chegam desqualificados ou com dúvidas por falta de um website informativo, e oferecer demonstração grátis sem compromisso.');
+                            }}
+                          >
+                            <div className="approach-title">🔥 Anti-Vácuo & Redes Sociais</div>
+                            <div className="approach-desc">Sair do vácuo com redes sociais, leads desqualificados e demo grátis.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={cls('approach-card', approach === 'retorno' && 'active')}
+                            onClick={() => {
+                              setApproach('retorno');
+                              setCustomPrompt('Retorno de promessa: já liguei antes e falaram que o responsável entraria em contacto ou não se encontrava. Retomar com cordialidade.');
+                            }}
+                          >
+                            <div className="approach-title">🔄 Retorno Prometido</div>
+                            <div className="approach-desc">Quando disseram que o responsável iria ligar.</div>
+                          </button>
+
+                          <button
+                            type="button"
                             className={cls('approach-card', approach === 'atendente' && 'active')}
                             onClick={() => {
                               setApproach('atendente');
@@ -4493,18 +5613,6 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                           >
                             <div className="approach-title">👩‍💼 Falar com Atendente</div>
                             <div className="approach-desc">Descobrir quem é o decisor sem ser ignorado no WhatsApp.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'direta' && 'active')}
-                            onClick={() => {
-                              setApproach('direta');
-                              setCustomPrompt('Abordagem directa com diagnóstico de oportunidade no Google Maps e proposta de conversa de 5 minutos.');
-                            }}
-                          >
-                            <div className="approach-title">🎯 Diagnóstico Direto</div>
-                            <div className="approach-desc">Apresentar oportunidade comercial ao proprietário/diretor.</div>
                           </button>
 
                           <button
@@ -4533,18 +5641,55 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       </div>
 
                       <div className="prompt-details-body" style={{ paddingTop: 10 }}>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#CBD5E1', marginBottom: 5 }}>
-                          Instruções / Contexto Adicional para a IA (Opcional):
-                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <label style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            💡 Adaptar com a Minha Ideia ou Situação Real (Instruções para a IA):
+                          </label>
+                          {(user?.profile?.objections || []).length > 0 && (
+                            <span style={{ fontSize: 10, color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', padding: '2px 8px', borderRadius: 12 }}>
+                              🧠 {(user?.profile?.objections || []).length} objeções da base ativas
+                            </span>
+                          )}
+                        </div>
                         <textarea
                           value={customPrompt}
                           onChange={e => setCustomPrompt(e.target.value)}
-                          placeholder="Ex.: Já criei um site para esta empresa. Falar com a atendente do WhatsApp para ela ver o modelo de 1 min e mostrar ao chefe..."
+                          placeholder="Ex.: Já liguei antes e falaram que iriam retornar; ou fui presencialmente e o responsável não estava; antecipar quebra de objeção..."
                           rows={2}
                           className="prompt-textarea"
                         />
                         <div className="prompt-quick-chips">
-                          <span className="prompt-chips-label">Atalhos rápidos:</span>
+                          <span className="prompt-chips-label">Situações reais:</span>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => {
+                              setApproach('retorno');
+                              setCustomPrompt('Já liguei antes para eles e disseram que o responsável iria retornar a chamada, mas ninguém ligou. Fazer follow-up educado sem cobrança agressiva.');
+                            }}
+                          >
+                            📞 Já liguei antes e disseram que iam retornar
+                          </button>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => {
+                              setApproach('door');
+                              setCustomPrompt('Fui pessoalmente ao estabelecimento, mas o responsável não se encontrava. Deixar recado com atendente e pegar WhatsApp direto.');
+                            }}
+                          >
+                            🚪 Fui presencialmente mas o dono não estava
+                          </button>
+                          <button
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => {
+                              setApproach('vacuo');
+                              setCustomPrompt('Enviei a primeira mensagem pelo WhatsApp mas não tive nenhuma resposta. Aplicar descarte elegante suave.');
+                            }}
+                          >
+                            ⏳ No vácuo: mandei WhatsApp sem resposta
+                          </button>
                           <button
                             type="button"
                             className="prompt-chip"
@@ -4553,17 +5698,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                               setCustomPrompt('Já criei um website/rascunho visual moderno para esta empresa. Falar com a atendente do WhatsApp de forma amigável para ela ver em 1 minuto e mostrar ao responsável.');
                             }}
                           >
-                            🚀 Já criei o site (P/ Atendente mostrar ao chefe)
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => {
-                              setApproach('atendente');
-                              setCustomPrompt('Mensagem super curta de 3 frases, directa para a atendente do WhatsApp ler em 5 segundos sem cansar.');
-                            }}
-                          >
-                            ⚡ Super curta para atendente
+                            🚀 Já criei o site (P/ Atendente)
                           </button>
                           <button
                             type="button"
@@ -4601,41 +5736,158 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <div className="step-label"><span>2</span><div><h2>Prepare uma boa conversa.</h2><p>{analysis ? 'Reveja, personalize e guarde a mensagem.' : 'Uma nova análise inclui a primeira mensagem.'}</p></div></div>
                       <button className="button outline compact" disabled={busy || business.suppressed} onClick={() => generate(!!analysis)}>{busy ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} {analysis ? 'Nova análise' : 'Gerar mensagem'} · 1 crédito</button>
                     </div>
-                    <div className="vault-quick-bar">
-                      <span className="vault-quick-label"><ShieldCheck size={13} /> Modelos do Cofre:</span>
-                      <button
-                        type="button"
-                        className="vault-quick-pill highlight"
-                        style={{ background: 'rgba(37, 99, 235, 0.25)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 }}
-                        onClick={() => {
-                          setApproach('site_pronto');
-                          setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\nO meu nome é ${user?.name || 'Chelton'}. Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!\n${user?.name || 'Chelton'}`);
-                          notify('Abordagem "Já Criei o Site (P/ Atendente)" inserida!');
-                        }}
-                      >
-                        🚀 Já Criei o Site (P/ Atendente)
-                      </button>
-                      <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(getCoherentVaultScript('primeiro-contato', service, business, user.name, messageLength));
-                        notify(`Modelo de Primeiro Contato (${service}) inserido!`);
-                      }}>Primeiro Contato</button>
-                      <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(getCoherentVaultScript('sem-site', service, business, user.name, messageLength));
-                        notify('Modelo para Empresa Sem Site inserido!');
-                      }}>Sem Website</button>
-                      <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(getCoherentVaultScript('esta-caro', service, business, user.name, messageLength));
-                        notify('Modelo de Quebra de Objeção ("Está Caro") inserido!');
-                      }}>Quebra "Está Caro"</button>
-                      <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(getCoherentVaultScript('fechamento-mpesa', service, business, user.name, messageLength));
-                        notify('Modelo de Fechamento via M-Pesa inserido!');
-                      }}>Fechamento M-Pesa</button>
-                      <button type="button" className="vault-quick-pill" onClick={() => {
-                        setDraft(getCoherentVaultScript('followup', service, business, user.name, messageLength));
-                        notify('Modelo de Follow-up inserido!');
-                      }}>Follow-up</button>
-                      <button type="button" className="text-button" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => navigate('vault')}>Ver todos no Cofre <ArrowRight size={12} /></button>
+                    {/* ══ PLAYBOOK MULTICANAL (WHATSAPP, CHAMADA, PORTA A PORTA, OBJEÇÕES) ══ */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#93C5FD', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <ShieldCheck size={13} /> Playbook Comercial Moçambique:
+                          </span>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              type="button"
+                              className={cls('vault-quick-pill', activePlaybookTab === 'whatsapp' && 'highlight')}
+                              style={activePlaybookTab === 'whatsapp' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                              onClick={() => setActivePlaybookTab('whatsapp')}
+                            >
+                              💬 WhatsApp
+                            </button>
+                            <button
+                              type="button"
+                              className={cls('vault-quick-pill', activePlaybookTab === 'call' && 'highlight')}
+                              style={activePlaybookTab === 'call' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                              onClick={() => setActivePlaybookTab('call')}
+                            >
+                              📞 Chamada (Cold Call)
+                            </button>
+                            <button
+                              type="button"
+                              className={cls('vault-quick-pill', activePlaybookTab === 'door' && 'highlight')}
+                              style={activePlaybookTab === 'door' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                              onClick={() => setActivePlaybookTab('door')}
+                            >
+                              🚪 Porta a Porta
+                            </button>
+                            <button
+                              type="button"
+                              className={cls('vault-quick-pill', activePlaybookTab === 'vacuo' && 'highlight')}
+                              style={activePlaybookTab === 'vacuo' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                              onClick={() => setActivePlaybookTab('vacuo')}
+                            >
+                              ⏳ Anti-Vácuo
+                            </button>
+                            <button
+                              type="button"
+                              className={cls('vault-quick-pill', activePlaybookTab === 'objecoes' && 'highlight')}
+                              style={activePlaybookTab === 'objecoes' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                              onClick={() => setActivePlaybookTab('objecoes')}
+                            >
+                              🛡️ Quebra de Objeções
+                            </button>
+                          </div>
+                        </div>
+                        <button type="button" className="text-button" style={{ fontSize: 11, padding: 0 }} onClick={() => navigate('vault')}>Cofre completo <ArrowRight size={12} /></button>
+                      </div>
+
+                      {/* Botões do canal selecionado */}
+                      <div className="vault-quick-bar" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
+                        {activePlaybookTab === 'whatsapp' && (
+                          <>
+                            <button
+                              type="button"
+                              className="vault-quick-pill highlight"
+                              style={{ background: 'rgba(37, 99, 235, 0.25)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 }}
+                              onClick={() => {
+                                setApproach('site_pronto');
+                                setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\nO meu nome é ${user?.name || 'Chelton'}. Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!\n${user?.name || 'Chelton'}`);
+                                notify('Abordagem "Já Criei o Site (P/ Atendente)" inserida!');
+                              }}
+                            >
+                              🚀 Já Criei o Site (P/ Atendente)
+                            </button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('primeiro-contato', service, business, user.name, messageLength));
+                              notify(`Modelo de Primeiro Contato (${service}) inserido!`);
+                            }}>Primeiro Contato</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('sem-site', service, business, user.name, messageLength));
+                              notify('Modelo para Empresa Sem Site inserido!');
+                            }}>Sem Website</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('fechamento-mpesa', service, business, user.name, messageLength));
+                              notify('Modelo de Fechamento via M-Pesa inserido!');
+                            }}>Fecho M-Pesa</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('followup', service, business, user.name, messageLength));
+                              notify('Modelo de Follow-up inserido!');
+                            }}>Follow-up</button>
+                          </>
+                        )}
+
+                        {activePlaybookTab === 'call' && (
+                          <>
+                            <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                              setDraft(getCoherentVaultScript('call-recepcao', service, business, user.name, messageLength));
+                              notify('Guião de Chamada: Passar da Recepção inserido!');
+                            }}>📞 Passar da Recepção / Secretária</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('call-ausente', service, business, user.name, messageLength));
+                              notify('Guião de Chamada: Dono Ausente inserido!');
+                            }}>📞 Dono Não se Encontra</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('call-retorno', service, business, user.name, messageLength));
+                              notify('Guião de Chamada: Promessa de Retorno inserido!');
+                            }}>📞 Promessa de Retorno Não Cumprida</button>
+                          </>
+                        )}
+
+                        {activePlaybookTab === 'door' && (
+                          <>
+                            <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                              setDraft(getCoherentVaultScript('porta-prototipo', service, business, user.name, messageLength));
+                              notify('Guião Porta a Porta: Protótipo em 30s inserido!');
+                            }}>🚪 No Balcão com Protótipo no Telemóvel (30s)</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('porta-ausente', service, business, user.name, messageLength));
+                              notify('Guião Porta a Porta: Dono Ausente inserido!');
+                            }}>🚪 Dono Ausente (Pegar WhatsApp Direto)</button>
+                          </>
+                        )}
+
+                        {activePlaybookTab === 'vacuo' && (
+                          <>
+                            <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                              setDraft(getCoherentVaultScript('vacuo-descarte', service, business, user.name, messageLength));
+                              notify('Anti-Vácuo: Descarte Elegante inserido!');
+                            }}>⏳ Descarte Elegante ("Presumo que não seja prioridade")</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('vacuo-escala', service, business, user.name, messageLength));
+                              notify('Anti-Vácuo: Pergunta 1 a 10 inserida!');
+                            }}>⏳ Pergunta Rápida de 1 a 10</button>
+                          </>
+                        )}
+
+                        {activePlaybookTab === 'objecoes' && (
+                          <>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('obj-sobrinho', service, business, user.name, messageLength));
+                              notify('Quebra de Objeção: Sobrinho/Amigo inserida!');
+                            }}>🛡️ "Já temos sobrinho/amigo"</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('obj-crise', service, business, user.name, messageLength));
+                              notify('Quebra de Objeção: Crise/Sem Dinheiro inserida!');
+                            }}>🛡️ "Mercado em crise / sem dinheiro"</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('obj-passapalavra', service, business, user.name, messageLength));
+                              notify('Quebra de Objeção: Passa-Palavra inserida!');
+                            }}>🛡️ "Só funcionamos por passa-palavra"</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
+                              setDraft(getCoherentVaultScript('obj-email', service, business, user.name, messageLength));
+                              notify('Quebra de Objeção: Mande por Email inserida!');
+                            }}>🛡️ "Mande apresentação por email"</button>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <label className="sr-only" htmlFor="draft">Mensagem de abordagem</label>
                     <textarea id="draft" className="message-editor" value={draft} onChange={e => setDraft(e.target.value)} placeholder="A sua mensagem aparece aqui após a análise. Também pode preparar um texto manualmente." />
@@ -4679,9 +5931,41 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         </div>
                       )
                     ) : (
-                      <div className="alert">
-                        <MessageCircle size={18} />
-                        <span>{business.suppressed ? 'A abordagem está bloqueada por pedido de não contacto.' : 'Sem telefone disponível. Prepare o texto e confirme outro canal de contacto com a empresa.'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+                        <div className="alert" style={{ margin: 0 }}>
+                          <MessageCircle size={18} />
+                          <span>{business.suppressed ? 'A abordagem está bloqueada por pedido de não contacto.' : 'Sem telefone registado no Google Maps. Localize o contacto ou fale por mensagem nas redes sociais:'}</span>
+                        </div>
+                        {business.instagram ? (
+                          <a
+                            className="button full"
+                            style={{ background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            href={`https://instagram.com/${business.instagram.replace('@', '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Sparkles size={17} /> Abrir Instagram Oficial ({business.instagram}) <ExternalLink size={14} />
+                          </a>
+                        ) : (
+                          <a
+                            className="button full"
+                            style={{ background: '#7c3aed', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            href={`https://www.google.com/search?q=${encodeURIComponent(business.name + ' ' + business.locality + ' ' + (business.country || 'Moçambique') + ' instagram facebook whatsapp contacto')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Search size={16} /> 🔍 Encontrar Contacto no Instagram / Google <ExternalLink size={14} />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className="button outline full"
+                          disabled={!draft}
+                          onClick={copyDraft}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        >
+                          <Copy size={16} /> Copiar Mensagem para Enviar no Instagram (DM)
+                        </button>
                       </div>
                     )}
                     {selectedLead && <button className="text-button" disabled={busy} onClick={() => run(async () => { await api('leads/' + selectedLead.id, { method: 'PATCH', body: JSON.stringify({ stage: 'Contactado' }) }); notify('Contacto confirmado por si. Etapa actualizada.'); })}><CheckCheck size={16} /> Já realizei o contacto · Marcar como Contactado</button>}
@@ -5523,7 +6807,7 @@ function BusinessCard({ business: b, busy, selected, onToggleSelect, onView, onS
       <div className="business-source"><Database size={13} /><span>{b.source}<small>Actualizado a {date(b.observedAt)}</small></span></div>
       <div className="card-actions-wrapper">
         <button className="card-action" onClick={onView} disabled={busy}>Ver empresa e possibilidades <ArrowUpRight size={17} /></button>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 5, width: '100%' }}>
           <a
             href={getGoogleMapsUrl(b.name, b.locality, b.province, countryObj.name)}
             target="_blank"
@@ -5531,20 +6815,31 @@ function BusinessCard({ business: b, busy, selected, onToggleSelect, onView, onS
             className="card-map-action"
             title="Pesquisar esta empresa no Google Maps"
             onClick={e => e.stopPropagation()}
-            style={{ margin: 0, justifyContent: 'center' }}
+            style={{ margin: 0, padding: '4px 6px', fontSize: 11, justifyContent: 'center' }}
           >
-            <MapPin size={13} /> Maps <ExternalLink size={11} />
+            <MapPin size={12} /> Maps <ExternalLink size={10} />
           </a>
           <a
             href={getMetaAdLibraryUrl(b.name, b.country || 'MZ')}
             target="_blank"
             rel="noopener noreferrer"
             className="card-map-action"
-            title="Verificar anúncios desta empresa na Biblioteca de Anúncios do Meta"
+            title="Verificar anúncios desta empresa na Biblioteca do Meta"
             onClick={e => e.stopPropagation()}
-            style={{ margin: 0, justifyContent: 'center' }}
+            style={{ margin: 0, padding: '4px 6px', fontSize: 11, justifyContent: 'center' }}
           >
-            <Target size={13} /> Anúncios <ExternalLink size={11} />
+            <Target size={12} /> Anúncios <ExternalLink size={10} />
+          </a>
+          <a
+            href={b.instagram ? `https://instagram.com/${b.instagram.replace('@', '')}` : `https://www.google.com/search?q=${encodeURIComponent(b.name + ' ' + b.locality + ' ' + (countryObj.name || 'Moçambique') + ' instagram facebook whatsapp')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="card-map-action"
+            title={b.instagram ? `Abrir perfil do Instagram: ${b.instagram}` : "Encontrar perfil nas redes sociais (Instagram/Facebook)"}
+            onClick={e => e.stopPropagation()}
+            style={{ margin: 0, padding: '4px 6px', fontSize: 11, justifyContent: 'center', color: '#e1306c', borderColor: 'rgba(225, 48, 108, 0.35)' }}
+          >
+            <Sparkles size={12} /> {b.instagram ? 'Instagram' : 'Redes'} <ExternalLink size={10} />
           </a>
         </div>
       </div>

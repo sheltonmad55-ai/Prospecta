@@ -99,6 +99,9 @@ const server = app.listen(config.port, async () => {
       console.error('[Startup] Falha na auto-recuperação inicial:', initErr.message);
     }
   }
+
+  // Ativa o monitoramento contínuo de campanhas agendadas
+  queueManager.startScheduledChecker(20000);
 });
 
 // Encerramento seguro (Graceful Shutdown)

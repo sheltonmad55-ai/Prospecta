@@ -106,7 +106,12 @@ export async function syncLeadsFromSupabase(user: User): Promise<void> {
   }
 }
 
-export function saveLead(user:User,businessId:string) {
+export function saveLead(user:User,businessId:string,businessData?:Business) {
+  if (businessData && businessData.id) {
+    try {
+      db().prepare('INSERT OR REPLACE INTO businesses VALUES(?,?,?,?)').run(businessData.id, JSON.stringify(businessData), 'live', now());
+    } catch {}
+  }
   const biz = getBusiness(businessId,user);
   const saved = transaction(()=>{
     const existing=db().prepare('SELECT id FROM leads WHERE workspace_id=? AND business_id=?').get(user.workspaceId,businessId);

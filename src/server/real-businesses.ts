@@ -380,37 +380,71 @@ export function resolveProvince(cityName: string, fallback?: string): string {
 /**
  * Serper Google Maps Places API provider
  */
-async function querySerperPlaces(niche: string, city: string, country = getCountryByCode('MZ'), provinceFilter = ''): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; address?: string }>> {
+async function querySerperPlaces(niche: string, city: string, country = getCountryByCode('MZ'), provinceFilter = ''): Promise<Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; instagram?: string | null; address?: string }>> {
   const apiKey = process.env.SERPER_API_KEY;
   if (!apiKey) return [];
   try {
     const locText = [city, provinceFilter, country.name].filter(Boolean).join(', ');
-    const res = await fetch('https://google.serper.dev/places', {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': apiKey,
-        'Content-Type': 'application/json'
-      },
-      signal: AbortSignal.timeout(7000),
-      body: JSON.stringify({
-        q: `${niche} em ${locText}`,
-        gl: country.code.toLowerCase(),
-        hl: 'pt'
-      })
-    });
-    if (!res.ok) return [];
-    const data = await res.json() as { places?: Array<{ title?: string; address?: string; phoneNumber?: string; website?: string; category?: string }> };
-    if (!data.places || !Array.isArray(data.places)) return [];
+    const queries = [
+      `${niche} em ${locText}`,
+      `melhores ${niche} em ${locText}`
+    ];
+    const fetchPromises = queries.map(q =>
+      fetch('https://google.serper.dev/places', {
+        method: 'POST',
+        headers: {
+          'X-API-KEY': apiKey,
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(7000),
+        body: JSON.stringify({
+          q,
+          gl: country.code.toLowerCase(),
+          hl: 'pt'
+        })
+      }).then(r => r.ok ? r.json() : { places: [] }).catch(() => ({ places: [] }))
+    );
+
+    const responses = await Promise.allSettled(fetchPromises);
+    const seen = new Set<string>();
     const province = provinceFilter || resolveProvince(city, country.code === 'MZ' ? undefined : (country.provinces[0] || city));
-    return data.places.filter(p => p.title).map(p => ({
-      name: p.title!,
-      category: p.category || niche,
-      locality: p.address ? `${p.address.split(',')[0].trim()}, ${city}` : city,
-      province,
-      phone: sanitizeBusinessPhone(p.phoneNumber, country.code),
-      website: p.website || null,
-      address: p.address
-    }));
+    const results: Array<{ name: string; category: string; locality: string; province: string; phone?: string | null; website?: string | null; instagram?: string | null; address?: string }> = [];
+
+    for (const res of responses) {
+      if (res.status !== 'fulfilled' || !res.value?.places || !Array.isArray(res.value.places)) continue;
+      for (const p of res.value.places) {
+        if (!p.title) continue;
+        const normKey = p.title.toLowerCase().trim();
+        if (seen.has(normKey)) continue;
+        seen.add(normKey);
+
+        let web: string | null = p.website && /^https?:\/\//i.test(p.website) ? p.website.trim() : null;
+        let ig: string | null = null;
+        if (web) {
+          if (web.includes('instagram.com/')) {
+            const m = web.match(/instagram\.com\/([a-zA-Z0-9._]+)/);
+            if (m && m[1] && !['p', 'reel', 'stories', 'explore', 'popular'].includes(m[1].toLowerCase())) {
+              ig = `@${m[1]}`;
+            }
+            web = null; // Empresa não tem website próprio; usa Instagram (excelente lead!)
+          } else if (web.includes('facebook.com/')) {
+            web = null; // Página de Facebook não é website próprio
+          }
+        }
+
+        results.push({
+          name: p.title,
+          category: p.category || niche,
+          locality: p.address ? `${p.address.split(',')[0].trim()}, ${city}` : city,
+          province,
+          phone: sanitizeBusinessPhone(p.phoneNumber, country.code),
+          website: web,
+          instagram: ig,
+          address: p.address
+        });
+      }
+    }
+    return results;
   } catch {
     return [];
   }
@@ -571,55 +605,31 @@ Regras obrigatórias de veracidade comercial:
 
 Responde ESTRITAMENTE em formato JSON (array de objetos).`;
 
-  // 1. Attempt with official Google Search grounding tool
-  try {
-    const resSearch = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(14000),
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }]
-      })
-    });
-    if (resSearch.ok) {
-      const data = await resSearch.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawText) {
-        const cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
-        const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(item => ({ ...item, phone: sanitizeBusinessPhone(item.phone, country.code) }));
-        }
-      }
-    }
-  } catch {
-    // Gracefully proceed to direct structured search on quota or network error
-  }
-
-  // 2. Direct structured generation
+  // Direct high-speed structured generation with Gemini
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(8000),
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.15 }
       })
     });
-    if (!res.ok) return [];
-    const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return [];
-    const parsed = JSON.parse(text) as Array<{
-      name: string; category: string; province: string; locality: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string;
-    }>;
-    return Array.isArray(parsed) ? parsed.map(item => ({ ...item, phone: sanitizeBusinessPhone(item.phone, country.code) })) : [];
-  } catch {
-    return [];
-  }
+    if (res.ok) {
+      const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        const parsed = JSON.parse(text) as Array<{
+          name: string; category: string; province: string; locality: string; phone?: string | null; website?: string | null; instagram?: string | null; description?: string;
+        }>;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(item => ({ ...item, phone: sanitizeBusinessPhone(item.phone, country.code) }));
+        }
+      }
+    }
+  } catch {}
+  return [];
 }
 
 /**
@@ -710,13 +720,14 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
     }
   }
 
-  // 2. Google Maps search (Serper.dev or SerpApi)
-  for (const city of selectedCities) {
-    const serperPlaces = await querySerperPlaces(cleanNiche, city, country, provinceFilter);
-    const serpapiPlaces = serperPlaces.length === 0 ? await querySerpApiPlaces(cleanNiche, city, country, provinceFilter) : [];
-    const places = [...serperPlaces, ...serpapiPlaces];
-    for (const p of places) {
-      const bId = canonicalBizId(p.name, p.province || city);
+  // 2. Google Maps search in parallel across all selected cities
+  const placesPromises = selectedCities.map(city => querySerperPlaces(cleanNiche, city, country, provinceFilter));
+  const placesResults = await Promise.allSettled(placesPromises);
+
+  for (const pr of placesResults) {
+    if (pr.status !== 'fulfilled') continue;
+    for (const p of pr.value) {
+      const bId = canonicalBizId(p.name, p.province || selectedCities[0]);
       const normKey = normalize(p.name).toLowerCase().replace(/[^a-z0-9]/g, '');
       if (seenIds.has(bId) || seenNames.has(normKey)) continue;
       seenIds.add(bId);
@@ -732,7 +743,7 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
         description: `Negócio localizado em ${p.locality}, verificado via Google Maps ${country.name}.`,
         phone: sanitizeBusinessPhone(p.phone, country.code),
         website: validWeb,
-        instagram: null,
+        instagram: p.instagram || null,
         source: `Google Maps ${country.name}`,
         observedAt,
         isDemo: false,
@@ -744,13 +755,14 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
       };
       if (biz.phone) biz.evidence.push({ id: `${bId}-tel`, field: 'phone', value: biz.phone, source: `Contacto ${country.code}`, observedAt });
       if (biz.website) biz.evidence.push({ id: `${bId}-web`, field: 'website', value: biz.website, source: `Website ${country.code}`, observedAt });
+      if (biz.instagram) biz.evidence.push({ id: `${bId}-ig`, field: 'instagram', value: biz.instagram, source: `Instagram ${country.code}`, observedAt });
       upsert.run(bId, JSON.stringify(biz), 'live', observedAt);
       collected.push(biz);
     }
   }
 
-  // 3. Overpass & OpenStreetMap Spatial Live Search
-  if (collected.length < 15) {
+  // 3. Overpass & OpenStreetMap Spatial Live Search (runs if collected < 50)
+  if (collected.length < 50) {
     for (const city of selectedCities) {
       const overpassPlaces = country.code === 'MZ' ? await queryOverpassPlaces(cleanNiche, city) : [];
       for (const p of overpassPlaces) {
@@ -786,7 +798,7 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
         collected.push(biz);
       }
 
-      if (collected.length < 15) {
+      if (collected.length < 50) {
         const osmPlaces = await queryOsmPlaces(cleanNiche, city, country, provinceFilter);
         for (const p of osmPlaces) {
           const bId = canonicalBizId(p.name, p.province || city);
@@ -824,8 +836,8 @@ export async function sweepRealBusinesses(niche: string, citiesInput: string | s
     }
   }
 
-  // 4. Gemini Live Commercial Radar with Google Search grounding (Real places only)
-  if (collected.length < 15) {
+  // 4. Gemini Live Commercial Radar (runs if collected < 50)
+  if (collected.length < 50) {
     const aiPlaces = await queryGeminiRadar(cleanNiche, selectedCities, country, provinceFilter);
     for (const p of aiPlaces) {
       const prov = (country.provinces && country.provinces.includes(p.province)) ? p.province : resolveProvince(p.locality, country.code === 'MZ' ? undefined : (country.provinces[0] || p.locality));

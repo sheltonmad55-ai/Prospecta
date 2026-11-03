@@ -42,10 +42,21 @@ export const queueManager = {
     return activeWorkers.get(campaignId) || null;
   },
 
-  async startCampaign(campaignId) {
+  async startCampaign(campaignId, force = false) {
     let worker = activeWorkers.get(campaignId);
     if (worker && worker.isRunning) {
       console.log(`[Queue] Campanha ${campaignId} já está em execução.`);
+      return;
+    }
+
+    const campaign = await db.getCampaign(campaignId);
+    if (!campaign) {
+      console.error(`[Queue] Campanha ${campaignId} não encontrada.`);
+      return;
+    }
+
+    if (!force && campaign.settings?.scheduledAt && new Date(campaign.settings.scheduledAt) > new Date()) {
+      console.log(`[Queue] Campanha "${campaign.name}" (${campaignId}) está agendada para ${campaign.settings.scheduledAt}. Aguardando horário programado.`);
       return;
     }
 
@@ -313,10 +324,43 @@ export const queueManager = {
     console.log(`[Queue] Encontradas ${active.length} campanhas pendentes/ativas.`);
 
     for (const c of active) {
+      if (c.settings?.scheduledAt && new Date(c.settings.scheduledAt) > new Date()) {
+        console.log(`[Queue] Campanha agendada "${c.name}" (${c.id}) detectada para ${c.settings.scheduledAt}. Não iniciada de imediato.`);
+        continue;
+      }
       console.log(`[Queue] A retomar campanha "${c.name}" (${c.id})...`);
       this.startCampaign(c.id).catch((err) => {
         console.error(`[Queue] Erro ao retomar campanha ${c.id}:`, err.message);
       });
     }
+  },
+
+  async checkScheduledCampaigns() {
+    try {
+      const active = await db.listActiveCampaigns();
+      const now = new Date();
+      for (const c of active) {
+        if (c.status === 'pending' && c.settings?.scheduledAt) {
+          const schedTime = new Date(c.settings.scheduledAt);
+          if (schedTime <= now && !activeWorkers.has(c.id)) {
+            console.log(`[Queue] ⏰ Horário agendado atingido para "${c.name}" (${c.id}). Iniciando disparo automático...`);
+            await this.startCampaign(c.id, true);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Queue] Erro ao verificar campanhas agendadas:', e.message);
+    }
+  },
+
+  startScheduledChecker(intervalMs = 20000) {
+    if (this._scheduledTimer) clearInterval(this._scheduledTimer);
+    this._scheduledTimer = setInterval(() => {
+      this.checkScheduledCampaigns().catch(() => {});
+    }, intervalMs);
+    setTimeout(() => {
+      this.checkScheduledCampaigns().catch(() => {});
+    }, 4000);
+    console.log('[Queue] ⏰ Verificador de campanhas agendadas ativado (a cada ' + (intervalMs / 1000) + 's).');
   },
 };

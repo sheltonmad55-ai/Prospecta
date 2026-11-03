@@ -13,7 +13,24 @@ export const SERVICES = [
 ] as const;
 export type Stage = typeof STAGES[number];
 export interface Credits { available: number; reserved: number; spent: number }
-export interface Profile { service: string; pitch: string; province: string; phone: string; nationwide: boolean; onboarded: boolean }
+
+export interface UserObjection {
+  id: string;
+  objection: string;
+  counter: string;
+  category?: string;
+  createdAt: string;
+}
+
+export interface Profile {
+  service: string;
+  pitch: string;
+  province: string;
+  phone: string;
+  nationwide: boolean;
+  onboarded: boolean;
+  objections?: UserObjection[];
+}
 
 export type PlanType = 'free' | 'essential' | 'pro';
 export type SubscriptionStatus = 'active' | 'expired' | 'trial' | 'canceled';
@@ -211,7 +228,7 @@ export interface Lead { id: string; businessId: string; business: Business; stag
 export interface Activity { id: string; type: string; note: string; createdAt: string }
 export interface LedgerEntry { id: string; kind: string; units: number; createdAt: string; description: string }
 export interface Dashboard { leads: number; due: number; proposalsMinor: number; stages: {stage: Stage; count: number}[]; tasks: Lead[]; recent: Activity[]; credits: Credits }
-export interface VaultScript { id: string; category: 'primeiro-contato' | 'sem-site' | 'qualificacao' | 'oferta' | 'objecoes' | 'fechamento' | 'followup' | 'pos-venda'; categoryLabel: string; title: string; template: string; scenario: string; keyPhrases: string[] }
+export interface VaultScript { id: string; category: 'primeiro-contato' | 'sem-site' | 'qualificacao' | 'oferta' | 'objecoes' | 'fechamento' | 'followup' | 'pos-venda' | 'chamada' | 'porta-a-porta' | 'vacuo'; categoryLabel: string; title: string; template: string; scenario: string; keyPhrases: string[] }
 export interface PricingGuideline {
   minMt: number;
   maxMt: number;
