@@ -6,7 +6,7 @@ import {
   Check, CheckCheck, ChevronLeft, ChevronRight, CircleCheck, Clock, Clock3,
   Compass, Copy, Database, Download, ExternalLink, FileText, Flame, Globe2,
   LoaderCircle, LogOut, Mail, MapPin, Menu, MessageCircle, Phone, Play, Plus,
-  Radar, RefreshCw, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, TrendingUp,
+  Radar, RefreshCw, Search, Send, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, TrendingUp,
   Upload, Users, Wallet, X
 } from 'lucide-react';
 import Landing from './landing';
@@ -20,8 +20,19 @@ import {
   type LedgerEntry, type Profile, type SearchFilters, type SearchResult, type User,
   type VaultScript, type CountryOption, type PlanType, type SubscriptionStatus, type UserObjection
 } from '@/lib/contracts';
+import {
+  SITE_GENERATION_CREDIT_COST,
+  SITE_REGENERATION_CREDIT_COST,
+  SITE_NICHES,
+  SITE_STYLES,
+  SITE_MAX_IMAGES,
+  type GeneratedSite,
+  type SiteSourceData,
+  type SiteNiche,
+  type SiteStyle
+} from '@/lib/site-constants';
 
-type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'integrations' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
+type View = 'opportunities' | 'today' | 'search' | 'saved-searches' | 'leads' | 'integrations' | 'create-site' | 'portfolio' | 'vault' | 'business' | 'outreach' | 'account' | 'admin';
 
 type AdminUserItem = {
   id: string;
@@ -885,6 +896,33 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [deleteEmailConfirm, setDeleteEmailConfirm] = useState<string>('');
   const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
+  
+  // ─── Estados: Criar Site por IA ──────────────────────
+  const [siteBusinessName, setSiteBusinessName] = useState('');
+  const [siteNiche, setSiteNiche] = useState<string>('clinica');
+  const [sitePhone, setSitePhone] = useState('+258 ');
+  const [siteAddress, setSiteAddress] = useState('');
+  const [siteOpeningHours, setSiteOpeningHours] = useState('');
+  const [siteServices, setSiteServices] = useState('');
+  const [siteStyle, setSiteStyle] = useState<string>('moderno');
+  const [sitePrimaryColor, setSitePrimaryColor] = useState('#0284C7');
+  const [siteSocialLink, setSiteSocialLink] = useState('');
+  const [siteReferenceUrl, setSiteReferenceUrl] = useState('');
+  const [siteMapsUrl, setSiteMapsUrl] = useState('');
+  const [siteRawProfileText, setSiteRawProfileText] = useState('');
+  const [siteReviewsText, setSiteReviewsText] = useState('');
+  const [siteImages, setSiteImages] = useState<string[]>([]);
+  const [siteUploadingImages, setSiteUploadingImages] = useState(false);
+  const [siteResolvingMaps, setSiteResolvingMaps] = useState(false);
+  const [siteGenerating, setSiteGenerating] = useState(false);
+  const [siteGeneratedSite, setSiteGeneratedSite] = useState<GeneratedSite | null>(null);
+  const [siteMissingFields, setSiteMissingFields] = useState<string[]>([]);
+  const [siteRegenInstructions, setSiteRegenInstructions] = useState('');
+  const [siteList, setSiteList] = useState<GeneratedSite[]>([]);
+  const [siteListLoading, setSiteListLoading] = useState(false);
+  const [siteActiveTab, setSiteActiveTab] = useState<'create' | 'history'>('create');
+  const [siteDeviceMode, setSiteDeviceMode] = useState<'mobile' | 'desktop'>('mobile');
+
   const activeBusiness = useRef<string | null>(null);
 
   useEffect(() => { activeBusiness.current = business?.id || null; }, [business?.id]);
@@ -1283,6 +1321,235 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     }
   }, [navigate]);
 
+  // ─── Callbacks: Módulo Criar Site ─────────────────────
+  const loadSites = useCallback(async () => {
+    setSiteListLoading(true);
+    try {
+      const res = await api<{ success: boolean; sites: GeneratedSite[] }>('site/list');
+      if (res && res.sites) {
+        setSiteList(res.sites);
+        if (!siteGeneratedSite && res.sites.length > 0) {
+          setSiteGeneratedSite(res.sites[0]);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[loadSites error]:', err);
+    } finally {
+      setSiteListLoading(false);
+    }
+  }, [siteGeneratedSite]);
+
+  const handleResolveMaps = useCallback(async (urlToResolve?: string) => {
+    const targetUrl = urlToResolve || siteMapsUrl;
+    if (!targetUrl.trim()) {
+      notify('Insira um link do Google Maps para extrair os dados.', true);
+      return;
+    }
+    setSiteResolvingMaps(true);
+    try {
+      const res = await api<{
+        success: boolean;
+        extractedName?: string;
+        coordinates?: { lat: number; lng: number };
+        embedMapUrl?: string;
+        needsProfileText: boolean;
+      }>('site/resolve-maps', {
+        method: 'POST',
+        body: JSON.stringify({ url: targetUrl.trim() })
+      });
+      if (res && res.success) {
+        if (res.extractedName && !siteBusinessName) {
+          setSiteBusinessName(res.extractedName);
+        }
+        if (res.coordinates && !siteAddress) {
+          setSiteAddress(`Coordenadas: ${res.coordinates.lat.toFixed(4)}, ${res.coordinates.lng.toFixed(4)}`);
+        }
+        if (res.needsProfileText) {
+          notify('Link resolvido! Para incluir serviços e horários reais, cole o texto do perfil na caixa ao lado.');
+        } else {
+          notify(`Nome identificado do Maps: "${res.extractedName}". Complete os outros detalhes!`);
+        }
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Não foi possível extrair dados do link. Cole o texto do perfil manualmente.', true);
+    } finally {
+      setSiteResolvingMaps(false);
+    }
+  }, [siteMapsUrl, siteBusinessName, siteAddress, notify]);
+
+  const handleUploadImages = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (siteImages.length + files.length > SITE_MAX_IMAGES) {
+      notify(`Limite máximo de ${SITE_MAX_IMAGES} imagens atingido.`, true);
+      return;
+    }
+    setSiteUploadingImages(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(f => formData.append('images', f));
+      const res = await fetch('/api/site/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao carregar imagens.');
+      if (data.urls && Array.isArray(data.urls)) {
+        setSiteImages(prev => [...prev, ...data.urls].slice(0, SITE_MAX_IMAGES));
+        notify(`🎉 ${data.urls.length} imagem(ns) carregada(s) com sucesso!`);
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Falha ao fazer upload das imagens.', true);
+    } finally {
+      setSiteUploadingImages(false);
+      e.target.value = '';
+    }
+  }, [siteImages.length, notify]);
+
+  const handleGenerateSite = useCallback(async () => {
+    if (!siteBusinessName.trim()) {
+      notify('Por favor, indique pelo menos o nome da empresa.', true);
+      return;
+    }
+    const currentAvailable = user?.credits?.available ?? 0;
+    if (currentAvailable < SITE_GENERATION_CREDIT_COST) {
+      notify(`Créditos insuficientes (${currentAvailable} disponíveis). A criação de site requer ${SITE_GENERATION_CREDIT_COST} créditos.`, true);
+      return;
+    }
+    setSiteGenerating(true);
+    try {
+      const reviews = siteReviewsText
+        .split('\n')
+        .map(r => r.trim())
+        .filter(r => r.length > 5);
+
+      const sourceData: SiteSourceData = {
+        businessName: siteBusinessName.trim(),
+        niche: siteNiche,
+        phone: sitePhone.trim(),
+        address: siteAddress.trim(),
+        openingHours: siteOpeningHours.trim(),
+        services: siteServices.trim(),
+        style: siteStyle,
+        primaryColor: sitePrimaryColor,
+        socialLink: siteSocialLink.trim(),
+        referenceSiteUrl: siteReferenceUrl.trim() || undefined,
+        mapsUrl: siteMapsUrl.trim(),
+        rawProfileText: siteRawProfileText.trim(),
+        reviews
+      };
+
+      const res = await api<{ success: boolean; site: GeneratedSite; missingFields: string[]; creditsRemaining: number }>('site/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceData,
+          images: siteImages
+        })
+      });
+
+      if (res && res.success && res.site) {
+        setSiteGeneratedSite(res.site);
+        setSiteMissingFields(res.missingFields || []);
+        setSiteList(prev => [res.site, ...prev.filter(s => s.id !== res.site.id)]);
+        await refreshUser();
+        notify(`🚀 Site da empresa "${res.site.businessName}" gerado com sucesso!`);
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Erro ao gerar o site da empresa. Nenhum crédito foi debitado.', true);
+    } finally {
+      setSiteGenerating(false);
+    }
+  }, [
+    siteBusinessName, siteNiche, sitePhone, siteAddress, siteOpeningHours,
+    siteServices, siteStyle, sitePrimaryColor, siteSocialLink, siteReferenceUrl, siteMapsUrl,
+    siteRawProfileText, siteReviewsText, siteImages, user?.credits?.available,
+    refreshUser, notify
+  ]);
+
+  const handleRegenerateSite = useCallback(async () => {
+    if (!siteGeneratedSite) return;
+    const currentAvailable = user?.credits?.available ?? 0;
+    if (currentAvailable < SITE_REGENERATION_CREDIT_COST) {
+      notify(`Créditos insuficientes (${currentAvailable} disponíveis). A regeneração requer ${SITE_REGENERATION_CREDIT_COST} créditos.`, true);
+      return;
+    }
+    setSiteGenerating(true);
+    try {
+      const res = await api<{ success: boolean; site: GeneratedSite; missingFields: string[]; creditsRemaining: number }>('site/regenerate', {
+        method: 'POST',
+        body: JSON.stringify({
+          siteId: siteGeneratedSite.id,
+          instructions: siteRegenInstructions
+        })
+      });
+      if (res && res.success && res.site) {
+        setSiteGeneratedSite(res.site);
+        setSiteMissingFields(res.missingFields || []);
+        setSiteList(prev => prev.map(s => s.id === res.site.id ? res.site : s));
+        setSiteRegenInstructions('');
+        await refreshUser();
+        notify(`✨ Site ajustado com as novas instruções!`);
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Erro ao ajustar o site. Nenhum crédito debitado.', true);
+    } finally {
+      setSiteGenerating(false);
+    }
+  }, [siteGeneratedSite, siteRegenInstructions, user?.credits?.available, refreshUser, notify]);
+
+  const handleApproveSite = useCallback(async (siteToApprove?: GeneratedSite) => {
+    const s = siteToApprove || siteGeneratedSite;
+    if (!s) return;
+    try {
+      const res = await api<{ success: boolean; site: GeneratedSite }>(`site/${s.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'approve' })
+      });
+      if (res && res.success && res.site) {
+        setSiteGeneratedSite(res.site);
+        setSiteList(prev => prev.map(item => item.id === res.site.id ? res.site : item));
+        notify('🎉 Site aprovado com sucesso! A etiqueta de prévia foi retirada.');
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Erro ao aprovar site.', true);
+    }
+  }, [siteGeneratedSite, notify]);
+
+  const handleDeleteSite = useCallback(async (siteId: string) => {
+    if (!window.confirm('Tem a certeza que deseja eliminar este site gerado?')) return;
+    try {
+      const res = await api<{ success: boolean }>(`site/${siteId}`, { method: 'DELETE' });
+      if (res && res.success) {
+        setSiteList(prev => prev.filter(s => s.id !== siteId));
+        if (siteGeneratedSite?.id === siteId) {
+          setSiteGeneratedSite(null);
+        }
+        notify('Site removido com sucesso.');
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Erro ao remover site.', true);
+    }
+  }, [siteGeneratedSite, notify]);
+
+  const shareViaWhatsApp = (site: GeneratedSite) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://prospecta-mz.vercel.app';
+    const publicUrl = `${origin}/s/${site.slug}`;
+    const message = `Preparei uma prévia do site da ${site.businessName}: ${publicUrl}. Diga-me o que acha.`;
+    const cleanPhone = (site.sourceData?.phone || '').replace(/\D/g, '');
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    notify('WhatsApp aberto com a mensagem da prévia!');
+  };
+
+  const copyPublicLink = (site: GeneratedSite) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://prospecta-mz.vercel.app';
+    const publicUrl = `${origin}/s/${site.slug}`;
+    navigator.clipboard.writeText(publicUrl);
+    notify('Link público da prévia copiado!');
+  };
+
   useEffect(() => {
     let active = true;
     const query = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -1355,7 +1622,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             : 'Não foi possível concluir o acesso com Google. Tente novamente.', true
       );
       const initial = query.get('view') as View | null;
-      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'integrations', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
+      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'integrations', 'create-site', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
       if (isSheltonAdmin) {
         setView('admin');
       } else if (initial && validViews.includes(initial)) {
@@ -1413,6 +1680,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       if (view === 'search' || view === 'saved-searches') { loadPastSearches(); }
       if (view === 'leads') { const r = await api<{ leads: Lead[] }>('leads'); if (active) setLeads(r.leads); }
       if (view === 'vault' || view === 'outreach') { const r = await api<{ scripts: VaultScript[] }>('vault'); if (active) setVaultScripts(r.scripts || []); }
+      if (view === 'create-site') { loadSites(); }
       if (view === 'account') {
         const [u, p, o] = await Promise.all([api<{ entries: LedgerEntry[] }>('usage'), api<{ requests: PrivacyRequest[] }>('privacy'), api<{ messages: typeof outbox }>('outbox')]);
         if (active) { setUsage(u.entries); setRequests(p.requests); setOutbox(o.messages); setProfile(user!.profile); }
@@ -1789,6 +2057,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     { view: 'saved-searches' as View, label: 'Buscas salvas', icon: Search },
     { view: 'leads' as View, label: 'Leads salvos', icon: Bookmark },
     { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: waServiceStatus?.connected ? '🟢 Online' : waServiceStatus?.status === 'waiting_qr' ? '🟡 Ler QR' : undefined },
+    { view: 'create-site' as View, label: 'Criar site', icon: Globe2 },
     { view: 'portfolio' as View, label: 'Portfólio', icon: FileText, beta: true },
     { view: 'vault' as View, label: 'Cofre', icon: ShieldCheck },
   ];
@@ -3568,6 +3837,615 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                   </Empty>
                 }
               </section>
+            </>
+          )}
+
+          {/* ══ VIEW: Criar Site (Landing Page por IA) ═══════ */}
+          {user.profile.onboarded && view === 'create-site' && (
+            <>
+              <div className="page-heading">
+                <div>
+                  <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Globe2 size={14} color="#38BDF8" /> CRIADOR DE SITES · PROSPECTA
+                    <Pill tone="emerald">NOVO</Pill>
+                  </div>
+                  <h1>Crie um site profissional para o seu cliente em segundos.</h1>
+                  <p>A IA gera uma página de demonstração ultrarrápida, sem código, com prévia pública e botões de contacto direto.</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className={cls('button compact', siteActiveTab === 'create' ? '' : 'outline')}
+                    onClick={() => setSiteActiveTab('create')}
+                  >
+                    <Plus size={14} /> Novo Site
+                  </button>
+                  <button
+                    type="button"
+                    className={cls('button compact', siteActiveTab === 'history' ? '' : 'outline')}
+                    onClick={() => {
+                      setSiteActiveTab('history');
+                      loadSites();
+                    }}
+                  >
+                    <Bookmark size={14} /> Meus Sites Gerados ({siteList.length})
+                  </button>
+                </div>
+              </div>
+
+              {siteActiveTab === 'history' ? (
+                /* Histórico de Sites */
+                <section className="panel content">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, color: '#F8FAFC' }}>Todos os Sites Gerados</h3>
+                    <button type="button" className="text-button" onClick={loadSites} style={{ fontSize: 12 }}>
+                      <RefreshCw size={13} /> Atualizar lista
+                    </button>
+                  </div>
+
+                  {siteListLoading ? (
+                    <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8' }}>
+                      <LoaderCircle className="spin" size={24} style={{ margin: '0 auto 10px' }} />
+                      <span>A carregar os seus sites...</span>
+                    </div>
+                  ) : siteList.length === 0 ? (
+                    <Empty
+                      icon={<Globe2 size={32} />}
+                      title="Nenhum site gerado ainda."
+                      description="Gere o primeiro site para enviar uma demonstração irresistível ao seu lead por WhatsApp."
+                    >
+                      <button className="button" onClick={() => setSiteActiveTab('create')}>
+                        <Plus size={15} /> Criar Primeiro Site
+                      </button>
+                    </Empty>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                      {siteList.map(item => (
+                        <div
+                          key={item.id}
+                          style={{
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: 12,
+                            padding: '16px 18px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 12
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <strong style={{ fontSize: 15, color: '#F8FAFC', display: 'block' }}>{item.businessName}</strong>
+                              <small style={{ color: '#94A3B8' }}>
+                                {SITE_NICHES.find(n => n.id === item.niche)?.label || item.niche} · Criado em {new Date(item.createdAt).toLocaleDateString('pt-MZ')}
+                              </small>
+                            </div>
+                            <Pill tone={item.status === 'approved' ? 'emerald' : 'amber'}>
+                              {item.status === 'approved' ? 'Aprovado' : 'Prévia'}
+                            </Pill>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#60A5FA' }}>
+                            <Globe2 size={13} />
+                            <a
+                              href={`/s/${item.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: '#60A5FA', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
+                              /s/{item.slug}
+                            </a>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 'auto', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <button
+                              type="button"
+                              className="button compact"
+                              style={{ background: '#25D366', color: '#000', fontWeight: 700, fontSize: 11, padding: '4px 10px' }}
+                              onClick={() => shareViaWhatsApp(item)}
+                              title="Enviar mensagem com o link por WhatsApp"
+                            >
+                              <MessageCircle size={13} /> WhatsApp
+                            </button>
+                            <button
+                              type="button"
+                              className="button outline compact"
+                              style={{ fontSize: 11, padding: '4px 10px' }}
+                              onClick={() => copyPublicLink(item)}
+                              title="Copiar link público"
+                            >
+                              <Copy size={13} /> Copiar
+                            </button>
+                            <button
+                              type="button"
+                              className="button outline compact"
+                              style={{ fontSize: 11, padding: '4px 10px' }}
+                              onClick={() => {
+                                setSiteGeneratedSite(item);
+                                setSiteActiveTab('create');
+                              }}
+                            >
+                              Ver / Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="text-button"
+                              style={{ color: '#EF4444', fontSize: 11, padding: '4px', marginLeft: 'auto' }}
+                              onClick={() => handleDeleteSite(item.id)}
+                              title="Eliminar este site"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ) : (
+                /* Formulário & Prévia */
+                <div style={{ display: 'grid', gridTemplateColumns: siteGeneratedSite ? 'minmax(340px, 460px) 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
+                  {/* Formulário de Criação */}
+                  <section className="panel content" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16, color: '#F8FAFC' }}>Dados para o Novo Site</h3>
+                      <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>
+                        Preencha as informações reais da empresa. A IA só usará os factos que indicar, sem inventar nada.
+                      </p>
+                    </div>
+
+                    {/* Caminho 1: Link do Google Maps */}
+                    <div style={{ background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#93C5FD', marginBottom: 6 }}>
+                        📍 Link do Google Maps (Opcional):
+                      </label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          value={siteMapsUrl}
+                          onChange={e => setSiteMapsUrl(e.target.value)}
+                          placeholder="Ex.: https://maps.app.goo.gl/... ou google.com/maps/place/..."
+                          style={{ flex: 1, fontSize: 13 }}
+                        />
+                        <button
+                          type="button"
+                          className="button outline compact"
+                          disabled={siteResolvingMaps || !siteMapsUrl.trim()}
+                          onClick={() => handleResolveMaps()}
+                          style={{ minWidth: 100 }}
+                        >
+                          {siteResolvingMaps ? <LoaderCircle className="spin" size={13} /> : <Compass size={13} />} Extrair
+                        </button>
+                      </div>
+                      <small style={{ display: 'block', fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                        Lê apenas o nome e coordenadas contidos no próprio link, sem chamadas de API pagas.
+                      </small>
+                    </div>
+
+                    {/* Caminho 2: Caixa para colar texto do perfil (Caminho Principal) */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 6 }}>
+                        📋 Texto do Perfil da Empresa (Caminho Principal):
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={siteRawProfileText}
+                        onChange={e => setSiteRawProfileText(e.target.value)}
+                        placeholder="Cole aqui o texto copiado do Google Maps, redes sociais, cartão ou folheto da empresa (ex.: serviços, horários, endereço, avaliações)..."
+                        style={{ width: '100%', fontSize: 13 }}
+                      />
+                      <small style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                        A IA usará este texto como fonte primária de verdade para preencher as secções da página.
+                      </small>
+                    </div>
+
+                    {/* Campos Estruturados */}
+                    <div className="two-fields">
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Nome da Empresa *:
+                        </label>
+                        <input
+                          value={siteBusinessName}
+                          onChange={e => setSiteBusinessName(e.target.value)}
+                          placeholder="Ex.: Clínica Dentária Sorriso Matola"
+                          style={{ width: '100%', fontSize: 13 }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Nicho / Segmento:
+                        </label>
+                        <select
+                          value={siteNiche}
+                          onChange={e => setSiteNiche(e.target.value)}
+                          style={{ width: '100%', fontSize: 13 }}
+                        >
+                          {SITE_NICHES.map(n => (
+                            <option key={n.id} value={n.id}>{n.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="two-fields">
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Telefone / WhatsApp Comercial:
+                        </label>
+                        <input
+                          value={sitePhone}
+                          onChange={e => setSitePhone(e.target.value)}
+                          placeholder="+258 84 123 4567"
+                          style={{ width: '100%', fontSize: 13 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Endereço / Localização:
+                        </label>
+                        <input
+                          value={siteAddress}
+                          onChange={e => setSiteAddress(e.target.value)}
+                          placeholder="Ex.: Av. das Indústrias, Matola Fomento"
+                          style={{ width: '100%', fontSize: 13 }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="two-fields">
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Horário de Funcionamento:
+                        </label>
+                        <input
+                          value={siteOpeningHours}
+                          onChange={e => setSiteOpeningHours(e.target.value)}
+                          placeholder="Ex.: Seg-Sex: 08:00 - 18:00 | Sáb: 08:00 - 13:00"
+                          style={{ width: '100%', fontSize: 13 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Rede Social de Apoio (Texto apenas):
+                        </label>
+                        <input
+                          value={siteSocialLink}
+                          onChange={e => setSiteSocialLink(e.target.value)}
+                          placeholder="Ex.: instagram.com/clinicasorriso (só para citação)"
+                          style={{ width: '100%', fontSize: 13 }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                        🌐 Site de Referência (Opcional - inspiração de estilo):
+                      </label>
+                      <input
+                        value={siteReferenceUrl}
+                        onChange={e => setSiteReferenceUrl(e.target.value)}
+                        placeholder="Ex.: https://exemplo.com (analisado com proteção anti-SSRF)"
+                        style={{ width: '100%', fontSize: 13 }}
+                      />
+                      <small style={{ display: 'block', fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                        A IA usará a paleta e estilo como inspiração sem copiar textos ou imagens diretamente.
+                      </small>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                        Serviços / Especialidades Oferecidas:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={siteServices}
+                        onChange={e => setSiteServices(e.target.value)}
+                        placeholder="Ex.: Limpeza e destartarização, Aparelhos ortodônticos, Implantes, Clareamento dentário, Urgências 24h..."
+                        style={{ width: '100%', fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div className="two-fields">
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Estilo Visual:
+                        </label>
+                        <select
+                          value={siteStyle}
+                          onChange={e => setSiteStyle(e.target.value)}
+                          style={{ width: '100%', fontSize: 13 }}
+                        >
+                          {SITE_STYLES.map(s => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                          Cor Principal da Marca:
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="color"
+                            value={sitePrimaryColor}
+                            onChange={e => setSitePrimaryColor(e.target.value)}
+                            style={{ width: 38, height: 38, padding: 2, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, cursor: 'pointer' }}
+                          />
+                          <input
+                            value={sitePrimaryColor}
+                            onChange={e => setSitePrimaryColor(e.target.value)}
+                            style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Avaliações reais de clientes */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                        💬 Avaliações Reais de Clientes (Opcional - uma por linha):
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={siteReviewsText}
+                        onChange={e => setSiteReviewsText(e.target.value)}
+                        placeholder={'Ex.: "Atendimento impecável e médicos muito atenciosos!" - Maria C.\n"Melhor clínica da Matola, recomendo vivamente!" - João P.'}
+                        style={{ width: '100%', fontSize: 13 }}
+                      />
+                      <small style={{ display: 'block', fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                        🔒 A IA NUNCA inventa avaliações. Se este campo estiver vazio, nenhuma secção de depoimentos falsos será colocada.
+                      </small>
+                    </div>
+
+                    {/* Upload de Imagens */}
+                    <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>
+                          📸 Fotos da Empresa ({siteImages.length}/{SITE_MAX_IMAGES}):
+                        </label>
+                        <span style={{ fontSize: 11, color: '#94A3B8' }}>Máx 2 MB cada (JPG, PNG, WEBP)</span>
+                      </div>
+
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp"
+                        disabled={siteUploadingImages || siteImages.length >= SITE_MAX_IMAGES}
+                        onChange={handleUploadImages}
+                        style={{ fontSize: 12, color: '#94A3B8' }}
+                      />
+
+                      {siteUploadingImages && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#60A5FA', marginTop: 8 }}>
+                          <LoaderCircle className="spin" size={13} /> A carregar imagens para o servidor...
+                        </div>
+                      )}
+
+                      {siteImages.length > 0 ? (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                          {siteImages.map((img, idx) => (
+                            <div key={idx} style={{ position: 'relative', width: 60, height: 60, borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
+                              <img src={img} alt="Upload" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <button
+                                type="button"
+                                onClick={() => setSiteImages(prev => prev.filter((_, i) => i !== idx))}
+                                style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', border: 'none', color: '#FFF', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <small style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 6 }}>
+                          💡 Sem fotos? A página será gerada com blocos de cores harmoniosos e ícones SVG elegantes, sem fotos inventadas.
+                        </small>
+                      )}
+                    </div>
+
+                    {/* Botão de Ação e Custo em Créditos */}
+                    <div style={{ paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 12 }}>
+                        <span style={{ color: '#94A3B8' }}>Custo por criação:</span>
+                        <strong style={{ color: '#38BDF8' }}>{SITE_GENERATION_CREDIT_COST} créditos</strong>
+                      </div>
+                      <button
+                        type="button"
+                        className="button full"
+                        style={{ background: '#25D366', color: '#000', fontWeight: 800, fontSize: 14, padding: '12px 18px', gap: 8 }}
+                        disabled={siteGenerating || !siteBusinessName.trim()}
+                        onClick={handleGenerateSite}
+                      >
+                        {siteGenerating ? (
+                          <><LoaderCircle className="spin" size={16} /> A desenhar site com IA...</>
+                        ) : (
+                          <><Sparkles size={16} /> Gerar Site Profissional · {SITE_GENERATION_CREDIT_COST} créditos</>
+                        )}
+                      </button>
+                      <small style={{ display: 'block', textAlign: 'center', fontSize: 11, color: '#64748B', marginTop: 6 }}>
+                        Os créditos só são descontados após o site ser gerado com sucesso.
+                      </small>
+                    </div>
+                  </section>
+
+                  {/* Prévia Interativa (Lado Direito) */}
+                  {siteGeneratedSite && (
+                    <section
+                      className="panel content"
+                      style={{
+                        position: 'sticky',
+                        top: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        maxHeight: 'calc(100vh - 40px)',
+                        overflowY: 'auto'
+                      }}
+                    >
+                      {/* Top bar da prévia */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <strong style={{ fontSize: 16, color: '#F8FAFC' }}>{siteGeneratedSite.businessName}</strong>
+                            <Pill tone={siteGeneratedSite.status === 'approved' ? 'emerald' : 'amber'}>
+                              {siteGeneratedSite.status === 'approved' ? '🟢 Aprovado' : '🟡 Prévia'}
+                            </Pill>
+                          </div>
+                          <small style={{ color: '#94A3B8' }}>
+                            Link público: <a href={`/s/${siteGeneratedSite.slug}`} target="_blank" rel="noopener noreferrer" style={{ color: '#60A5FA' }}>/s/{siteGeneratedSite.slug}</a>
+                          </small>
+                        </div>
+
+                        {/* Alternador de dispositivo */}
+                        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 2, gap: 2 }}>
+                          <button
+                            type="button"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: 11,
+                              borderRadius: 6,
+                              background: siteDeviceMode === 'mobile' ? '#2563EB' : 'transparent',
+                              color: '#FFF',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => setSiteDeviceMode('mobile')}
+                          >
+                            📱 Telemóvel
+                          </button>
+                          <button
+                            type="button"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: 11,
+                              borderRadius: 6,
+                              background: siteDeviceMode === 'desktop' ? '#2563EB' : 'transparent',
+                              color: '#FFF',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => setSiteDeviceMode('desktop')}
+                          >
+                            💻 Ecrã Cheio
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Alerta de campos faltantes */}
+                      {siteMissingFields.length > 0 && (
+                        <div style={{ background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#FEF08A' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, marginBottom: 2 }}>
+                            <AlertTriangle size={14} /> Campos marcados como [COMPLETAR] no site:
+                          </div>
+                          <span>{siteMissingFields.join(' · ')}</span>
+                        </div>
+                      )}
+
+                      {/* Botões de Ação Principal */}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="button compact"
+                          style={{ background: '#25D366', color: '#000', fontWeight: 800, fontSize: 12 }}
+                          onClick={() => shareViaWhatsApp(siteGeneratedSite)}
+                        >
+                          <MessageCircle size={14} /> Enviar por WhatsApp
+                        </button>
+                        <button
+                          type="button"
+                          className="button outline compact"
+                          style={{ fontSize: 12 }}
+                          onClick={() => copyPublicLink(siteGeneratedSite)}
+                        >
+                          <Copy size={13} /> Copiar Link
+                        </button>
+                        <a
+                          href={`/s/${siteGeneratedSite.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="button outline compact"
+                          style={{ fontSize: 12, textDecoration: 'none' }}
+                        >
+                          <ExternalLink size={13} /> Abrir Externa
+                        </a>
+                        {siteGeneratedSite.status === 'draft' && (
+                          <button
+                            type="button"
+                            className="button outline compact"
+                            disabled={siteMissingFields.length > 0}
+                            style={{
+                              borderColor: siteMissingFields.length > 0 ? '#475569' : '#34D399',
+                              color: siteMissingFields.length > 0 ? '#64748B' : '#34D399',
+                              cursor: siteMissingFields.length > 0 ? 'not-allowed' : 'pointer',
+                              fontSize: 12
+                            }}
+                            onClick={() => {
+                              if (siteMissingFields.length > 0) {
+                                notify(`Preencha os dados em falta (${siteMissingFields.join(', ')}) antes de aprovar.`, true);
+                                return;
+                              }
+                              handleApproveSite(siteGeneratedSite);
+                            }}
+                            title={siteMissingFields.length > 0 ? `Complete os dados em falta para aprovar: ${siteMissingFields.join(', ')}` : "Aprova o site e remove o aviso de prévia"}
+                          >
+                            <Check size={13} /> {siteMissingFields.length > 0 ? 'Aprovação Bloqueada (Campos Pendentes)' : 'Aprovar Site'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-button"
+                          style={{ color: '#EF4444', fontSize: 12, marginLeft: 'auto' }}
+                          onClick={() => handleDeleteSite(siteGeneratedSite.id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {/* Caixa de Ajustes / Regeneração */}
+                      <div style={{ background: 'rgba(30, 41, 59, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12 }}>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#93C5FD', marginBottom: 4 }}>
+                          Pedir Ajuste à IA (Regenerar por {SITE_REGENERATION_CREDIT_COST} créditos):
+                        </label>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            value={siteRegenInstructions}
+                            onChange={e => setSiteRegenInstructions(e.target.value)}
+                            placeholder="Ex.: 'Mais elegante', 'destaque os horários', 'mude a cor para verde'..."
+                            style={{ flex: 1, fontSize: 12 }}
+                          />
+                          <button
+                            type="button"
+                            className="button compact"
+                            style={{ background: '#3B82F6', color: '#FFF', fontSize: 11, minWidth: 90 }}
+                            disabled={siteGenerating || !siteRegenInstructions.trim()}
+                            onClick={handleRegenerateSite}
+                          >
+                            {siteGenerating ? <LoaderCircle className="spin" size={12} /> : <RefreshCw size={12} />} Ajustar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Iframe da Prévia em Sandboxed Container */}
+                      <div style={{ display: 'flex', justifyContent: 'center', background: '#020617', padding: 12, borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <iframe
+                          title="Prévia do Site"
+                          srcDoc={siteGeneratedSite.html}
+                          sandbox="allow-popups allow-popups-to-escape-sandbox"
+                          style={{
+                            width: siteDeviceMode === 'mobile' ? 375 : '100%',
+                            height: 600,
+                            border: siteDeviceMode === 'mobile' ? '10px solid #1E293B' : '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: siteDeviceMode === 'mobile' ? 28 : 8,
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                            background: '#FFFFFF'
+                          }}
+                        />
+                      </div>
+                    </section>
+                  )}
+                </div>
+              )}
             </>
           )}
 
