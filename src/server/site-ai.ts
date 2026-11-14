@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { AppError } from './auth';
 import type { SiteSourceData, SiteStyle } from '../lib/site-constants';
 import { type SiteContent, renderSiteTemplate } from './site-template';
+import type { ReferenceSiteData } from './reference-resolver';
 import {
   enforcePersistentRateLimit,
   getPersistentSiteCache,
@@ -14,6 +15,7 @@ interface GenerateSiteParams {
   images: string[];
   instructions?: string;
   isRegeneration?: boolean;
+  referenceData?: ReferenceSiteData | null;
 }
 
 export interface SiteAIResult {
@@ -228,6 +230,19 @@ ${sourceData.rawProfileText || 'Nenhum texto bruto fornecido.'}
 """
 - Avaliações Fornecidas: ${sourceData.reviews && sourceData.reviews.length > 0 ? JSON.stringify(sourceData.reviews) : 'Nenhuma avaliação fornecida.'}
 - Imagens Carregadas: ${images && images.length > 0 ? JSON.stringify(images) : 'Nenhuma imagem.'}
+${params.referenceData ? `
+ANÁLISE ESTRUTURAL DO SITE DE REFERÊNCIA CONCORRENTE (${params.referenceData.url}):
+- Título do concorrente: ${params.referenceData.title || 'N/A'}
+- Descrição: ${params.referenceData.description || 'N/A'}
+- Cores de referência: ${params.referenceData.dominantColors.join(', ') || 'N/A'}
+- Secções identificadas no concorrente: ${params.referenceData.sections.join(', ')}
+- Tom de comunicação identificado: ${params.referenceData.toneKeywords.join(', ') || 'comercial'}
+- Frases de destaque do concorrente (NÃO COPIAR, usar como referência de autoridade): ${params.referenceData.competitorPhrases.join(' | ') || 'N/A'}
+- Concorrente tem galeria visual: ${params.referenceData.hasGallery ? 'SIM' : 'NÃO'}
+- Concorrente tem prova social/avaliações: ${params.referenceData.hasTestimonials ? 'SIM' : 'NÃO'}
+
+DIRETRIZ DE DIFERENCIAÇÃO: Use o site de referência como inspiração de maturidade comercial, mas crie uma proposta SUPERIOR, mais convincente, com chamadas de WhatsApp mais diretas e copywriting adaptado ao público moçambicano.
+` : ''}
 ${instructions ? `\nINSTRUÇÕES DE AJUSTE / REGENERAÇÃO:\n"${instructions}"\n` : ''}
 
 Gere o JSON estruturado agora:`;

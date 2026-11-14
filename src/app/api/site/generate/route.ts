@@ -47,11 +47,14 @@ export async function POST(request: Request) {
     }
 
     // 2. Se houver link de site de referência, resolve com proteção estrita contra SSRF
+    let resolvedReference: import('@/server/reference-resolver').ReferenceSiteData | null = null;
     if (sourceData.referenceSiteUrl) {
       try {
-        const refData = await resolveReferenceSite(sourceData.referenceSiteUrl);
-        if (refData?.colorHint && !sourceData.primaryColor) {
-          sourceData.primaryColor = refData.colorHint;
+        resolvedReference = await resolveReferenceSite(sourceData.referenceSiteUrl);
+        if (resolvedReference?.colorHint && !sourceData.primaryColor) {
+          sourceData.primaryColor = resolvedReference.colorHint;
+        } else if (resolvedReference?.dominantColors?.[0] && !sourceData.primaryColor) {
+          sourceData.primaryColor = resolvedReference.dominantColors[0];
         }
       } catch (err: any) {
         console.warn('[Reference site resolution note]:', err.message);
@@ -73,7 +76,8 @@ export async function POST(request: Request) {
       userId: user.id,
       sourceData,
       images,
-      instructions: body.instructions || ''
+      instructions: body.instructions || '',
+      referenceData: resolvedReference
     });
 
     const siteId = randomUUID();

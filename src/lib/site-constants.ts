@@ -1,5 +1,6 @@
 export const SITE_GENERATION_CREDIT_COST = 5;
 export const SITE_REGENERATION_CREDIT_COST = 2;
+export const SITE_CHAT_CREDIT_COST = 1; // 1 crédito para ajuste via chat no editor interativo
 export const SITE_MAX_IMAGES = 10;
 export const SITE_MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 export const SITE_ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];

@@ -7,6 +7,14 @@ export interface ReferenceSiteData {
   description?: string;
   colorHint?: string;
   styleHint?: string;
+  dominantColors: string[];
+  sections: string[];
+  toneKeywords: string[];
+  competitorPhrases: string[];
+  hasGallery: boolean;
+  hasTestimonials: boolean;
+  hasMap: boolean;
+  hasFaq: boolean;
 }
 
 function isPrivateIp(ip: string): boolean {
@@ -31,7 +39,7 @@ function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * Resolve e extrai pistas de estilo de um website de referência com proteção estrita contra SSRF.
+ * Resolve e extrai pistas de estilo e estrutura de um website de referência com proteção estrita contra SSRF.
  */
 export async function resolveReferenceSite(rawUrl: string): Promise<ReferenceSiteData | null> {
   const trimmed = (rawUrl || '').trim();
@@ -73,9 +81,21 @@ export async function resolveReferenceSite(rawUrl: string): Promise<ReferenceSit
     throw new AppError('Não foi possível resolver o domínio do site de referência.', 400);
   }
 
-  // Fetch seguro com timeout de 3.5s e limite de tamanho
+  // Fetch seguro com timeout de 4s e limite de tamanho
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3500);
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+  const defaultEmpty: ReferenceSiteData = {
+    url: parsed.toString(),
+    dominantColors: [],
+    sections: ['hero'],
+    toneKeywords: [],
+    competitorPhrases: [],
+    hasGallery: false,
+    hasTestimonials: false,
+    hasMap: false,
+    hasFaq: false
+  };
 
   try {
     const res = await fetch(parsed.toString(), {
@@ -90,21 +110,21 @@ export async function resolveReferenceSite(rawUrl: string): Promise<ReferenceSit
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      return { url: parsed.toString() };
+      return defaultEmpty;
     }
 
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('text/html')) {
-      return { url: parsed.toString() };
+      return defaultEmpty;
     }
 
-    // Lê no máximo os primeiros 60KB
+    // Lê no máximo os primeiros 80KB
     const reader = res.body?.getReader();
-    if (!reader) return { url: parsed.toString() };
+    if (!reader) return defaultEmpty;
 
     let html = '';
     const decoder = new TextDecoder('utf-8');
-    while (html.length < 60000) {
+    while (html.length < 80000) {
       const { done, value } = await reader.read();
       if (done || !value) break;
       html += decoder.decode(value, { stream: true });
@@ -123,18 +143,57 @@ export async function resolveReferenceSite(rawUrl: string): Promise<ReferenceSit
     const colorMatch = html.match(/<meta[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i);
     const colorHint = colorMatch ? colorMatch[1].trim() : undefined;
 
+    // Cores dominantes extraídas
+    const colorRegex = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
+    const rawColors = [...html.matchAll(colorRegex)].map(m => `#${m[1].toUpperCase()}`);
+    // Filtrar cores comuns sem graça (preto puro #000, branco puro #FFF) se houver outras cores
+    const filteredColors = rawColors.filter(c => !['#000', '#000000', '#FFF', '#FFFFFF'].includes(c));
+    const dominantColors = [...new Set(filteredColors.length > 0 ? filteredColors : rawColors)].slice(0, 5);
+
+    // Detectar secções presentes
+    const hasGallery = /gallery|galeria|photos|fotos|images|imagens/i.test(html);
+    const hasTestimonials = /testimonial|depoimento|avaliacao|avaliações|review|cliente/i.test(html);
+    const hasMap = /maps\.google|google\.com\/maps|iframe.*map|mapa|localização/i.test(html);
+    const hasFaq = /faq|perguntas|frequentes|duvidas/i.test(html);
+
+    const sections: string[] = ['hero'];
+    if (/servicos|serviços|services|cardapio|menu|especialidades/i.test(html)) sections.push('services');
+    if (hasGallery) sections.push('gallery');
+    if (hasTestimonials) sections.push('testimonials');
+    if (hasFaq) sections.push('faq');
+    if (hasMap) sections.push('map');
+
+    // Extrair h1 e h2 para frases de posicionamento do concorrente
+    const headingRegex = /<h[12][^>]*>([^<]{5,80})<\/h[12]>/gi;
+    const competitorPhrases = [...html.matchAll(headingRegex)]
+      .map(m => m[1].replace(/\s+/g, ' ').trim())
+      .filter(p => p.length > 5 && !p.toLowerCase().includes('menu') && !p.toLowerCase().includes('navigation'))
+      .slice(0, 5);
+
+    // Identificar tom de escrita
+    const toneKeywords: string[] = [];
+    if (/premium|luxo|exclusivo|requinte|sofisticad/i.test(html)) toneKeywords.push('premium e sofisticado');
+    if (/rapido|urgente|já|agora|imediato/i.test(html)) toneKeywords.push('direto e com urgência');
+    if (/familia|família|acolhedor|amigo|carinho/i.test(html)) toneKeywords.push('familiar e acolhedor');
+    if (/líder|especialista|qualidade|garantia|profissional/i.test(html)) toneKeywords.push('profissional e de autoridade');
+    if (toneKeywords.length === 0) toneKeywords.push('moderno e comercial');
+
     return {
       url: parsed.toString(),
       title,
       description,
-      colorHint
+      colorHint,
+      dominantColors,
+      sections,
+      toneKeywords,
+      competitorPhrases,
+      hasGallery,
+      hasTestimonials,
+      hasMap,
+      hasFaq
     };
   } catch (err: any) {
     clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      return { url: parsed.toString() };
-    }
-    return { url: parsed.toString() };
+    return defaultEmpty;
   }
 }
-

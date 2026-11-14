@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Landing from './landing';
 import AuthScreen, { type AuthMode } from './auth-screen';
+import SiteEditorPanel from './site-editor-panel';
 import {
   PROVINCES, SERVICES, STAGES, COUNTRIES, getCountryByCode, isLikelyWhatsApp,
   isMozambiqueMobile, isMozambiqueLandline,
@@ -922,6 +923,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [siteListLoading, setSiteListLoading] = useState(false);
   const [siteActiveTab, setSiteActiveTab] = useState<'create' | 'history'>('create');
   const [siteDeviceMode, setSiteDeviceMode] = useState<'mobile' | 'desktop'>('mobile');
+  const [activeEditingSite, setActiveEditingSite] = useState<GeneratedSite | null>(null);
 
   const activeBusiness = useRef<string | null>(null);
 
@@ -3958,6 +3960,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                             </button>
                             <button
                               type="button"
+                              className="button compact"
+                              style={{ background: '#3B82F6', color: '#FFF', fontWeight: 700, fontSize: 11, padding: '4px 10px' }}
+                              onClick={() => setActiveEditingSite(item)}
+                              title="Abrir editor visual interativo com chat IA"
+                            >
+                              ✨ Editor IA
+                            </button>
+                            <button
+                              type="button"
                               className="button outline compact"
                               style={{ fontSize: 11, padding: '4px 10px' }}
                               onClick={() => {
@@ -3965,7 +3976,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 setSiteActiveTab('create');
                               }}
                             >
-                              Ver / Editar
+                              Ver / Ajustar
                             </button>
                             <button
                               type="button"
@@ -4347,6 +4358,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         <button
                           type="button"
                           className="button compact"
+                          style={{ background: '#3B82F6', color: '#FFF', fontWeight: 800, fontSize: 12 }}
+                          onClick={() => setActiveEditingSite(siteGeneratedSite)}
+                          title="Abrir editor visual split-view com IA em streaming"
+                        >
+                          ✨ Abrir Editor IA
+                        </button>
+                        <button
+                          type="button"
+                          className="button compact"
                           style={{ background: '#25D366', color: '#000', fontWeight: 800, fontSize: 12 }}
                           onClick={() => shareViaWhatsApp(siteGeneratedSite)}
                         >
@@ -4445,6 +4465,43 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     </section>
                   )}
                 </div>
+              )}
+
+              {/* Modal do Editor Visual Split-View com IA */}
+              {activeEditingSite && (
+                <SiteEditorPanel
+                  siteId={activeEditingSite.id}
+                  slug={activeEditingSite.slug}
+                  initialContent={activeEditingSite.content || {
+                    businessName: activeEditingSite.businessName,
+                    tagline: `${activeEditingSite.businessName} - Qualidade e Excelência`,
+                    heroHeadline: activeEditingSite.businessName,
+                    heroSubheadline: activeEditingSite.sourceData?.services || 'Os melhores serviços especializados.',
+                    aboutText: activeEditingSite.sourceData?.rawProfileText || '',
+                    services: (activeEditingSite.sourceData?.services || '').split(/,|\n/).map(s => ({
+                      title: s.trim() || 'Atendimento Especializado',
+                      description: 'Serviço profissional de alta qualidade com garantia.',
+                      icon: 'star'
+                    })).filter(s => s.title.length > 0),
+                    address: activeEditingSite.sourceData?.address || 'Moçambique',
+                    openingHours: activeEditingSite.sourceData?.openingHours || 'Segunda a Sábado',
+                    phone: activeEditingSite.sourceData?.phone || '+258 84 000 0000',
+                    whatsappNumber: (activeEditingSite.sourceData?.phone || '').replace(/\D/g, '') || '258840000000',
+                    whatsappMessage: `Olá! Encontrei o website da ${activeEditingSite.businessName} e gostaria de saber mais informações.`,
+                    style: (activeEditingSite.sourceData?.style as any) || 'moderno',
+                    primaryColor: activeEditingSite.sourceData?.primaryColor || '#0284C7',
+                    images: activeEditingSite.images || []
+                  }}
+                  initialHtml={activeEditingSite.html}
+                  onClose={() => setActiveEditingSite(null)}
+                  onSiteUpdated={(updatedContent, updatedHtml) => {
+                    // Atualiza tanto na lista quanto no site ativo atual
+                    setSiteList(prev => prev.map(s => s.id === activeEditingSite.id ? { ...s, content: updatedContent, html: updatedHtml } : s));
+                    if (siteGeneratedSite?.id === activeEditingSite.id) {
+                      setSiteGeneratedSite(prev => prev ? { ...prev, content: updatedContent, html: updatedHtml } : null);
+                    }
+                  }}
+                />
               )}
             </>
           )}
