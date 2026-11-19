@@ -11,10 +11,26 @@ import { persistSiteAndVersion, consumeCreditsPersistent } from '@/server/site-p
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
+    // Módulo temporariamente fora do ar para manutenção e atualização
+    if (true as boolean) {
+      return NextResponse.json({
+        error: 'O Criador de Sites está temporariamente em manutenção e atualização. Estará disponível em breve.'
+      }, { status: 503 });
+    }
+
     const user = await requireActivePlan(request);
+
+    // Em produção, falha de forma estritamente fechada se a infraestrutura Supabase não estiver pronta
+    if (process.env.NODE_ENV === 'production' && !supabaseConfigured()) {
+      return NextResponse.json({
+        error: 'Serviço de base de dados e créditos indisponível em ambiente de produção.'
+      }, { status: 503 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const { siteId, instructions = '', sourceDataUpdates } = body;
 
@@ -30,7 +46,7 @@ export async function POST(request: Request) {
       try {
         const client = supabaseAdmin();
         if (client) {
-          const { data, error } = await client
+          const { data, error } = await (client as any)
             .from('generated_sites')
             .select('*')
             .eq('id', siteId)

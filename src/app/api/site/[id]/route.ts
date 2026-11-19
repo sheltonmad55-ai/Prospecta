@@ -3,6 +3,7 @@ import { requireActivePlan, AppError, supabaseConfigured, supabaseAdmin } from '
 import { db, now } from '@/server/db';
 import { sanitizeGeneratedHtml } from '@/server/html-sanitizer';
 import { renderSiteTemplate, type SiteContent } from '@/server/site-template';
+import { renderSiteTemplateV3 } from '@/server/site-template-v3';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,17 +53,22 @@ export async function PATCH(
 
     if (isApprove) {
       const placeholdersPending = row.placeholders_pending || 0;
-      if (placeholdersPending > 0) {
+      let contentObj: any = null;
+      try {
+        contentObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+      } catch {}
+      const hasExamples = placeholdersPending > 0 || contentObj?.hasExampleData === true;
+      if (hasExamples) {
         return NextResponse.json({
-          error: `Não é possível aprovar este site enquanto houver ${placeholdersPending} campo(s) de exemplo pendentes. Confirme os dados primeiro.`
+          error: `Não é possível aprovar este site enquanto existirem dados ou campos de exemplo pendentes de confirmação.`
         }, { status: 400 });
       }
     }
 
     let updatedHtml = row.html;
     if (row.content) {
-      const content = (typeof row.content === 'string' ? JSON.parse(row.content) : row.content) as SiteContent;
-      updatedHtml = renderSiteTemplate(content, !isApprove);
+      const content = (typeof row.content === 'string' ? JSON.parse(row.content) : row.content);
+      updatedHtml = renderSiteTemplateV3(content, !isApprove, false);
     } else if (row.html) {
       updatedHtml = sanitizeGeneratedHtml(row.html, !isApprove);
     }

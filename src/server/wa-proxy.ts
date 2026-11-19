@@ -4,7 +4,15 @@ import type { User } from '@/lib/contracts';
 
 export function getWhatsAppServiceConfig() {
   const url = (process.env.WHATSAPP_SERVICE_URL || 'http://localhost:3001').replace(/\/+$/, '');
-  const apiKey = process.env.WHATSAPP_SERVICE_KEY || process.env.API_KEY || '';
+  const apiKey = (process.env.WHATSAPP_SERVICE_KEY || process.env.API_KEY || '').trim();
+
+  // Em produção, recusa terminantemente chave vazia ou chave padrão insegura de exemplo
+  if (process.env.NODE_ENV === 'production') {
+    if (!apiKey || apiKey === 'prospecta_secret_key_change_me') {
+      throw new AppError('WHATSAPP_SERVICE_KEY não configurada ou usando valor padrão inseguro em produção.', 500);
+    }
+  }
+
   return { url, apiKey };
 }
 

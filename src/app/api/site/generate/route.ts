@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { requireActivePlan, credits, AppError } from '@/server/auth';
+import { requireActivePlan, credits, AppError, supabaseConfigured } from '@/server/auth';
 import { db, now } from '@/server/db';
 import {
   SITE_GENERATION_CREDIT_COST,
@@ -10,9 +10,11 @@ import {
 import { generateSiteHtml } from '@/server/site-ai';
 import { persistSiteAndVersion, consumeCreditsPersistent } from '@/server/site-persistence';
 import { resolveReferenceSite } from '@/server/reference-resolver';
+import { extractDetailsFromText } from '@/server/text-extractor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function generateSlug(name: string): string {
   const clean = (name || 'site')
@@ -29,10 +31,34 @@ function generateSlug(name: string): string {
 
 export async function POST(request: Request) {
   try {
+    // Módulo temporariamente fora do ar para manutenção e atualização
+    if (true as boolean) {
+      return NextResponse.json({
+        error: 'O Criador de Sites está temporariamente em manutenção e atualização. Estará disponível em breve.'
+      }, { status: 503 });
+    }
+
     const user = await requireActivePlan(request);
+
+    // Em produção, falha de forma estritamente fechada se a infraestrutura Supabase não estiver pronta
+    if (process.env.NODE_ENV === 'production' && !supabaseConfigured()) {
+      return NextResponse.json({
+        error: 'Serviço de base de dados e créditos indisponível em ambiente de produção.'
+      }, { status: 503 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const sourceData = (body.sourceData || {}) as SiteSourceData;
     const images = Array.isArray(body.images) ? body.images.slice(0, 10) : [];
+
+    // Extração heurística automática no servidor caso o utilizador tenha colado texto livre no campo único
+    if (sourceData.rawProfileText) {
+      const extracted = extractDetailsFromText(sourceData.rawProfileText || '');
+      if (!sourceData.phone && extracted.phone) sourceData.phone = extracted.phone;
+      if (!sourceData.address && extracted.address) sourceData.address = extracted.address;
+      if (!sourceData.openingHours && extracted.openingHours) sourceData.openingHours = extracted.openingHours;
+      if (!sourceData.services && extracted.services) sourceData.services = extracted.services;
+    }
 
     if (!sourceData.businessName || sourceData.businessName.trim().length < 2) {
       return NextResponse.json({ error: 'O nome da empresa é obrigatório.' }, { status: 400 });
@@ -48,13 +74,23 @@ export async function POST(request: Request) {
 
     // 2. Se houver link de site de referência, resolve com proteção estrita contra SSRF
     let resolvedReference: import('@/server/reference-resolver').ReferenceSiteData | null = null;
-    if (sourceData.referenceSiteUrl) {
+    const refUrl: string = sourceData.referenceSiteUrl || '';
+    if (refUrl) {
       try {
-        resolvedReference = await resolveReferenceSite(sourceData.referenceSiteUrl);
-        if (resolvedReference?.colorHint && !sourceData.primaryColor) {
-          sourceData.primaryColor = resolvedReference.colorHint;
-        } else if (resolvedReference?.dominantColors?.[0] && !sourceData.primaryColor) {
-          sourceData.primaryColor = resolvedReference.dominantColors[0];
+        resolvedReference = await resolveReferenceSite(refUrl);
+        // Reconhece automaticamente o tema se for um dos 6 sites de produção
+        const matchedTheme = (await import('@/server/site-themes')).matchThemeFromReferenceUrl(refUrl);
+        if (matchedTheme && !sourceData.style) {
+          sourceData.style = (matchedTheme || undefined) as any;
+        }
+
+        const refData = resolvedReference as import('@/server/reference-resolver').ReferenceSiteData | null;
+        if (refData) {
+          if (refData.colorHint && !sourceData.primaryColor) {
+            sourceData.primaryColor = refData.colorHint;
+          } else if (refData.dominantColors?.[0] && !sourceData.primaryColor) {
+            sourceData.primaryColor = refData.dominantColors[0];
+          }
         }
       } catch (err: any) {
         console.warn('[Reference site resolution note]:', err.message);
@@ -84,7 +120,14 @@ export async function POST(request: Request) {
     const timestamp = now();
     const niche = sourceData.niche || 'outro';
     const template = (sourceData.style as string) || 'moderno';
-    const placeholdersPending = result.missingFields.length;
+    const placeholdersPending = Math.max(1, result.missingFields.length);
+
+    const contentToSave: any = {
+      ...result.content,
+      hasExampleData: true,
+      placeholders_pending: placeholdersPending,
+      placeholdersPending
+    };
 
     // 5. Gravação persistente no Supabase (generated_sites + site_versions)
     await persistSiteAndVersion({
@@ -95,7 +138,7 @@ export async function POST(request: Request) {
       niche,
       sourceData,
       images,
-      content: result.content,
+      content: contentToSave,
       html: result.html,
       version: 1,
       instructions: 'Criação inicial de website',
@@ -119,6 +162,7 @@ export async function POST(request: Request) {
       niche,
       sourceData,
       images,
+      content: contentToSave,
       html: result.html,
       status: 'draft',
       createdAt: timestamp,

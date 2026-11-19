@@ -189,9 +189,15 @@ export async function generateSiteHtml(params: GenerateSiteParams): Promise<Site
 OBJETIVO: Gerar um JSON estruturado com o conteúdo exato, elegante e persuasivo para um website de página única.
 
 REGRAS ABSOLUTAS:
-1. USE ESTRITAMENTE OS DADOS FORNECIDOS PELO UTILIZADOR.
-2. NUNCA invente preços, serviços não citados, certificações falsas ou números inventados.
-3. Se um dado essencial faltar, preencha com "[COMPLETAR: indicação do que falta]".
+1. EXTRAÇÃO INTELIGENTE DE TEXTO LIVRE:
+Se o utilizador fornecer uma descrição ou texto em "Texto Bruto do Perfil", analise o texto e EXTRAIA automaticamente com a sua inteligência:
+- Telefone e WhatsApp (ex: +258 84/82/85/86/87...)
+- Endereço físico e localização geográfica (ruas, avenidas, bairros, cidades)
+- Horário de funcionamento (dias da semana e períodos de atendimento)
+- Lista detalhada de serviços ou especialidades mencionados.
+Preencha esses dados diretamente nos campos estruturados do JSON.
+2. NUNCA invente preços fictícios, certificações não citadas ou depoimentos falsos.
+3. Se um dado essencial não puder ser extraído de nenhuma parte do texto fornecido, preencha com "[COMPLETAR: indicação do que falta]".
 4. AVALIAÇÕES: Inclua no array "reviews" SOMENTE avaliações reais fornecidas no texto. Se nenhuma foi fornecida, devolva um array vazio [].
 5. IDIOMA: Português formal e acolhedor adaptado ao contexto de Moçambique.
 6. DEVOLVA EXCLUSIVAMENTE UM OBJETO JSON VÁLIDO no seguinte formato:

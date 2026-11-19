@@ -110,9 +110,10 @@ export async function GET(request: NextRequest) {
 
   // Cria e atualiza o workspace/perfil do utilizador no Supabase caso seja primeiro acesso
   const metadata = user.user_metadata || {};
-  const rawName = metadata.businessName || (metadata.full_name && metadata.full_name.toLowerCase() !== 'droop store' ? metadata.full_name : '') || (metadata.name && metadata.name.toLowerCase() !== 'droop store' ? metadata.name : '') || 'Chelton Madime';
-  const name = typeof rawName === 'string' ? rawName.trim().slice(0, 100) : 'Chelton Madime';
   const email = (user.email || `${user.id}@prospecta.mz`).toLowerCase();
+  const emailPrefix = email ? email.split('@')[0] : 'Utilizador';
+  const rawName = metadata.businessName || (metadata.full_name && metadata.full_name.toLowerCase() !== 'droop store' ? metadata.full_name : '') || (metadata.name && metadata.name.toLowerCase() !== 'droop store' ? metadata.name : '') || emailPrefix;
+  const name = typeof rawName === 'string' ? rawName.trim().slice(0, 100) : emailPrefix;
 
   if (!metadata.workspaceId || !metadata.profile) {
     try {

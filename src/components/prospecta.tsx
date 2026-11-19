@@ -120,7 +120,8 @@ function getCoherentVaultScript(
   const bizName = biz.name || 'a vossa empresa';
   const loc = biz.locality || 'a vossa zona';
   const cat = biz.category ? biz.category.toLowerCase() : 'negócios locais';
-  const sender = userName || 'Chelton Madime';
+  const repName = (userName && userName.trim() && userName.trim().toLowerCase() !== 'droop store' && userName.trim().toLowerCase() !== 'utilizador' && userName.trim().toLowerCase() !== 'chelton' && userName.trim().toLowerCase() !== 'chelton madime') ? userName.trim() : '';
+  const sender = repName || '';
 
   if (type === 'primeiro-contato') {
     if (isSiteOrLanding) {
@@ -463,7 +464,7 @@ function interpolateMessage(
     .replace(/\{pais\}|\{\{pais\}\}|\{país\}|\{\{país\}\}/gi, countryName)
     .replace(/\{nicho\}|\{\{nicho\}\}|\{categoria\}|\{\{categoria\}\}/gi, niche)
     .replace(/\{servico\}|\{\{servico\}\}|\{serviço\}|\{\{serviço\}\}/gi, serviceName || 'presença digital e captação de clientes')
-    .replace(/\{responsavel\}|\{\{responsavel\}\}|\{responsável\}|\{\{responsável\}\}|\{nome\}|\{\{nome\}\}/gi, userName || 'Chelton')
+    .replace(/\{responsavel\}|\{\{responsavel\}\}|\{responsável\}|\{\{responsável\}\}|\{nome\}|\{\{nome\}\}/gi, (userName && userName.toLowerCase() !== 'chelton' && userName.toLowerCase() !== 'chelton madime' && userName !== 'Utilizador' && userName.toLowerCase() !== 'droop store') ? userName : '')
     .replace(/\{telefone\}|\{\{telefone\}\}/gi, phone)
     .replace(/\{score\}|\{\{score\}\}/gi, score);
 }
@@ -923,6 +924,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [siteListLoading, setSiteListLoading] = useState(false);
   const [siteActiveTab, setSiteActiveTab] = useState<'create' | 'history'>('create');
   const [siteDeviceMode, setSiteDeviceMode] = useState<'mobile' | 'desktop'>('mobile');
+  const [siteShowMoreOptions, setSiteShowMoreOptions] = useState<boolean>(false);
+  const [siteQuickInput, setSiteQuickInput] = useState<string>('');
   const [activeEditingSite, setActiveEditingSite] = useState<GeneratedSite | null>(null);
 
   const activeBusiness = useRef<string | null>(null);
@@ -1029,7 +1032,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           localidade: b.locality || b.city || '',
           nicho: b.category || b.activity || '',
           servico: filters.service || user?.profile?.service || '',
-          responsavel: user?.name || 'Chelton'
+          responsavel: (user?.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : ''
         }
       }));
 
@@ -1276,8 +1279,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const refreshUser = useCallback(async () => {
     const result = await api<{ user: User | null; mode: 'demo' | 'live' }>('me');
     let u = result.user;
-    if (u && (!u.name || u.name.toLowerCase() === 'droop store')) {
-      u = { ...u, name: 'Chelton Madime' };
+    if (u && (!u.name || u.name.toLowerCase() === 'droop store' || u.name.toLowerCase() === 'chelton madime' || u.name.toLowerCase() === 'chelton')) {
+      u = { ...u, name: (u.email ? u.email.split('@')[0] : 'Utilizador') };
     }
     if (u && typeof window !== 'undefined') {
       const stored = localStorage.getItem('prospecta_onboarded_' + u.id);
@@ -1409,8 +1412,15 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   }, [siteImages.length, notify]);
 
   const handleGenerateSite = useCallback(async () => {
-    if (!siteBusinessName.trim()) {
-      notify('Por favor, indique pelo menos o nome da empresa.', true);
+    let effectiveName = siteBusinessName.trim();
+    if (!effectiveName && siteQuickInput.trim()) {
+      // Se tiver só texto colado, tenta extrair o nome da primeira linha
+      const firstLine = siteQuickInput.trim().split('\n')[0].replace(/^https?:\/\/[^\s]+/i, '').trim();
+      effectiveName = firstLine.slice(0, 45) || 'Empresa Local';
+    }
+
+    if (!effectiveName) {
+      notify('Por favor, indique o nome da empresa ou cole o link/descrição.', true);
       return;
     }
     const currentAvailable = user?.credits?.available ?? 0;
@@ -1426,7 +1436,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         .filter(r => r.length > 5);
 
       const sourceData: SiteSourceData = {
-        businessName: siteBusinessName.trim(),
+        businessName: effectiveName,
         niche: siteNiche,
         phone: sitePhone.trim(),
         address: siteAddress.trim(),
@@ -1437,7 +1447,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         socialLink: siteSocialLink.trim(),
         referenceSiteUrl: siteReferenceUrl.trim() || undefined,
         mapsUrl: siteMapsUrl.trim(),
-        rawProfileText: siteRawProfileText.trim(),
+        rawProfileText: (siteRawProfileText.trim() || siteQuickInput.trim()),
         reviews
       };
 
@@ -1561,8 +1571,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         localStorage.setItem('prospecta_session_token', result.token);
       }
       let currentUser = result.user;
-      if (currentUser && (!currentUser.name || currentUser.name.toLowerCase() === 'droop store')) {
-        currentUser = { ...currentUser, name: 'Chelton Madime' };
+      if (currentUser && (!currentUser.name || currentUser.name.toLowerCase() === 'droop store' || currentUser.name.toLowerCase() === 'chelton madime' || currentUser.name.toLowerCase() === 'chelton')) {
+        currentUser = { ...currentUser, name: (currentUser.email ? currentUser.email.split('@')[0] : 'Utilizador') };
       }
       if (currentUser && typeof window !== 'undefined') {
         const storedOnboarded = localStorage.getItem('prospecta_onboarded_' + currentUser.id);
@@ -1603,10 +1613,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         setProfile(currentUser.profile);
         if (currentUser.profile.service) setService(currentUser.profile.service);
       }
+      const initial = query.get('view') as View | null;
+      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'integrations', 'create-site', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
       const isSheltonAdmin = currentUser && (currentUser.role === 'admin' || (currentUser.email && currentUser.email.toLowerCase() === 'sheltonmad55@gmail.com'));
       if (currentUser && !query.get('reset')) {
         setAuth(null);
-        if (isSheltonAdmin) {
+        if (initial && validViews.includes(initial)) {
+          navigate(initial);
+        } else if (isSheltonAdmin) {
           navigate('admin');
         } else if (!hasActivePaidPlan(currentUser)) {
           if (typeof window !== 'undefined' && !window.location.hash.includes('planos')) {
@@ -1623,12 +1637,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           : oauthError === 'google_terms' ? 'Para continuar com Google, crie a conta e aceite os termos.'
             : 'Não foi possível concluir o acesso com Google. Tente novamente.', true
       );
-      const initial = query.get('view') as View | null;
-      const validViews: View[] = ['opportunities', 'today', 'search', 'saved-searches', 'leads', 'integrations', 'create-site', 'portfolio', 'vault', 'account', 'admin', 'business', 'outreach'];
-      if (isSheltonAdmin) {
-        setView('admin');
-      } else if (initial && validViews.includes(initial)) {
+      if (initial && validViews.includes(initial)) {
         setView(initial);
+      } else if (isSheltonAdmin) {
+        setView('admin');
       } else if (query.get('view') === 'radar') {
         setView('search');
       }
@@ -2059,7 +2071,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     { view: 'saved-searches' as View, label: 'Buscas salvas', icon: Search },
     { view: 'leads' as View, label: 'Leads salvos', icon: Bookmark },
     { view: 'integrations' as View, label: 'Integrações', icon: MessageCircle, badge: waServiceStatus?.connected ? '🟢 Online' : waServiceStatus?.status === 'waiting_qr' ? '🟡 Ler QR' : undefined },
-    { view: 'create-site' as View, label: 'Criar site', icon: Globe2 },
+    { view: 'create-site' as View, label: 'Criar site', icon: Globe2, badge: 'EM BREVE' },
     { view: 'portfolio' as View, label: 'Portfólio', icon: FileText, beta: true },
     { view: 'vault' as View, label: 'Cofre', icon: ShieldCheck },
   ];
@@ -2445,8 +2457,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
           {/* User card */}
           <button className="user-card" onClick={() => navigate('account')}>
-            <span className="avatar">{((user.name && user.name.toLowerCase() !== 'droop store') ? user.name : 'Chelton Madime').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('')}</span>
-            <span><strong>{(user.name && user.name.toLowerCase() !== 'droop store') ? user.name : 'Chelton Madime'}</strong><small>{user.profile.province || 'Moçambique'}</small></span>
+            <span className="avatar">{((user.name && user.name.toLowerCase() !== 'droop store') ? user.name : (user.email ? user.email.split('@')[0] : 'U')).split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}</span>
+            <span><strong>{(user.name && user.name.toLowerCase() !== 'droop store') ? user.name : (user.email ? user.email.split('@')[0] : 'Utilizador')}</strong><small>{user.profile.province || 'Moçambique'}</small></span>
             <Settings2 size={17} />
           </button>
 
@@ -2542,7 +2554,62 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     Verificar Estado
                   </button>
                 </div>
-              ) : waServiceStatus && !waServiceStatus.connected && view !== 'integrations' ? (
+              ) : null}
+
+              {/* Aviso de Expiração Próxima do Plano (Últimos 5 dias) */}
+              {(() => {
+                if (!user.subscription?.expiresAt || user.role === 'admin') return null;
+                const expDate = new Date(user.subscription.expiresAt).getTime();
+                const nowMs = Date.now();
+                const diffDays = Math.ceil((expDate - nowMs) / (1000 * 60 * 60 * 24));
+                if (diffDays > 5 || diffDays < 0) return null;
+                const isPro = user.subscription.plan === 'pro';
+                const checkoutUrl = isPro ? PLANS.pro.lojouCheckoutUrl : PLANS.essential.lojouCheckoutUrl;
+                return (
+                  <div style={{
+                    margin: '0 0 18px',
+                    padding: '12px 18px',
+                    borderRadius: 12,
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    color: '#FDE047',
+                    fontSize: 13
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <CalendarDays size={18} color="#FACC15" />
+                      <span>
+                        <b>Aviso de Renovação:</b> O seu plano <b>{isPro ? 'Pro' : 'Essencial'}</b> expira {diffDays === 0 ? 'hoje' : diffDays === 1 ? 'amanhã' : `em ${diffDays} dias`}. Renove para manter o acesso aos seus leads e ferramentas.
+                      </span>
+                    </div>
+                    <a
+                      href={checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: '#F59E0B',
+                        color: '#000000',
+                        textDecoration: 'none',
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      Renovar Plano
+                    </a>
+                  </div>
+                );
+              })()}
+
+              {waServiceStatus && !waServiceStatus.connected && view !== 'integrations' ? (
                 <div style={{
                   margin: '0 0 18px',
                   padding: '12px 18px',
@@ -3296,7 +3363,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     const withWaList = selectedBusinesses.filter(b => isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
                     const withoutWaList = selectedBusinesses.filter(b => !isLikelyWhatsApp(b.phone, b.country || currentCountryCode));
                     const currentBiz = withWaList[bulkPreviewIndex] || withWaList[0];
-                    const interpolatedPreview = currentBiz ? interpolateMessage(bulkTemplate, currentBiz, user?.name || 'Chelton', filters.service || user?.profile.service) : '';
+                    const interpolatedPreview = currentBiz ? interpolateMessage(bulkTemplate, currentBiz, (user?.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : '', filters.service || user?.profile.service) : '';
 
                     const insertVar = (variable: string) => {
                       setBulkTemplate(prev => prev + ' ' + variable);
@@ -3842,8 +3909,34 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             </>
           )}
 
-          {/* ══ VIEW: Criar Site (Landing Page por IA) ═══════ */}
+          {/* ══ VIEW: Criar Site (Fora do Ar · Em Breve) ═══════ */}
           {user.profile.onboarded && view === 'create-site' && (
+            <>
+              <div className="page-heading">
+                <div>
+                  <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Globe2 size={14} color="#F59E0B" /> CRIADOR DE SITES · PROSPECTA
+                    <Pill tone="amber">EM BREVE</Pill>
+                  </div>
+                  <h1>Criador de Websites com IA</h1>
+                  <p>Estamos a preparar uma atualização completa do motor de geração de websites.</p>
+                </div>
+              </div>
+
+              <section className="panel" style={{ padding: '60px 24px', textAlign: 'center' }}>
+                <Empty
+                  icon={<Globe2 size={40} color="#F59E0B" />}
+                  title="Funcionalidade em manutenção & atualização."
+                  description="A funcionalidade de criação de websites está temporariamente fora do ar enquanto integramos novos templates mobile-first, maior personalização e melhorias no editor. Estará disponível em breve."
+                >
+                  <Pill tone="amber">TEMPORARIAMENTE FORA DO AR · EM BREVE</Pill>
+                </Empty>
+              </section>
+            </>
+          )}
+
+          {/* Código anterior mantido inativo durante a manutenção */}
+          {(false as boolean) && user && user.profile.onboarded && view === 'create-site' && (
             <>
               <div className="page-heading">
                 <div>
@@ -3906,15 +3999,50 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         <div
                           key={item.id}
                           style={{
-                            background: 'rgba(15, 23, 42, 0.75)',
+                            background: 'rgba(15, 23, 42, 0.85)',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: 12,
-                            padding: '16px 18px',
+                            borderRadius: 14,
+                            padding: '14px',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 12
+                            gap: 12,
+                            overflow: 'hidden',
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
                           }}
                         >
+                          {/* Miniatura Visual / Mockup do Website */}
+                          <div
+                            style={{
+                              width: '100%',
+                              height: 120,
+                              borderRadius: 8,
+                              background: 'linear-gradient(135deg, #1E293B, #0F172A)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              overflow: 'hidden',
+                              position: 'relative',
+                              display: 'flex',
+                              flexDirection: 'column'
+                            }}
+                          >
+                            {/* Barra do mini browser */}
+                            <div style={{ height: 20, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', padding: '0 8px', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#EF4444' }} />
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B' }} />
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10B981' }} />
+                              <span style={{ fontSize: 9, color: '#64748B', marginLeft: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>/s/{item.slug}</span>
+                            </div>
+                            {/* Conteúdo da miniatura */}
+                            <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: 'radial-gradient(circle at top right, rgba(37,99,235,0.12), transparent)' }}>
+                              <span style={{ fontSize: 9, color: '#38BDF8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                {SITE_NICHES.find(n => n.id === item.niche)?.label || item.niche}
+                              </span>
+                              <strong style={{ fontSize: 13, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {item.businessName}
+                              </strong>
+                              <span style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>Website Mobile-First • Ativo</span>
+                            </div>
+                          </div>
+
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
                               <strong style={{ fontSize: 15, color: '#F8FAFC', display: 'block' }}>{item.businessName}</strong>
@@ -3996,264 +4124,217 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
               ) : (
                 /* Formulário & Prévia */
                 <div style={{ display: 'grid', gridTemplateColumns: siteGeneratedSite ? 'minmax(340px, 460px) 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
-                  {/* Formulário de Criação */}
+                  {/* Formulário de Criação Simplificado com UM campo principal */}
                   <section className="panel content" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div>
-                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16, color: '#F8FAFC' }}>Dados para o Novo Site</h3>
+                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16, color: '#F8FAFC' }}>Criar Website Profissional em 1 Clique</h3>
                       <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>
-                        Preencha as informações reais da empresa. A IA só usará os factos que indicar, sem inventar nada.
+                        Cole o link do Google Maps ou descreva a empresa. O servidor extrai o telefone, endereço e serviços automaticamente.
                       </p>
                     </div>
 
-                    {/* Caminho 1: Link do Google Maps */}
-                    <div style={{ background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12 }}>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#93C5FD', marginBottom: 6 }}>
-                        📍 Link do Google Maps (Opcional):
-                      </label>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                          value={siteMapsUrl}
-                          onChange={e => setSiteMapsUrl(e.target.value)}
-                          placeholder="Ex.: https://maps.app.goo.gl/... ou google.com/maps/place/..."
-                          style={{ flex: 1, fontSize: 13 }}
-                        />
-                        <button
-                          type="button"
-                          className="button outline compact"
-                          disabled={siteResolvingMaps || !siteMapsUrl.trim()}
-                          onClick={() => handleResolveMaps()}
-                          style={{ minWidth: 100 }}
-                        >
-                          {siteResolvingMaps ? <LoaderCircle className="spin" size={13} /> : <Compass size={13} />} Extrair
-                        </button>
-                      </div>
-                      <small style={{ display: 'block', fontSize: 11, color: '#64748B', marginTop: 4 }}>
-                        Lê apenas o nome e coordenadas contidos no próprio link, sem chamadas de API pagas.
-                      </small>
-                    </div>
-
-                    {/* Caminho 2: Caixa para colar texto do perfil (Caminho Principal) */}
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 6 }}>
-                        📋 Texto do Perfil da Empresa (Caminho Principal):
-                      </label>
-                      <textarea
-                        rows={4}
-                        value={siteRawProfileText}
-                        onChange={e => setSiteRawProfileText(e.target.value)}
-                        placeholder="Cole aqui o texto copiado do Google Maps, redes sociais, cartão ou folheto da empresa (ex.: serviços, horários, endereço, avaliações)..."
-                        style={{ width: '100%', fontSize: 13 }}
-                      />
-                      <small style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-                        A IA usará este texto como fonte primária de verdade para preencher as secções da página.
-                      </small>
-                    </div>
-
-                    {/* Campos Estruturados */}
-                    <div className="two-fields">
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Nome da Empresa *:
-                        </label>
-                        <input
-                          value={siteBusinessName}
-                          onChange={e => setSiteBusinessName(e.target.value)}
-                          placeholder="Ex.: Clínica Dentária Sorriso Matola"
-                          style={{ width: '100%', fontSize: 13 }}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Nicho / Segmento:
-                        </label>
-                        <select
-                          value={siteNiche}
-                          onChange={e => setSiteNiche(e.target.value)}
-                          style={{ width: '100%', fontSize: 13 }}
-                        >
-                          {SITE_NICHES.map(n => (
-                            <option key={n.id} value={n.id}>{n.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="two-fields">
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Telefone / WhatsApp Comercial:
-                        </label>
-                        <input
-                          value={sitePhone}
-                          onChange={e => setSitePhone(e.target.value)}
-                          placeholder="+258 84 123 4567"
-                          style={{ width: '100%', fontSize: 13 }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Endereço / Localização:
-                        </label>
-                        <input
-                          value={siteAddress}
-                          onChange={e => setSiteAddress(e.target.value)}
-                          placeholder="Ex.: Av. das Indústrias, Matola Fomento"
-                          style={{ width: '100%', fontSize: 13 }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="two-fields">
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Horário de Funcionamento:
-                        </label>
-                        <input
-                          value={siteOpeningHours}
-                          onChange={e => setSiteOpeningHours(e.target.value)}
-                          placeholder="Ex.: Seg-Sex: 08:00 - 18:00 | Sáb: 08:00 - 13:00"
-                          style={{ width: '100%', fontSize: 13 }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Rede Social de Apoio (Texto apenas):
-                        </label>
-                        <input
-                          value={siteSocialLink}
-                          onChange={e => setSiteSocialLink(e.target.value)}
-                          placeholder="Ex.: instagram.com/clinicasorriso (só para citação)"
-                          style={{ width: '100%', fontSize: 13 }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                        🌐 Site de Referência (Opcional - inspiração de estilo):
-                      </label>
-                      <input
-                        value={siteReferenceUrl}
-                        onChange={e => setSiteReferenceUrl(e.target.value)}
-                        placeholder="Ex.: https://exemplo.com (analisado com proteção anti-SSRF)"
-                        style={{ width: '100%', fontSize: 13 }}
-                      />
-                      <small style={{ display: 'block', fontSize: 11, color: '#64748B', marginTop: 4 }}>
-                        A IA usará a paleta e estilo como inspiração sem copiar textos ou imagens diretamente.
-                      </small>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                        Serviços / Especialidades Oferecidas:
+                    {/* CAMPO ÚNICO PRINCIPAL DE ENTRADA RÁPIDA */}
+                    <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: 12, padding: 14 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#38BDF8', marginBottom: 8 }}>
+                        Cole o link do Google Maps ou descreva a empresa:
                       </label>
                       <textarea
                         rows={3}
-                        value={siteServices}
-                        onChange={e => setSiteServices(e.target.value)}
-                        placeholder="Ex.: Limpeza e destartarização, Aparelhos ortodônticos, Implantes, Clareamento dentário, Urgências 24h..."
-                        style={{ width: '100%', fontSize: 13 }}
+                        value={siteQuickInput}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSiteQuickInput(val);
+                          // Auto detecção se for link do maps
+                          if (val.includes('maps.google') || val.includes('maps.app.goo.gl') || val.includes('google.com/maps')) {
+                            setSiteMapsUrl(val.trim());
+                            if (!siteBusinessName) {
+                              const match = val.match(/place\/([^/@?]+)/);
+                              if (match) setSiteBusinessName(decodeURIComponent(match[1].replace(/\+/g, ' ')));
+                            }
+                          } else {
+                            setSiteRawProfileText(val);
+                            if (!siteBusinessName && val.length > 2 && val.length < 50) {
+                              setSiteBusinessName(val.split('\n')[0]);
+                            }
+                          }
+                        }}
+                        placeholder="Ex.: https://maps.app.goo.gl/... ou Clínica Odontológica em Maputo, Av. 24 de Julho, atendimentos das 8h às 18h..."
+                        style={{ width: '100%', fontSize: 13, background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
                       />
-                    </div>
-
-                    <div className="two-fields">
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Estilo Visual:
-                        </label>
-                        <select
-                          value={siteStyle}
-                          onChange={e => setSiteStyle(e.target.value)}
-                          style={{ width: '100%', fontSize: 13 }}
-                        >
-                          {SITE_STYLES.map(s => (
-                            <option key={s.id} value={s.id}>{s.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                          Cor Principal da Marca:
-                        </label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="color"
-                            value={sitePrimaryColor}
-                            onChange={e => setSitePrimaryColor(e.target.value)}
-                            style={{ width: 38, height: 38, padding: 2, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, cursor: 'pointer' }}
-                          />
-                          <input
-                            value={sitePrimaryColor}
-                            onChange={e => setSitePrimaryColor(e.target.value)}
-                            style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Avaliações reais de clientes */}
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
-                        💬 Avaliações Reais de Clientes (Opcional - uma por linha):
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={siteReviewsText}
-                        onChange={e => setSiteReviewsText(e.target.value)}
-                        placeholder={'Ex.: "Atendimento impecável e médicos muito atenciosos!" - Maria C.\n"Melhor clínica da Matola, recomendo vivamente!" - João P.'}
-                        style={{ width: '100%', fontSize: 13 }}
-                      />
-                      <small style={{ display: 'block', fontSize: 11, color: '#64748B', marginTop: 4 }}>
-                        🔒 A IA NUNCA inventa avaliações. Se este campo estiver vazio, nenhuma secção de depoimentos falsos será colocada.
-                      </small>
-                    </div>
-
-                    {/* Upload de Imagens */}
-                    <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>
-                          📸 Fotos da Empresa ({siteImages.length}/{SITE_MAX_IMAGES}):
-                        </label>
-                        <span style={{ fontSize: 11, color: '#94A3B8' }}>Máx 2 MB cada (JPG, PNG, WEBP)</span>
-                      </div>
-
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/jpeg,image/png,image/webp"
-                        disabled={siteUploadingImages || siteImages.length >= SITE_MAX_IMAGES}
-                        onChange={handleUploadImages}
-                        style={{ fontSize: 12, color: '#94A3B8' }}
-                      />
-
-                      {siteUploadingImages && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#60A5FA', marginTop: 8 }}>
-                          <LoaderCircle className="spin" size={13} /> A carregar imagens para o servidor...
-                        </div>
-                      )}
-
-                      {siteImages.length > 0 ? (
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                          {siteImages.map((img, idx) => (
-                            <div key={idx} style={{ position: 'relative', width: 60, height: 60, borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                              <img src={img} alt="Upload" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              <button
-                                type="button"
-                                onClick={() => setSiteImages(prev => prev.filter((_, i) => i !== idx))}
-                                style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', border: 'none', color: '#FFF', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
-                              >
-                                <X size={10} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <small style={{ display: 'block', fontSize: 11, color: '#94A3B8', marginTop: 6 }}>
-                          💡 Sem fotos? A página será gerada com blocos de cores harmoniosos e ícones SVG elegantes, sem fotos inventadas.
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                        <small style={{ fontSize: 11, color: '#94A3B8' }}>
+                          💡 O que faltar poderá ajustar no chat interativo da prévia.
                         </small>
-                      )}
+                        {siteMapsUrl && (
+                          <button
+                            type="button"
+                            className="button outline compact"
+                            disabled={siteResolvingMaps}
+                            onClick={() => handleResolveMaps()}
+                            style={{ fontSize: 11, padding: '3px 8px' }}
+                          >
+                            {siteResolvingMaps ? <LoaderCircle className="spin" size={11} /> : <Compass size={11} />} Extrair dados do link
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* BOTÃO EXPANDIR / RECOLHER MAIS OPÇÕES */}
+                    <button
+                      type="button"
+                      className="text-button"
+                      style={{ fontSize: 12, color: '#60A5FA', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}
+                      onClick={() => setSiteShowMoreOptions(!siteShowMoreOptions)}
+                    >
+                      <span>{siteShowMoreOptions ? '▼ Ocultar opções adicionais' : '▶ Mais opções (nome, estilo, site de referência, fotos...)'}</span>
+                    </button>
+
+                    {/* OPÇÕES ADICIONAIS COLAPSÁVEIS */}
+                    {siteShowMoreOptions && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 6, borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                        {/* Nome e Nicho */}
+                        <div className="two-fields">
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                              Nome da Empresa:
+                            </label>
+                            <input
+                              value={siteBusinessName}
+                              onChange={e => setSiteBusinessName(e.target.value)}
+                              placeholder="Ex.: OdontoArt Maputo"
+                              style={{ width: '100%', fontSize: 13 }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                              Segmento / Nicho:
+                            </label>
+                            <select
+                              value={siteNiche}
+                              onChange={e => setSiteNiche(e.target.value)}
+                              style={{ width: '100%', fontSize: 13 }}
+                            >
+                              {SITE_NICHES.map(n => (
+                                <option key={n.id} value={n.id}>{n.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Telefone e Endereço */}
+                        <div className="two-fields">
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                              Telefone / WhatsApp Comercial:
+                            </label>
+                            <input
+                              value={sitePhone}
+                              onChange={e => setSitePhone(e.target.value)}
+                              placeholder="+258 84 123 4567"
+                              style={{ width: '100%', fontSize: 13 }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                              Endereço Físico:
+                            </label>
+                            <input
+                              value={siteAddress}
+                              onChange={e => setSiteAddress(e.target.value)}
+                              placeholder="Ex.: Av. da Marginal, Maputo"
+                              style={{ width: '100%', fontSize: 13 }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Site de Referência */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                            🌐 Site de Referência (ex: odontoart-maputo.surge.sh):
+                          </label>
+                          <input
+                            value={siteReferenceUrl}
+                            onChange={e => setSiteReferenceUrl(e.target.value)}
+                            placeholder="Ex.: https://odontoart-maputo.surge.sh/"
+                            style={{ width: '100%', fontSize: 13 }}
+                          />
+                        </div>
+
+                        {/* Estilo e Cor */}
+                        <div className="two-fields">
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                              Tema Visual Oficial (Baseado nos 6 sites reais):
+                            </label>
+                            <select
+                              value={siteStyle}
+                              onChange={e => setSiteStyle(e.target.value)}
+                              style={{ width: '100%', fontSize: 13 }}
+                            >
+                              <option value="odontoart-champagne">1. OdontoArt (Champagne, Linho & Editorial)</option>
+                              <option value="prodente-navy-cyan">2. Pro-Dente 2 (Navy & Cyan Clínico Antisséptico)</option>
+                              <option value="yessir-green-gold">3. Yes Sir Dental (Verde Nobre & Prestígio)</option>
+                              <option value="vitalmed-blue">4. Vitalmed Clinic (Azul Cerúleo & Confiança Médica)</option>
+                              <option value="dentalhome-royal">5. DentalHome (Azul Royal & Ciano Elétrico)</option>
+                              <option value="dentalcare-emerald">6. Dental Care (Esmeralda Moderno & Luminoso)</option>
+                              <option value="moderno-escuro">7. Moderno Escuro (Lounge, Bar & Restaurante)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#CBD5E1', marginBottom: 4 }}>
+                              Cor Principal:
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input
+                                type="color"
+                                value={sitePrimaryColor}
+                                onChange={e => setSitePrimaryColor(e.target.value)}
+                                style={{ width: 36, height: 36, padding: 2, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, cursor: 'pointer' }}
+                              />
+                              <input
+                                value={sitePrimaryColor}
+                                onChange={e => setSitePrimaryColor(e.target.value)}
+                                style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Upload de Fotos */}
+                        <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, padding: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>
+                              📸 Fotos Reais ({siteImages.length}/{SITE_MAX_IMAGES}):
+                            </label>
+                            <span style={{ fontSize: 11, color: '#94A3B8' }}>Máx 2 MB cada</span>
+                          </div>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={siteUploadingImages || siteImages.length >= SITE_MAX_IMAGES}
+                            onChange={handleUploadImages}
+                            style={{ fontSize: 12, color: '#94A3B8' }}
+                          />
+                          {siteImages.length > 0 && (
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                              {siteImages.map((img, idx) => (
+                                <div key={idx} style={{ position: 'relative', width: 50, height: 50, borderRadius: 6, overflow: 'hidden' }}>
+                                  <img src={img} alt="Upload" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <button
+                                    type="button"
+                                    onClick={() => setSiteImages(prev => prev.filter((_, i) => i !== idx))}
+                                    style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', border: 'none', color: '#FFF', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Botão de Ação e Custo em Créditos */}
                     <div style={{ paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -4451,7 +4532,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         <iframe
                           title="Prévia do Site"
                           srcDoc={siteGeneratedSite.html}
-                          sandbox="allow-popups allow-popups-to-escape-sandbox"
+                          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
                           style={{
                             width: siteDeviceMode === 'mobile' ? 375 : '100%',
                             height: 600,
@@ -4472,16 +4553,31 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 <SiteEditorPanel
                   siteId={activeEditingSite.id}
                   slug={activeEditingSite.slug}
-                  initialContent={activeEditingSite.content || {
+                  initialContent={activeEditingSite.content ? {
+                    ...activeEditingSite.content,
+                    hasExampleData: activeEditingSite.status === 'draft' ? true : activeEditingSite.content.hasExampleData,
+                    placeholders_pending: activeEditingSite.status === 'draft' ? (activeEditingSite.content.placeholders_pending ?? 2) : (activeEditingSite.content.placeholders_pending || 0),
+                    differentials: activeEditingSite.content.differentials || [
+                      { title: '+10 Anos de Experiência', description: 'Referência de excelência no mercado.', icon: 'award', exemplo: true },
+                      { title: 'Atendimento Premium', description: 'Equipa qualificada e suporte dedicado.', icon: 'star', exemplo: true }
+                    ]
+                  } : {
                     businessName: activeEditingSite.businessName,
                     tagline: `${activeEditingSite.businessName} - Qualidade e Excelência`,
+                    hasExampleData: true,
+                    placeholders_pending: 2,
+                    differentials: [
+                      { title: '+10 Anos de Experiência', description: 'Referência de excelência no mercado.', icon: 'award', exemplo: true },
+                      { title: 'Atendimento Premium', description: 'Equipa qualificada e suporte dedicado.', icon: 'star', exemplo: true }
+                    ],
                     heroHeadline: activeEditingSite.businessName,
                     heroSubheadline: activeEditingSite.sourceData?.services || 'Os melhores serviços especializados.',
                     aboutText: activeEditingSite.sourceData?.rawProfileText || '',
                     services: (activeEditingSite.sourceData?.services || '').split(/,|\n/).map(s => ({
                       title: s.trim() || 'Atendimento Especializado',
                       description: 'Serviço profissional de alta qualidade com garantia.',
-                      icon: 'star'
+                      icon: 'star',
+                      exemplo: true
                     })).filter(s => s.title.length > 0),
                     address: activeEditingSite.sourceData?.address || 'Moçambique',
                     openingHours: activeEditingSite.sourceData?.openingHours || 'Segunda a Sábado',
@@ -4557,7 +4653,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
             const previewBiz = activeSourceList.find(b => selectedBizIds.includes(b.id)) || withWaList[0] || activeSourceList[0];
             const previewText = previewBiz
-              ? interpolateMessage(bulkTemplate, previewBiz, user.name || 'Chelton', filters.service || user.profile.service)
+              ? interpolateMessage(bulkTemplate, previewBiz, (user.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : '', filters.service || user.profile.service)
               : bulkTemplate;
 
             return (
@@ -5379,7 +5475,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     : withWaList;
                   const firstTarget = targetList[0] || previewBiz;
                   const firstMsg = firstTarget
-                    ? parseSpintaxClient(interpolateMessage(bulkTemplate, firstTarget, user.name || 'Chelton', filters.service || user.profile.service))
+                    ? parseSpintaxClient(interpolateMessage(bulkTemplate, firstTarget, (user.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : '', filters.service || user.profile.service))
                     : '';
                   const warmupInfo = waServiceStatus?.warmup;
                   const isOverWarmup = warmupInfo ? waDailyLimit > warmupInfo.recommendedLimit : waDailyLimit > 40;
@@ -6734,7 +6830,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                               style={{ background: 'rgba(37, 99, 235, 0.25)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 }}
                               onClick={() => {
                                 setApproach('site_pronto');
-                                setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\nO meu nome é ${user?.name || 'Chelton'}. Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!\n${user?.name || 'Chelton'}`);
+                                const senderName = (user?.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : '';
+                                const introName = senderName ? `O meu nome é ${senderName}. ` : '';
+                                const signName = senderName ? `\n${senderName}` : '';
+                                setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\n${introName}Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!${signName}`);
                                 notify('Abordagem "Já Criei o Site (P/ Atendente)" inserida!');
                               }}
                             >
@@ -7642,10 +7741,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
 // ─── Sub-components ──────────────────────────────────
 function ProfileForm({ user, profile, busy, onSubmit }: { user: User; profile: Profile; busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  const isGenericName = !user.name || user.name === 'Utilizador' || user.name.toLowerCase() === 'droop store' || user.name.toLowerCase() === 'chelton madime' || user.name.toLowerCase() === 'chelton' || (user.email && user.name.toLowerCase() === user.email.split('@')[0].toLowerCase());
+  const initialName = isGenericName ? '' : user.name;
   return (
     <form onSubmit={onSubmit} className="profile-form" key={user.id}>
       <div className="two-fields">
-        <label>O seu nome<input name="name" defaultValue={user.name} required minLength={2} /></label>
+        <label>O seu nome<input name="name" defaultValue={initialName} placeholder="Ex: Nome do Responsável ou Empresa" required minLength={2} /></label>
         <label>Serviço principal<select name="service" defaultValue={profile.service}>{SERVICES.map(s => <option key={s}>{s}</option>)}</select></label>
       </div>
       <label>Como apresenta o seu trabalho?<textarea name="pitch" defaultValue={profile.pitch} maxLength={1000} rows={3} placeholder="Ajudo pequenos negócios a…" /></label>

@@ -223,6 +223,7 @@ export async function persistSiteAndVersion(params: {
           is_legacy: isLegacy,
           status,
           current_version: params.version,
+          placeholders_pending: (params.content as any)?.placeholders_pending ?? ((params.content as any)?.hasExampleData ? 1 : 0),
           created_at: timestamp,
           updated_at: timestamp
         }, { onConflict: 'id' });
@@ -380,32 +381,42 @@ export async function consumeCreditsPersistent(
 ): Promise<void> {
   const timestamp = now();
 
-  // A. Chama a RPC atómica no Postgres (Supabase)
-  if (supabaseConfigured()) {
-    try {
-      const client = supabaseAdmin();
-      if (client) {
-        const { data: rpcRes, error: rpcErr } = await client.rpc('consume_credits_atomic', {
-          p_user_id: user.id,
-          p_workspace_id: user.workspaceId || user.id,
-          p_units: units,
-          p_description: description,
-          p_job_id: null
-        });
+  // Em produção, se o Supabase não estiver configurado, NUNCA recorre a memória ou SQLite (Fail-Closed total)
+  if (process.env.NODE_ENV === 'production' && !supabaseConfigured()) {
+    throw new AppError('Serviço de base de dados e créditos indisponível em ambiente de produção.', 503);
+  }
 
-        if (rpcErr) {
-          console.warn('[consumeCreditsPersistent RPC error, attempting fallback]:', rpcErr.message);
-        } else if (rpcRes && rpcRes.success === false) {
-          throw new AppError(rpcRes.error || 'Créditos insuficientes.', 402);
-        } else if (rpcRes && rpcRes.success === true) {
-          // Sucesso garantido na transação atómica
-          return;
-        }
-      }
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      console.warn('[consumeCreditsPersistent Supabase fallback]:', err);
+  // A. Chama a RPC atómica no Postgres (Supabase) - Modo Fail-Closed
+  if (supabaseConfigured()) {
+    const client = supabaseAdmin();
+    if (!client) {
+      throw new AppError('Sistema de créditos temporariamente indisponível.', 503);
     }
+
+    const { data: rpcRes, error: rpcErr } = await client.rpc('consume_credits_atomic', {
+      p_user_id: user.id,
+      p_workspace_id: user.workspaceId || user.id,
+      p_units: units,
+      p_description: description,
+      p_job_id: null
+    });
+
+    if (rpcErr) {
+      console.error('[consumeCreditsPersistent RPC Fail-Closed]:', rpcErr.code, rpcErr.message);
+      // REGRA FAIL-CLOSED: Se a RPC falhar ou não existir no Postgres, NUNCA deixa passar de graça.
+      throw new AppError(`Falha no serviço de créditos: ${rpcErr.message || 'Erro na transação atómica'}`, 500);
+    }
+
+    if (rpcRes && rpcRes.success === false) {
+      throw new AppError(rpcRes.error || 'Créditos insuficientes.', 402);
+    }
+
+    if (rpcRes && rpcRes.success === true) {
+      // Sucesso garantido na transação atómica
+      return;
+    }
+
+    throw new AppError('Resposta não reconhecida do serviço de créditos.', 500);
   }
 
   // B. Regista no SQLite local (dev)

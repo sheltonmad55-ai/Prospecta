@@ -53,8 +53,14 @@ export async function GET(
   const finalHtml = site.html;
 
   // Content-Security-Policy com Sandbox ajustado aos scripts do template:
-  // allow-scripts: permite o formulário WhatsApp e IntersectionObserver de scroll
-  // SEM allow-same-origin: origem 'null' obrigatória, bloqueando 100% de acesso a cookies, localStorage ou sessão da Prospecta
+  // frame-ancestors restrito exclusivamente ao domínio oficial de produção da Prospecta e ambiente local controlado
+  const isDev = process.env.NODE_ENV !== 'production';
+  const allowedAncestors = [
+    "'self'",
+    "https://prospecta-mz.vercel.app",
+    isDev ? "http://localhost:* http://127.0.0.1:*" : ""
+  ].filter(Boolean).join(' ');
+
   const cspHeader = [
     "default-src 'none'",
     "script-src 'unsafe-inline'",
@@ -62,7 +68,7 @@ export async function GET(
     "font-src https://fonts.gstatic.com",
     "img-src https: data:",
     "frame-src https://www.google.com https://maps.google.com https://www.google.co.mz",
-    "frame-ancestors 'self' https://prospecta-mz.vercel.app https://*.vercel.app http://localhost:* http://127.0.0.1:*",
+    `frame-ancestors ${allowedAncestors}`,
     "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"
   ].join('; ');
 

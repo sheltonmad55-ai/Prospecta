@@ -12,3 +12,4 @@ data-test-*/
 .playwright-mcp/
 .vercel
 .whatsapp-session/
+test-screenshots/

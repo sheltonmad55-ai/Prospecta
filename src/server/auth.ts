@@ -113,11 +113,14 @@ export async function syncAllUsersFromSupabase(): Promise<number> {
 }
 
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'prospecta-stateless-session-key-v1';
+function getAuthSecret(): string {
+  return process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'prospecta-stateless-session-key-v1';
+}
 
 export function encodeSignedSession(userId: string): string {
   const expiresAt = Date.now() + 30 * 86400 * 1000;
   const payload = `${userId}.${expiresAt}`;
-  const sig = createHmac('sha256', AUTH_SECRET).update(payload).digest('hex');
+  const sig = createHmac('sha256', getAuthSecret()).update(payload).digest('hex');
   return `ps_${Buffer.from(`${payload}.${sig}`).toString('base64url')}`;
 }
 
@@ -134,7 +137,7 @@ export function verifySignedSession(token: string): string | null {
     const sig = raw.slice(lastDot + 1);
     const expiresAt = Number(expiresAtStr);
     if (!userId || !expiresAt || isNaN(expiresAt) || expiresAt < Date.now()) return null;
-    const expectedSig = createHmac('sha256', AUTH_SECRET).update(`${userId}.${expiresAtStr}`).digest('hex');
+    const expectedSig = createHmac('sha256', getAuthSecret()).update(`${userId}.${expiresAtStr}`).digest('hex');
     const sigBuf = Buffer.from(sig, 'hex');
     const expBuf = Buffer.from(expectedSig, 'hex');
     if (sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf)) {
@@ -291,9 +294,10 @@ export function userById(userId: string): User | null {
 
     const workspaceId = row.workspace_id || row.id;
 
-    const rawName = row.name;
-    const safeName = (rawName && rawName.toLowerCase() !== 'droop store') ? rawName : 'Chelton Madime';
     const rawEmail = (row.email || '').toLowerCase().trim();
+    const emailPrefix = rawEmail ? rawEmail.split('@')[0] : '';
+    const rawName = row.name;
+    const safeName = (rawName && rawName.toLowerCase() !== 'droop store') ? rawName : (emailPrefix || 'Utilizador');
     const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || row.role === 'admin';
     if (isAdmin) {
       parsedProfile.onboarded = true;
@@ -343,15 +347,17 @@ export function ensureUserAndWorkspace(user: {
   try {
     transaction(() => {
       // Upsert user in local SQLite
-      const safeName = (user.name && user.name.toLowerCase() !== 'droop store') ? user.name : 'Chelton Madime';
+      const emailPrefix = rawEmail ? rawEmail.split('@')[0] : '';
+      const isGenericDefault = (n: string | undefined | null) => !n || n.toLowerCase() === 'droop store' || n.toLowerCase() === 'chelton madime' || n.toLowerCase() === 'chelton';
+      const safeName: string = (!isGenericDefault(user.name) && user.name ? user.name : '') || (emailPrefix ? emailPrefix : 'Utilizador');
       db().prepare(`
         INSERT INTO users (id, name, email, password_hash, role, marketing, created_at)
         VALUES (?, ?, ?, '', ?, 0, ?)
         ON CONFLICT(id) DO UPDATE SET
-          name = CASE WHEN excluded.name != '' AND excluded.name != 'droop store' THEN excluded.name ELSE users.name END,
+          name = CASE WHEN excluded.name != '' AND excluded.name != 'droop store' AND excluded.name != 'Chelton Madime' AND excluded.name != 'Chelton' THEN excluded.name ELSE users.name END,
           email = CASE WHEN excluded.email != '' THEN excluded.email ELSE users.email END,
           role = CASE WHEN excluded.role = 'admin' THEN 'admin' ELSE users.role END
-      `).run(user.id, user.name || 'Utilizador', (user.email || '').toLowerCase(), role, timestamp);
+      `).run(user.id, safeName, (user.email || '').toLowerCase(), role, timestamp);
 
       // Check if workspace exists
       const existingWorkspace = db().prepare('SELECT id, profile FROM workspaces WHERE user_id=? OR id=?').get(user.id, workspaceId) as { id: string; profile: string } | undefined;
@@ -681,7 +687,7 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
   const local = userById(userId);
 
   // If Supabase is configured, retrieve workspace and user_metadata so that any profile update
-  // (such as "Chelton" and onboarded: true) persists across Vercel serverless cold-starts and overrides local SQLite!
+  // (such as businessName and onboarded: true) persists across Vercel serverless cold-starts and overrides local SQLite!
   if (supabaseConfigured()) {
     try {
       const client = supabaseAdmin();
@@ -730,14 +736,16 @@ export async function resolveUserAsync(userId: string, emailHint = ''): Promise<
         }
 
         if (wsData || metaProfile || metaName || metaSubscription) {
-          const candidateName = metaBusinessName || 
-            (metaName && metaName.toLowerCase() !== 'droop store' ? metaName : '') || 
-            (wsData?.name && wsData.name.toLowerCase() !== 'droop store' ? wsData.name : '') || 
-            (local?.name && local.name.toLowerCase() !== 'droop store' ? local.name : '') || 
-            'Chelton Madime';
-          const resolvedName = (candidateName && candidateName.toLowerCase() !== 'droop store')
+          const emailPrefix = (email || '').split('@')[0] || '';
+          const isGenericName = (n: string | undefined | null) => !n || n.toLowerCase() === 'droop store' || n.toLowerCase() === 'chelton madime' || n.toLowerCase() === 'chelton';
+          const candidateName = (!isGenericName(metaBusinessName) ? metaBusinessName : '') || 
+            (!isGenericName(metaName) ? metaName : '') || 
+            (!isGenericName(wsData?.name) ? wsData?.name : '') || 
+            (!isGenericName(local?.name) ? local?.name : '') || 
+            (emailPrefix ? emailPrefix : 'Utilizador');
+          const resolvedName = (!isGenericName(candidateName))
             ? candidateName
-            : 'Chelton Madime';
+            : (emailPrefix || 'Utilizador');
 
           const resolvedProfile: Profile = {
             ...defaultProfile,

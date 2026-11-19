@@ -42,6 +42,9 @@ export function generateMozambicanAnalysis(
   const pricing = getRecommendedPricing(chosen, business.category);
   const sLower = chosen.toLowerCase();
 
+  const repName = (name && name.trim() && name.trim().toLowerCase() !== 'droop store' && name.trim().toLowerCase() !== 'utilizador' && name.trim() !== 'Chelton' && name.trim() !== 'Chelton Madime') ? name.trim() : '';
+  const signName = repName || 'Equipa Comercial';
+
   let hypotheses: string[] = [];
   let reason = '';
   let missingData: string[] = [];
@@ -74,18 +77,18 @@ export function generateMozambicanAnalysis(
     if (length === 'curta') {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, sou especialista em websites e landing pages em ${business.province}.
+${repName ? `O meu nome é ${repName}, sou ` : 'Sou '}especialista em websites e landing pages em ${business.province}.
 
 Reparei que o vosso espaço em ${business.locality} tem uma óptima procura, mas ${business.website ? 'a página actual pode canalizar muito mais pedidos directos para o WhatsApp' : 'ainda não tem uma landing page com botão directo para o WhatsApp'}.
 
 Faz sentido enviar-vos um rascunho visual de 2 minutos sem qualquer compromisso?
 
 Um abraço,
-${name || 'Chelton'}`;
+${signName}`;
     } else {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, sou especialista em criação de websites e presença digital aqui em ${business.province}.
+${repName ? `O meu nome é ${repName}, sou ` : 'Sou '}especialista em criação de websites e presença digital aqui em ${business.province}.
 
 Estive a analisar empresas de ${business.category.toLowerCase()} na zona de ${business.locality} e reparei que o vosso negócio tem um excelente trabalho, mas ${business.website ? 'a vossa página web pode converter muito mais se direcionar os visitantes logo ao WhatsApp' : 'ainda não tem uma página web profissional optimizada para receber clientes directamente no WhatsApp'}.
 
@@ -94,7 +97,7 @@ Preparei uma proposta rápida mostrando exactamente como podemos estruturar uma 
 Faz sentido apresentar-vos uma demonstração visual de 5 minutos, sem qualquer compromisso?
 
 Um abraço,
-${name || 'Chelton'}`;
+${signName}`;
     }
   } else if (sLower.includes('tráfego') || sLower.includes('anúncio') || sLower.includes('ads')) {
     hypotheses = [
@@ -111,18 +114,18 @@ ${name || 'Chelton'}`;
     if (length === 'curta') {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, especialista em anúncios no Instagram e Google em ${business.province}.
+${repName ? `O meu nome é ${repName}, ` : ''}especialista em anúncios no Instagram e Google em ${business.province}.
 
 Notei a óptima reputação do vosso negócio em ${business.locality} e preparei uma estratégia rápida para trazer mais clientes de ${business.category.toLowerCase()} a chamar no vosso WhatsApp todos os dias.
 
 Podemos conversar 3 minutinhos sobre isto hoje? Prometo ser breve!
 
 Cumprimentos,
-${name || 'Chelton'}`;
+${signName}`;
     } else {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, especialista em tráfego pago e captação de clientes em ${business.province}.
+${repName ? `O meu nome é ${repName}, ` : ''}especialista em tráfego pago e captação de clientes em ${business.province}.
 
 Notei que o vosso negócio em ${business.locality} tem uma óptima reputação no sector de ${business.category.toLowerCase()}, mas ainda não está a atrair clientes todos os dias de forma automática com anúncios no Instagram e Google na vossa zona.
 
@@ -131,7 +134,7 @@ Desenvolvi uma estratégia objectiva para colocar clientes qualificados a chamar
 Podemos conversar 5 minutos sobre como aplicar isto ao vosso negócio este mês?
 
 Com os melhores cumprimentos,
-${name || 'Chelton'}`;
+${signName}`;
     }
   } else if (sLower.includes('whatsapp') || sLower.includes('automação') || sLower.includes('bot')) {
     hypotheses = [
@@ -148,23 +151,23 @@ ${name || 'Chelton'}`;
     if (length === 'curta') {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, ajudo empresas de ${business.category.toLowerCase()} em ${business.locality} a responderem orçamentos no WhatsApp 24h sem demora para nunca perderem clientes.
+${repName ? `O meu nome é ${repName}, ajudo ` : 'Ajudo '}empresas de ${business.category.toLowerCase()} em ${business.locality} a responderem orçamentos no WhatsApp 24h sem demora para nunca perderem clientes.
 
 Faz sentido conversarmos 3 minutinhos sobre como funciona para o vosso caso?
 
 Um abraço,
-${name || 'Chelton'}`;
+${signName}`;
     } else {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, ajudo empresas em ${business.province} a automatizarem o atendimento no WhatsApp para nunca deixarem clientes à espera.
+${repName ? `O meu nome é ${repName}, ajudo ` : 'Ajudo '}empresas em ${business.province} a automatizarem o atendimento no WhatsApp para nunca deixarem clientes à espera.
 
 Notei que vocês têm bastante procura em ${business.locality}, mas responder orçamentos na mão fora de horas custa vendas todos os meses.
 
 Podemos agendar uma demonstração rápida de como um assistente inteligente pode qualificar e fechar clientes no vosso WhatsApp 24h por dia?
 
 Cumprimentos,
-${name || 'Chelton'}`;
+${signName}`;
     }
   } else {
     hypotheses = [
@@ -181,39 +184,39 @@ ${name || 'Chelton'}`;
     if (length === 'curta') {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, actuo com ${chosen.toLowerCase()} em Moçambique.
+${repName ? `O meu nome é ${repName}, actuo ` : 'Actuo '}com ${chosen.toLowerCase()} em Moçambique.
 
 Identifiquei 2 melhorias práticas para aumentarem o fecho de clientes de ${business.category.toLowerCase()} em ${business.locality}.
 
 Posso enviar-vos uma ideia rápida de 2 minutos sem compromisso?
 
 Um abraço,
-${name || 'Chelton'}`;
+${signName}`;
     } else {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-O meu nome é ${name || 'Chelton'}, actuo com ${chosen.toLowerCase()} em Moçambique.
+${repName ? `O meu nome é ${repName}, actuo ` : 'Actuo '}com ${chosen.toLowerCase()} em Moçambique.
 
 Estive a acompanhar a vossa actuação no segmento de ${business.category.toLowerCase()} em ${business.locality} e identifiquei 2 melhorias práticas que podem aumentar directamente a vossa taxa de fecho de clientes.
 
 Faz sentido conversarmos 5 minutos esta semana para vos mostrar essa proposta sem qualquer custo?
 
 Um abraço,
-${name || 'Chelton'}`;
+${signName}`;
     }
   }
 
   if (isSitePronto) {
     draftMessage = `Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?
 
-O meu nome é ${name || 'Chelton'}. Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de adiantar e desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.
+${repName ? `O meu nome é ${repName}. Estive ` : 'Estive '}a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de adiantar e desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.
 
 Sei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?
 
 Posso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?
 
 Um abraço e continuação de bom trabalho!
-${name || 'Chelton'}`;
+${signName}`;
   } else if (approach === 'vacuo' || approach === 'vacuo_redes') {
     draftMessage = `Tudo ótimo obrigado, fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens que recebem 😅
 
@@ -222,18 +225,18 @@ Então, estive a ver a vossa presença e redes sociais em ${business.locality}. 
 Gostava de vos mostrar uma demonstração grátis de como isso ficaria, sem nenhum compromisso 👏
 
 Com os melhores cumprimentos,
-${name || 'Chelton'}`;
+${signName}`;
   } else if (isAtendente) {
     draftMessage = `Olá, bom dia! Tudo bem com quem está a atender no WhatsApp do(a) ${business.name}?
 
-O meu nome é ${name || 'Chelton'}. Estive a ver a óptima reputação da vossa empresa no Google Maps em ${business.locality} e notei uma grande procura pelos vossos serviços.
+${repName ? `O meu nome é ${repName}. Estive ` : 'Estive '}a ver a óptima reputação da vossa empresa no Google Maps em ${business.locality} e notei uma grande procura pelos vossos serviços.
 
 Preparei uma proposta rápida para trazer ainda mais clientes directamente para este vosso WhatsApp através de uma presença digital moderna.
 
 Com quem posso falar na equipa sobre a presença digital e captação de clientes da empresa? Seria possível passar este contacto ao responsável?
 
 Um abraço e continuação de bom trabalho!
-${name || 'Chelton'}`;
+${signName}`;
   } else if (customInstructions && customInstructions.trim()) {
     const ci = customInstructions.toLowerCase();
     if (ci.includes('landing page') && !draftMessage.toLowerCase().includes('landing page')) {
@@ -264,6 +267,7 @@ export async function analyse(
   approach = ''
 ): Promise<Omit<Analysis,'id'|'businessId'|'createdAt'>> {
   const chosen=service || profile.service || 'Criação de websites';
+  const repName = (name && name.trim() && name.trim().toLowerCase() !== 'droop store' && name.trim().toLowerCase() !== 'utilizador' && name.trim() !== 'Chelton' && name.trim() !== 'Chelton Madime') ? name.trim() : '';
   const key=process.env.GEMINI_API_KEY;
   const rawModel=process.env.GEMINI_MODEL;
   const model=(rawModel && rawModel!=='gemini-1.5-flash')?rawModel:'gemini-3.8-flash';
@@ -302,7 +306,7 @@ export async function analyse(
   let approachDirective = '';
   if (isSitePronto) {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM (DEMONSTRAÇÃO / SITE JÁ CRIADO):
-O profissional (${name || 'Chelton'}) JÁ CRIOU previamente um modelo/site/rascunho visual pronto para esta empresa (${business.name}) antes mesmo de falar com eles.
+O profissional (${repName || 'o consultor'}) JÁ CRIOU previamente um modelo/site/rascunho visual pronto para esta empresa (${business.name}) antes mesmo de falar com eles.
 A mensagem gerada (draftMessage) DEVE ser pensada especificamente para o WhatsApp comercial da empresa, onde quem lê é a recepcionista / atendente da equipa:
 1. Comece de forma educada, humana e simpática cumprimentando a equipa de atendimento do(a) ${business.name}.
 2. Diga com clareza e entusiasmo que o profissional tomou a iniciativa de adiantar e desenhar um rascunho de website / landing page moderna para a empresa deles com botão directo para o WhatsApp.
@@ -321,7 +325,7 @@ Abordar o tomador de decisão diretamente com 2 falhas/oportunidades identificad
   } else if (approach === 'call') {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: CHAMADA TELEFÓNICA (COLD CALL)
 Redija um guião falado natural para chamada de prospecção em português de Moçambique:
-1. Saudação respeitosa e natural: "Bom dia, daqui fala ${name || 'Chelton'}, tudo bem consigo?"
+1. Saudação respeitosa e natural: "Bom dia, daqui fala ${repName || 'o consultor'}, tudo bem consigo?"
 2. Como ultrapassar a recepcionista/secretária sem parecer vendedor insistente: explicar que está a ligar a pedido da direcção técnica sobre a presença digital da empresa em ${business.locality}.
 3. Perguntar se o proprietário ou Dr./gerente se encontra disponível 2 minutos ou qual o melhor contacto directo.
 4. Plano de contingência caso o responsável esteja ocupado ou ausente.`;
