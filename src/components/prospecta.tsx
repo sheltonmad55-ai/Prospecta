@@ -99,10 +99,28 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 const post = <T,>(path: string, data: unknown = {}) => api<T>(path, { method: 'POST', body: JSON.stringify(data) });
 
+export function cleanLocalityClient(rawLocality?: string, rawProvince?: string): string {
+  if (!rawLocality) return rawProvince || 'Moçambique';
+  const raw = rawLocality.trim();
+  const knownCities = ['Matola', 'Maputo', 'Beira', 'Nampula', 'Tete', 'Quelimane', 'Pemba', 'Chimoio', 'Xai-Xai', 'Inhambane', 'Nacala', 'Vilankulo'];
+  for (const city of knownCities) {
+    if (new RegExp(`\\b${city}\\b`, 'i').test(raw)) {
+      return city;
+    }
+  }
+  const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    const last = parts[parts.length - 1];
+    if (last && last.length < 30) return last.charAt(0).toUpperCase() + last.slice(1);
+    const secondLast = parts[parts.length - 2];
+    if (secondLast && secondLast.length < 30) return secondLast.charAt(0).toUpperCase() + secondLast.slice(1);
+  }
+  return parts[0] && parts[0].length < 30 ? parts[0] : (rawProvince || 'Moçambique');
+}
 
 function getCoherentVaultScript(
   type: 'primeiro-contato' | 'sem-site' | 'esta-caro' | 'fechamento-mpesa' | 'followup' |
-        'call-recepcao' | 'call-ausente' | 'call-retorno' |
+        'call-recepcao' | 'call-ausente' | 'call-retorno' | 'call-mande-whatsapp' |
         'porta-prototipo' | 'porta-ausente' |
         'vacuo-descarte' | 'vacuo-escala' |
         'obj-sobrinho' | 'obj-crise' | 'obj-passapalavra' | 'obj-email',
@@ -118,7 +136,7 @@ function getCoherentVaultScript(
   const isBot = normS.includes('whatsapp') || normS.includes('automação') || normS.includes('bot');
 
   const bizName = biz.name || 'a vossa empresa';
-  const loc = biz.locality || 'a vossa zona';
+  const loc = cleanLocalityClient(biz.locality, biz.province) || 'a vossa zona';
   const cat = biz.category ? biz.category.toLowerCase() : 'negócios locais';
   const repName = (userName && userName.trim() && userName.trim().toLowerCase() !== 'droop store' && userName.trim().toLowerCase() !== 'utilizador' && userName.trim().toLowerCase() !== 'chelton' && userName.trim().toLowerCase() !== 'chelton madime') ? userName.trim() : '';
   const sender = repName || '';
@@ -297,9 +315,17 @@ Se preferirem, posso mandar um áudio de 1 minuto a resumir os principais ganhos
   if (type === 'call-recepcao') {
     return `— Bom dia! Daqui fala ${sender}, tudo bem consigo?
 
-— Olhe, estou a ligar a pedido da minha direcção técnica para falar 2 minutos com o Dr./proprietário do(a) ${bizName} sobre uma actualização importante da presença da empresa no Google aqui em ${loc}.
+— Olhe, estou a ligar sobre a presença digital e captação de clientes do(a) ${bizName} aqui em ${loc}.
 
-— Ele encontra-se disponível no momento ou tem um contacto directo para eu falar com ele sem vos fazer perder tempo?`;
+— O Dr. / responsável encontra-se disponível um instante ou tem um contacto directo para eu confirmar com ele?`;
+  }
+
+  if (type === 'call-mande-whatsapp') {
+    return `— Compreendo perfeitamente e agradeço a orientação!
+
+— Como eu já enviei anteriormente no vosso WhatsApp comercial e sei que vocês recebem dezenas de mensagens todos os dias, liguei só 1 minuto para não deixar perder no fluxo.
+
+— Consegue apenas confirmar se o responsável viu, ou indicar-me o primeiro nome dele para eu direcionar diretamente sem vos sobrecarregar?`;
   }
 
   if (type === 'call-ausente') {
@@ -864,8 +890,60 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [service, setService] = useState<string>(SERVICES[0]);
   const [messageLength, setMessageLength] = useState<'curta' | 'media' | 'longa'>('curta');
   const [customPrompt, setCustomPrompt] = useState('');
-  const [approach, setApproach] = useState<'site_pronto' | 'atendente' | 'direta' | 'mpesa' | 'call' | 'door' | 'vacuo' | 'vacuo_redes' | 'retorno' | 'custom'>('site_pronto');
-  const [activePlaybookTab, setActivePlaybookTab] = useState<'whatsapp' | 'call' | 'door' | 'vacuo' | 'objecoes'>('whatsapp');
+  const [approach, setApproach] = useState<'site_pronto' | 'atendente' | 'direta' | 'mpesa' | 'call' | 'door' | 'vacuo' | 'vacuo_redes' | 'retorno' | 'custom'>('call');
+  const [targetChannel, setTargetChannel] = useState<'call' | 'whatsapp' | 'door'>('call');
+  const [contactStage, setContactStage] = useState<'primeiro_contacto' | 'ja_mandei_whatsapp' | 'ja_liguei' | 'ja_fui_presencial'>('ja_mandei_whatsapp');
+  const [stageOutcome, setStageOutcome] = useState<'vacuo' | 'mandaram_whatsapp' | 'responsavel_ausente' | 'sem_interesse'>('vacuo');
+  const [activeObjection, setActiveObjection] = useState<'mande_whatsapp' | 'responsavel_ausente' | 'ja_temos_quem_faca' | 'esta_caro' | 'sem_interesse' | 'custom'>('mande_whatsapp');
+  const [activePlaybookTab, setActivePlaybookTab] = useState<'whatsapp' | 'call' | 'door' | 'vacuo' | 'objecoes'>('call');
+
+  const syncScenarioPrompt = useCallback((
+    channel: 'call' | 'whatsapp' | 'door',
+    stage: 'primeiro_contacto' | 'ja_mandei_whatsapp' | 'ja_liguei' | 'ja_fui_presencial',
+    outcome: 'vacuo' | 'mandaram_whatsapp' | 'responsavel_ausente' | 'sem_interesse',
+    objection: 'mande_whatsapp' | 'responsavel_ausente' | 'ja_temos_quem_faca' | 'esta_caro' | 'sem_interesse' | 'custom'
+  ) => {
+    if (channel === 'call') {
+      setApproach('call');
+      setActivePlaybookTab('call');
+      let prompt = 'Chamada Telefónica por Voz (Cold Call / Follow-up): ';
+      if (stage === 'ja_mandei_whatsapp') {
+        prompt += 'Já enviei anteriormente uma mensagem no WhatsApp comercial da empresa e não tive resposta (ficou no vácuo). Agora estou a ligar por telefone. ';
+      } else if (stage === 'ja_liguei') {
+        prompt += 'Já tentei ligar anteriormente e disseram que o responsável iria retornar ou não se encontrava. ';
+      } else if (stage === 'ja_fui_presencial') {
+        prompt += 'Já estive presencialmente no estabelecimento e agora estou a fazer follow-up por telefone com a gerência. ';
+      } else {
+        prompt += 'É o meu 1º contacto com a recepção da empresa. ';
+      }
+
+      if (objection === 'mande_whatsapp' || outcome === 'mandaram_whatsapp') {
+        prompt += 'SE A RECEPCIONISTA DISSER QUE DEVO MANDAR MENSAGEM NO WHATSAPP: contornar com elegância explicando que já enviei no WhatsApp comercial e liguei apenas 1 minuto para confirmar que não se perdeu no fluxo de mensagens, pedindo para falar com o responsável ou obter o contacto direto dele. ';
+      } else if (objection === 'responsavel_ausente') {
+        prompt += 'SE O RESPONSÁVEL ESTIVER AUSENTE OU OCUPADO: descobrir educadamente o melhor horário para ligar ou obter o nome dele. ';
+      } else if (objection === 'ja_temos_quem_faca') {
+        prompt += 'SE DISSEREM QUE JÁ TÊM QUEM FAÇA: explicar que preparei um protótipo visual pronto e que podem comparar sem compromisso. ';
+      } else if (objection === 'esta_caro') {
+        prompt += 'SE LEVANTAREM CUSTO: enfatizar a facilidade com pagamentos parcelados via M-Pesa / e-Mola que se pagam nos primeiros clientes. ';
+      }
+
+      prompt += 'Estruturar como um GUIÃO FALADO DE DIÁLOGO PASSO A PASSO para ler ao telefone (Abertura, Filtro da Recepção, Quebra da objeção do WhatsApp e Pitch ao decisor).';
+      setCustomPrompt(prompt);
+    } else if (channel === 'whatsapp') {
+      setActivePlaybookTab(stage === 'ja_mandei_whatsapp' ? 'vacuo' : 'whatsapp');
+      if (stage === 'ja_mandei_whatsapp') {
+        setApproach('vacuo');
+        setCustomPrompt('Anti-Vácuo no WhatsApp: enviei mensagem anterior e não responderam. Reativar com empatia pelo volume de mensagens que recebem na clínica/empresa, apontar a perda de pacientes ou clientes por falta de website oficial e oferecer rascunho visual sem compromisso. Sem saudações absurdas nem endereços compridos.');
+      } else {
+        setApproach('site_pronto');
+        setCustomPrompt('WhatsApp Comercial: mensagem amigável para a atendente/responsável informando que desenhei um rascunho de website moderno com botão direto de WhatsApp, oferecendo demonstração rápida de 1 minuto sem compromisso.');
+      }
+    } else if (channel === 'door') {
+      setApproach('door');
+      setActivePlaybookTab('door');
+      setCustomPrompt('Visita Presencial / Porta a Porta: guião de abordagem no balcão com telemóvel na mão mostrando protótipo de 30 segundos sem tomar tempo da equipa.');
+    }
+  }, []);
   const [newObjectionText, setNewObjectionText] = useState('');
   const [newCounterText, setNewCounterText] = useState('');
   const [isSavingObjection, setIsSavingObjection] = useState(false);
@@ -6550,216 +6628,204 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       </div>
                     </div>
 
-                    {/* Estratégia de Abordagem & Instruções personalizadas para a IA */}
-                    <div className="prompt-customizer-box" style={{ background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
-                      <div style={{ padding: '12px 14px 6px 14px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#93C5FD', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <SlidersHorizontal size={14} /> Estratégia de Abordagem da IA
+                    {/* ══ CONSTRUTOR DE CENÁRIO REAL DE ABORDAGEM ══ */}
+                    <div className="prompt-customizer-box" style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+                      <div style={{ padding: '14px 16px', background: 'linear-gradient(180deg, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0) 100%)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#93C5FD', display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <SlidersHorizontal size={15} /> Cenário & Canal de Abordagem
                           </span>
-                          <span style={{ fontSize: 11, color: '#38BDF8', fontWeight: 600 }}>Personalização Total</span>
+                          <span style={{ fontSize: 11, color: '#38BDF8', fontWeight: 600, background: 'rgba(56, 189, 248, 0.12)', padding: '2px 8px', borderRadius: 10 }}>
+                            {targetChannel === 'call' ? '📞 Chamada Telefónica' : targetChannel === 'whatsapp' ? '💬 WhatsApp' : '🚪 Presencial'}
+                          </span>
                         </div>
-                        
-                        {/* Seletor visual de estratégia e canais */}
-                        <div className="approach-selector">
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'site_pronto' && 'active')}
-                            onClick={() => {
-                              setApproach('site_pronto');
-                              setCustomPrompt('Já criei um website/rascunho visual moderno para esta empresa. Falar com a atendente do WhatsApp de forma simpática para ela ver em 1 minuto e mostrar ao responsável/gerente da empresa.');
-                            }}
-                          >
-                            <div className="approach-title">🚀 Já criei o Site / Demo</div>
-                            <div className="approach-desc">Pedir à atendente para ver e mostrar o site ao responsável.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'call' && 'active')}
-                            onClick={() => {
-                              setApproach('call');
-                              setCustomPrompt('Chamada telefónica (Cold Call): passar educadamente pela recepção/balcão para falar com o Dr./proprietário da empresa sobre atualizar a presença digital.');
-                            }}
-                          >
-                            <div className="approach-title">📞 Chamada (Cold Call)</div>
-                            <div className="approach-desc">Passar da recepção por telefone e falar com o decisor.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'door' && 'active')}
-                            onClick={() => {
-                              setApproach('door');
-                              setCustomPrompt('Porta a porta presencial: abordar no balcão com telemóvel na mão mostrando o protótipo de 30 segundos sem tomar tempo.');
-                            }}
-                          >
-                            <div className="approach-title">🚪 Porta a Porta (30s)</div>
-                            <div className="approach-desc">Apresentar protótipo no telemóvel ao vivo no balcão.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'vacuo' && 'active')}
-                            onClick={() => {
-                              setApproach('vacuo');
-                              setCustomPrompt('Anti-vácuo no WhatsApp: mandei mensagem anterior e não responderam. Fazer descarte elegante ou pergunta sincera de 1 a 10 sem pressionar.');
-                            }}
-                          >
-                            <div className="approach-title">⏳ Anti-Vácuo & Retomada</div>
-                            <div className="approach-desc">Recuperar lead que não respondeu com descarte elegante.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'vacuo_redes' && 'active')}
-                            onClick={() => {
-                              setApproach('vacuo_redes');
-                              setCustomPrompt('Anti-Vácuo & Redes Sociais: fiz tentativa de contacto antes e imagino que tenha ficado perdida em tantas mensagens recebidas. Mencionar que vi a presença e redes sociais em Moçambique, notar que os leads chegam desqualificados ou com dúvidas por falta de um website informativo, e oferecer demonstração grátis sem compromisso.');
-                            }}
-                          >
-                            <div className="approach-title">🔥 Anti-Vácuo & Redes Sociais</div>
-                            <div className="approach-desc">Sair do vácuo com redes sociais, leads desqualificados e demo grátis.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'retorno' && 'active')}
-                            onClick={() => {
-                              setApproach('retorno');
-                              setCustomPrompt('Retorno de promessa: já liguei antes e falaram que o responsável entraria em contacto ou não se encontrava. Retomar com cordialidade.');
-                            }}
-                          >
-                            <div className="approach-title">🔄 Retorno Prometido</div>
-                            <div className="approach-desc">Quando disseram que o responsável iria ligar.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'atendente' && 'active')}
-                            onClick={() => {
-                              setApproach('atendente');
-                              setCustomPrompt('Mensagem educada para a recepcionista/atendente: elogiar a empresa e pedir com quem falar sobre a presença digital e captação de clientes.');
-                            }}
-                          >
-                            <div className="approach-title">👩‍💼 Falar com Atendente</div>
-                            <div className="approach-desc">Descobrir quem é o decisor sem ser ignorado no WhatsApp.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'mpesa' && 'active')}
-                            onClick={() => {
-                              setApproach('mpesa');
-                              setCustomPrompt('Destacar facilidade de adesão imediata com pagamentos parcelados via M-Pesa / e-Mola.');
-                            }}
-                          >
-                            <div className="approach-title">💰 Fechamento M-Pesa</div>
-                            <div className="approach-desc">Quebrar objeção de custo com parcelamento fácil em MT.</div>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={cls('approach-card', approach === 'custom' && 'active')}
-                            onClick={() => {
-                              setApproach('custom');
-                            }}
-                          >
-                            <div className="approach-title">✍️ Modo 100% Livre</div>
-                            <div className="approach-desc">Escrever diretrizes totalmente sob medida para a IA.</div>
-                          </button>
-                        </div>
+                        <p style={{ margin: 0, fontSize: 12, color: '#94A3B8' }}>
+                          Defina o canal e a situação real para a IA gerar o guião ou mensagem ideal para este momento.
+                        </p>
                       </div>
 
-                      <div className="prompt-details-body" style={{ paddingTop: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                          <label style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            💡 Adaptar com a Minha Ideia ou Situação Real (Instruções para a IA):
-                          </label>
-                          {(user?.profile?.objections || []).length > 0 && (
-                            <span style={{ fontSize: 10, color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', padding: '2px 8px', borderRadius: 12 }}>
-                              🧠 {(user?.profile?.objections || []).length} objeções da base ativas
-                            </span>
-                          )}
-                        </div>
-                        <textarea
-                          value={customPrompt}
-                          onChange={e => setCustomPrompt(e.target.value)}
-                          placeholder="Ex.: Já liguei antes e falaram que iriam retornar; ou fui presencialmente e o responsável não estava; antecipar quebra de objeção..."
-                          rows={2}
-                          className="prompt-textarea"
-                        />
-                        <div className="prompt-quick-chips">
-                          <span className="prompt-chips-label">Situações reais:</span>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => {
-                              setApproach('retorno');
-                              setCustomPrompt('Já liguei antes para eles e disseram que o responsável iria retornar a chamada, mas ninguém ligou. Fazer follow-up educado sem cobrança agressiva.');
-                            }}
-                          >
-                            📞 Já liguei antes e disseram que iam retornar
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => {
-                              setApproach('door');
-                              setCustomPrompt('Fui pessoalmente ao estabelecimento, mas o responsável não se encontrava. Deixar recado com atendente e pegar WhatsApp direto.');
-                            }}
-                          >
-                            🚪 Fui presencialmente mas o dono não estava
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => {
-                              setApproach('vacuo');
-                              setCustomPrompt('Enviei a primeira mensagem pelo WhatsApp mas não tive nenhuma resposta. Aplicar descarte elegante suave.');
-                            }}
-                          >
-                            ⏳ No vácuo: mandei WhatsApp sem resposta
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => {
-                              setApproach('site_pronto');
-                              setCustomPrompt('Já criei um website/rascunho visual moderno para esta empresa. Falar com a atendente do WhatsApp de forma amigável para ela ver em 1 minuto e mostrar ao responsável.');
-                            }}
-                          >
-                            🚀 Já criei o site (P/ Atendente)
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => {
-                              setApproach('atendente');
-                              setCustomPrompt('Perguntar gentilmente à atendente com quem devo falar sobre a presença digital e captação de clientes da empresa.');
-                            }}
-                          >
-                            📱 Pedir contacto do responsável
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => setCustomPrompt('Focar na criação de uma Landing Page moderna e rápida para converter quem pesquisa no Google Maps directamente para o WhatsApp.')}
-                          >
-                            🎯 Focar em Landing Page
-                          </button>
-                          <button
-                            type="button"
-                            className="prompt-chip"
-                            onClick={() => setCustomPrompt('Destacar facilidade de pagamento parcelado via M-Pesa / e-Mola.')}
-                          >
-                            💰 Facilitar com M-Pesa
-                          </button>
-                          {customPrompt && (
-                            <button type="button" className="prompt-chip danger" onClick={() => setCustomPrompt('')}>
-                              Limpar
+                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {/* Passo 1: Canal de Contato */}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                            1. Canal de contacto pretendido agora:
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+                            <button
+                              type="button"
+                              className={cls('approach-card', targetChannel === 'call' && 'active')}
+                              style={{ padding: '10px 12px', textAlign: 'left' }}
+                              onClick={() => {
+                                setTargetChannel('call');
+                                setApproach('call');
+                                syncScenarioPrompt('call', contactStage, stageOutcome, activeObjection);
+                              }}
+                            >
+                              <div className="approach-title">📞 Chamada por Voz</div>
+                              <div className="approach-desc">Guião falado para contornar recepcionista e falar com o decisor.</div>
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              className={cls('approach-card', targetChannel === 'whatsapp' && 'active')}
+                              style={{ padding: '10px 12px', textAlign: 'left' }}
+                              onClick={() => {
+                                setTargetChannel('whatsapp');
+                                setApproach(contactStage === 'ja_mandei_whatsapp' ? 'vacuo' : 'site_pronto');
+                                syncScenarioPrompt('whatsapp', contactStage, stageOutcome, activeObjection);
+                              }}
+                            >
+                              <div className="approach-title">💬 WhatsApp</div>
+                              <div className="approach-desc">Mensagem comercial sem atrito, pronta para enviar.</div>
+                            </button>
+                            <button
+                              type="button"
+                              className={cls('approach-card', targetChannel === 'door' && 'active')}
+                              style={{ padding: '10px 12px', textAlign: 'left' }}
+                              onClick={() => {
+                                setTargetChannel('door');
+                                setApproach('door');
+                                syncScenarioPrompt('door', contactStage, stageOutcome, activeObjection);
+                              }}
+                            >
+                              <div className="approach-title">🚪 Presencial (Balcão)</div>
+                              <div className="approach-desc">Pitch de 30s com telemóvel na mão mostrando o protótipo.</div>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Passo 2: Histórico de Contato */}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                            2. Histórico de contacto com esta empresa:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {[
+                              { id: 'ja_mandei_whatsapp', label: '💬 Já mandei WhatsApp antes (sem resposta)' },
+                              { id: 'primeiro_contacto', label: '🆕 É o meu 1º contacto' },
+                              { id: 'ja_liguei', label: '📞 Já liguei antes (não atenderam / ocupado)' },
+                              { id: 'ja_fui_presencial', label: '🚪 Já fui presencialmente (falei no balcão)' }
+                            ].map(item => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className={cls('prompt-chip', contactStage === item.id && 'active')}
+                                style={{
+                                  padding: '6px 12px',
+                                  fontSize: 12,
+                                  background: contactStage === item.id ? '#2563EB' : 'rgba(30, 41, 59, 0.7)',
+                                  color: contactStage === item.id ? '#FFFFFF' : '#E2E8F0',
+                                  borderColor: contactStage === item.id ? '#60A5FA' : 'rgba(255,255,255,0.1)'
+                                }}
+                                onClick={() => {
+                                  const nextStage = item.id as any;
+                                  setContactStage(nextStage);
+                                  syncScenarioPrompt(targetChannel, nextStage, stageOutcome, activeObjection);
+                                }}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Passo 3: Situação Anterior (quando já houve contacto prévio) */}
+                        {contactStage !== 'primeiro_contacto' && (
+                          <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px dashed rgba(59, 130, 246, 0.3)', borderRadius: 8, padding: '10px 12px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                              3. O que aconteceu na tentativa anterior?
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {[
+                                { id: 'vacuo', label: '⏳ Ficou no vácuo (nenhuma resposta)' },
+                                { id: 'mandaram_whatsapp', label: '📱 Mandaram mandar por WhatsApp ("envie msg no saap")' },
+                                { id: 'responsavel_ausente', label: '🔄 Disseram que o responsável ligava ou não estava' },
+                                { id: 'sem_interesse', label: '✋ Disseram que não têm interesse ou está caro' }
+                              ].map(item => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  className={cls('prompt-chip', stageOutcome === item.id && 'active')}
+                                  style={{
+                                    padding: '5px 10px',
+                                    fontSize: 11,
+                                    background: stageOutcome === item.id ? '#0284C7' : 'rgba(30, 41, 59, 0.5)',
+                                    color: stageOutcome === item.id ? '#FFFFFF' : '#CBD5E1',
+                                    borderColor: stageOutcome === item.id ? '#38BDF8' : 'rgba(255,255,255,0.08)'
+                                  }}
+                                  onClick={() => {
+                                    const nextOutcome = item.id as any;
+                                    setStageOutcome(nextOutcome);
+                                    syncScenarioPrompt(targetChannel, contactStage, nextOutcome, activeObjection);
+                                  }}
+                                >
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Passo 4: Objeção Prioritária para Desarmar */}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                            {contactStage !== 'primeiro_contacto' ? '4. ' : '3. '}Objeção prioritária a contornar:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {[
+                              { id: 'mande_whatsapp', label: '🛡️ "Tem de mandar mensagem no WhatsApp"' },
+                              { id: 'responsavel_ausente', label: '⏳ "O Dr./gerente nunca está ou está ocupado"' },
+                              { id: 'ja_temos_quem_faca', label: '🤝 "Já temos quem faça (amigo/sobrinho)"' },
+                              { id: 'esta_caro', label: '💸 "Está caro / Sem orçamento agora"' },
+                              { id: 'sem_interesse', label: '🚫 "Não temos interesse em site"' },
+                              { id: 'custom', label: '✍️ Instrução personalizada' }
+                            ].map(item => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className={cls('prompt-chip', activeObjection === item.id && 'active')}
+                                style={{
+                                  padding: '5px 10px',
+                                  fontSize: 11,
+                                  background: activeObjection === item.id ? '#059669' : 'rgba(30, 41, 59, 0.6)',
+                                  color: activeObjection === item.id ? '#FFFFFF' : '#CBD5E1',
+                                  borderColor: activeObjection === item.id ? '#34D399' : 'rgba(255,255,255,0.08)'
+                                }}
+                                onClick={() => {
+                                  const nextObj = item.id as any;
+                                  setActiveObjection(nextObj);
+                                  syncScenarioPrompt(targetChannel, contactStage, stageOutcome, nextObj);
+                                }}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Campo de instruções finais da IA */}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8' }}>
+                              Diretrizes finais da IA para esta abordagem:
+                            </label>
+                            {customPrompt && (
+                              <button
+                                type="button"
+                                style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 10, cursor: 'pointer' }}
+                                onClick={() => setCustomPrompt('')}
+                              >
+                                Limpar
+                              </button>
+                            )}
+                          </div>
+                          <textarea
+                            value={customPrompt}
+                            onChange={e => setCustomPrompt(e.target.value)}
+                            placeholder="Descreva detalhes específicos ou deixe a IA guiar-se pelas diretrizes acima..."
+                            rows={2}
+                            className="prompt-textarea"
+                            style={{ fontSize: 12, lineHeight: 1.4 }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -6861,6 +6927,10 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         {activePlaybookTab === 'call' && (
                           <>
                             <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                              setDraft(getCoherentVaultScript('call-mande-whatsapp', service, business, user.name, messageLength));
+                              notify('Guião para contornar "Mande no WhatsApp" inserido!');
+                            }}>🛡️ Se disserem: "Mande no WhatsApp"</button>
+                            <button type="button" className="vault-quick-pill" onClick={() => {
                               setDraft(getCoherentVaultScript('call-recepcao', service, business, user.name, messageLength));
                               notify('Guião de Chamada: Passar da Recepção inserido!');
                             }}>📞 Passar da Recepção / Secretária</button>
@@ -6923,47 +6993,91 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         )}
                       </div>
                     </div>
-                    <label className="sr-only" htmlFor="draft">Mensagem de abordagem</label>
-                    <textarea id="draft" className="message-editor" value={draft} onChange={e => setDraft(e.target.value)} placeholder="A sua mensagem aparece aqui após a análise. Também pode preparar um texto manualmente." />
-                    <div className="editor-meta"><span>{draft.length} caracteres</span><span>Envio decidido por si</span></div>
-                    <div className="outreach-actions">
-                      <button className="button outline" disabled={!draft || busy || business.suppressed} onClick={copyDraft}><Copy size={16} /> Copiar mensagem</button>
-                      <button className="button" disabled={!analysis || !draft || busy || business.suppressed} onClick={saveDraft}><Check size={16} /> Guardar edição</button>
+                    <label className="sr-only" htmlFor="draft">{targetChannel === 'call' ? 'Guião falado da chamada' : 'Mensagem de abordagem'}</label>
+                    <textarea
+                      id="draft"
+                      className="message-editor"
+                      value={draft}
+                      onChange={e => setDraft(e.target.value)}
+                      placeholder={targetChannel === 'call' ? 'O guião falado da chamada aparecerá aqui após a análise...' : 'A sua mensagem aparece aqui após a análise. Também pode preparar um texto manualmente.'}
+                    />
+                    <div className="editor-meta">
+                      <span>{draft.length} caracteres</span>
+                      <span>{targetChannel === 'call' ? 'Guião de apoio para falar ao telefone' : 'Envio decidido por si'}</span>
                     </div>
+                    <div className="outreach-actions">
+                      <button className="button outline" disabled={!draft || busy || business.suppressed} onClick={copyDraft}>
+                        <Copy size={16} /> {targetChannel === 'call' ? 'Copiar guião falado' : 'Copiar mensagem'}
+                      </button>
+                      <button className="button" disabled={!analysis || !draft || busy || business.suppressed} onClick={saveDraft}>
+                        <Check size={16} /> Guardar edição
+                      </button>
+                    </div>
+
                     {business.phone && !business.suppressed ? (
-                      isMozambiqueMobile(business.phone) ? (
-                        <>
-                          <a className="button whatsapp full" href={`https://wa.me/${business.phone.replace(/\D/g, '')}?text=${encodeURIComponent(draft)}`} target="_blank" rel="noreferrer">
-                            <MessageCircle size={18} /> Abrir WhatsApp ({formatPhone(business.phone)}) <ExternalLink size={15} />
-                          </a>
-                          <p className="micro">Abrir WhatsApp não confirma envio, entrega ou leitura da mensagem.</p>
-                        </>
-                      ) : isMozambiqueLandline(business.phone) ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                          <a className="button full" href={`tel:${business.phone}`} style={{ background: '#0284c7', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                            <Phone size={18} /> Ligar Telefone Fixo ({formatPhone(business.phone)})
-                          </a>
-                          <p className="micro" style={{ color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '8px 12px', borderRadius: 8, margin: 0, lineHeight: 1.4 }}>
-                            ℹ️ <strong>Rede Fixa:</strong> Este contacto ({formatPhone(business.phone)}) pertence à rede fixa e normalmente não possui WhatsApp. Ligue diretamente ou consulte as redes sociais da empresa.
-                          </p>
-                          {business.instagram && (
-                            <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                              <Sparkles size={16} /> Abrir Instagram ({business.instagram})
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                        {targetChannel === 'call' ? (
+                          <>
+                            <a
+                              className="button full"
+                              href={`tel:${business.phone.startsWith('+') ? business.phone : ('+' + business.phone.replace(/\D/g, ''))}`}
+                              style={{ background: '#0284c7', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', fontWeight: 700, fontSize: 14 }}
+                            >
+                              <Phone size={18} /> Ligar agora para {formatPhone(business.phone)}
                             </a>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                          <a className="button full" href={`tel:${business.phone}`} style={{ background: '#0f172a', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                            <Phone size={18} /> Ligar ({formatPhone(business.phone)})
-                          </a>
-                          {business.instagram && (
-                            <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                              <Sparkles size={16} /> Abrir Instagram ({business.instagram})
+                            {isMozambiqueMobile(business.phone) && (
+                              <a
+                                className="button whatsapp outline full"
+                                href={`https://wa.me/${business.phone.replace(/\D/g, '')}?text=${encodeURIComponent(draft)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                              >
+                                <MessageCircle size={16} /> Enviar também no WhatsApp ({formatPhone(business.phone)})
+                              </a>
+                            )}
+                          </>
+                        ) : isMozambiqueMobile(business.phone) ? (
+                          <>
+                            <a className="button whatsapp full" href={`https://wa.me/${business.phone.replace(/\D/g, '')}?text=${encodeURIComponent(draft)}`} target="_blank" rel="noreferrer">
+                              <MessageCircle size={18} /> Abrir WhatsApp ({formatPhone(business.phone)}) <ExternalLink size={15} />
                             </a>
-                          )}
-                        </div>
-                      )
+                            <a
+                              className="button outline full"
+                              href={`tel:${business.phone.startsWith('+') ? business.phone : ('+' + business.phone.replace(/\D/g, ''))}`}
+                              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                              <Phone size={16} /> Fazer Chamada Telefónica ({formatPhone(business.phone)})
+                            </a>
+                            <p className="micro">Abrir WhatsApp não confirma envio, entrega ou leitura da mensagem.</p>
+                          </>
+                        ) : isMozambiqueLandline(business.phone) ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <a className="button full" href={`tel:${business.phone.startsWith('+') ? business.phone : ('+' + business.phone.replace(/\D/g, ''))}`} style={{ background: '#0284c7', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                              <Phone size={18} /> Ligar Telefone Fixo ({formatPhone(business.phone)})
+                            </a>
+                            <p className="micro" style={{ color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '8px 12px', borderRadius: 8, margin: 0, lineHeight: 1.4 }}>
+                              ℹ️ <strong>Rede Fixa:</strong> Este contacto ({formatPhone(business.phone)}) pertence à rede fixa e normalmente não possui WhatsApp. Ligue diretamente ou consulte as redes sociais da empresa.
+                            </p>
+                            {business.instagram && (
+                              <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <Sparkles size={16} /> Abrir Instagram ({business.instagram})
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <a className="button full" href={`tel:${business.phone.startsWith('+') ? business.phone : ('+' + business.phone.replace(/\D/g, ''))}`} style={{ background: '#0f172a', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                              <Phone size={18} /> Ligar ({formatPhone(business.phone)})
+                            </a>
+                            {business.instagram && (
+                              <a className="button outline full" href={`https://instagram.com/${business.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <Sparkles size={16} /> Abrir Instagram ({business.instagram})
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
                         <div className="alert" style={{ margin: 0 }}>
@@ -7005,16 +7119,53 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                     {selectedLead && <button className="text-button" disabled={busy} onClick={() => run(async () => { await api('leads/' + selectedLead.id, { method: 'PATCH', body: JSON.stringify({ stage: 'Contactado' }) }); notify('Contacto confirmado por si. Etapa actualizada.'); })}><CheckCheck size={16} /> Já realizei o contacto · Marcar como Contactado</button>}
                   </section>
                   <aside className="message-preview">
-                    <div className="preview-title"><span>PRÉ-VISUALIZAÇÃO</span><Pill>Rascunho</Pill></div>
-                    <div className="phone-frame">
-                      <div className="phone-contact"><span className="business-icon"><Building2 size={20} /></span><div><b>{business.name}</b><small>Pré-visualização da mensagem</small></div></div>
-                      <div className="phone-body">
-                        <span className="phone-day">RASCUNHO · NÃO ENVIADO</span>
-                        <div className="message-bubble">{draft || 'A sua próxima conversa começa com uma mensagem relevante.'}<small>Pré-visualização</small></div>
-                      </div>
-                      <div className="phone-bottom"><span>A mensagem será enviada por si</span><Send size={17} /></div>
+                    <div className="preview-title">
+                      <span>{targetChannel === 'call' ? 'TELEPROMPTER DE CHAMADA' : 'PRÉ-VISUALIZAÇÃO'}</span>
+                      <Pill>{targetChannel === 'call' ? 'Guião Falado' : 'Rascunho'}</Pill>
                     </div>
-                    <div className="preview-tip"><ShieldCheck size={20} /><p>Não presuma as necessidades. Uma pergunta honesta abre mais espaço para conversar.</p></div>
+                    {targetChannel === 'call' ? (
+                      <div className="call-teleprompter-frame" style={{ background: 'linear-gradient(180deg, #0B132B 0%, #1C2541 100%)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: 16, padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ width: 36, height: 36, borderRadius: '50%', background: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                              <Phone size={18} />
+                            </span>
+                            <div>
+                              <b style={{ display: 'block', fontSize: 13, color: '#F8FAFC' }}>{business.name}</b>
+                              <small style={{ color: '#38BDF8' }}>{business.phone ? formatPhone(business.phone) : 'Sem número registado'}</small>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 10, background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', padding: '3px 8px', borderRadius: 8, fontWeight: 700 }}>
+                            📞 VOZ
+                          </span>
+                        </div>
+                        <div style={{ maxHeight: 420, overflowY: 'auto', fontSize: 13, lineHeight: 1.5, color: '#E2E8F0', whiteSpace: 'pre-wrap', padding: '6px 4px', fontVariantNumeric: 'tabular-nums' }}>
+                          {draft || 'O guião estruturado de chamada telefónica aparecerá aqui após gerar a análise, pronto para ler enquanto conversa ao telefone.'}
+                        </div>
+                        {business.phone && (
+                          <a
+                            className="button full"
+                            href={`tel:${business.phone.startsWith('+') ? business.phone : ('+' + business.phone.replace(/\D/g, ''))}`}
+                            style={{ background: '#0284c7', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 700, padding: '10px 14px' }}
+                          >
+                            <Phone size={16} /> Discar {formatPhone(business.phone)}
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="phone-frame">
+                        <div className="phone-contact"><span className="business-icon"><Building2 size={20} /></span><div><b>{business.name}</b><small>Pré-visualização da mensagem</small></div></div>
+                        <div className="phone-body">
+                          <span className="phone-day">RASCUNHO · NÃO ENVIADO</span>
+                          <div className="message-bubble">{draft || 'A sua próxima conversa começa com uma mensagem relevante.'}<small>Pré-visualização</small></div>
+                        </div>
+                        <div className="phone-bottom"><span>A mensagem será enviada por si</span><Send size={17} /></div>
+                      </div>
+                    )}
+                    <div className="preview-tip">
+                      <ShieldCheck size={20} />
+                      <p>{targetChannel === 'call' ? 'Fale com tranquilidade e postura de consultor. Ao acolher a objeção "mande no WhatsApp" com empatia, a recepcionista abre a porta para o responsável.' : 'Não presuma as necessidades. Uma pergunta honesta abre mais espaço para conversar.'}</p>
+                    </div>
                   </aside>
                 </div>
               }
@@ -7741,12 +7892,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
 // ─── Sub-components ──────────────────────────────────
 function ProfileForm({ user, profile, busy, onSubmit }: { user: User; profile: Profile; busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  const isGenericName = !user.name || user.name === 'Utilizador' || user.name.toLowerCase() === 'droop store' || user.name.toLowerCase() === 'chelton madime' || user.name.toLowerCase() === 'chelton' || (user.email && user.name.toLowerCase() === user.email.split('@')[0].toLowerCase());
+  const isGenericName = !user.name || ['utilizador', 'droop store', 'chelton madime', 'chelton'].includes(user.name.trim().toLowerCase()) || (user.email && user.name.toLowerCase() === user.email.split('@')[0].toLowerCase());
   const initialName = isGenericName ? '' : user.name;
   return (
-    <form onSubmit={onSubmit} className="profile-form" key={user.id}>
+    <form onSubmit={onSubmit} className="profile-form" key={user.id} autoComplete="off">
       <div className="two-fields">
-        <label>O seu nome<input name="name" defaultValue={initialName} placeholder="Ex: Nome do Responsável ou Empresa" required minLength={2} /></label>
+        <label>O seu nome<input name="name" defaultValue={initialName} placeholder="Ex: Nome do Responsável ou Empresa" required minLength={2} autoComplete="off" /></label>
         <label>Serviço principal<select name="service" defaultValue={profile.service}>{SERVICES.map(s => <option key={s}>{s}</option>)}</select></label>
       </div>
       <label>Como apresenta o seu trabalho?<textarea name="pitch" defaultValue={profile.pitch} maxLength={1000} rows={3} placeholder="Ajudo pequenos negócios a…" /></label>

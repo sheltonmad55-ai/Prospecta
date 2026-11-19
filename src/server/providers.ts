@@ -7,6 +7,26 @@ import { buildVaultPromptMatrix } from './vault-scripts.ts';
 
 export const mode = () => 'live' as const;
 export const normalize = (s:string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+
+export function cleanLocality(rawLocality?: string, rawProvince?: string): string {
+  if (!rawLocality) return rawProvince || 'Moçambique';
+  const raw = rawLocality.trim();
+  const knownCities = ['Matola', 'Maputo', 'Beira', 'Nampula', 'Tete', 'Quelimane', 'Pemba', 'Chimoio', 'Xai-Xai', 'Inhambane', 'Nacala', 'Vilankulo'];
+  for (const city of knownCities) {
+    if (new RegExp(`\\b${city}\\b`, 'i').test(raw)) {
+      return city;
+    }
+  }
+  const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    const last = parts[parts.length - 1];
+    if (last && last.length < 30) return last.charAt(0).toUpperCase() + last.slice(1);
+    const secondLast = parts[parts.length - 2];
+    if (secondLast && secondLast.length < 30) return secondLast.charAt(0).toUpperCase() + secondLast.slice(1);
+  }
+  return parts[0] && parts[0].length < 30 ? parts[0] : (rawProvince || 'Moçambique');
+}
+
 export function validPhone(value: string, defaultCountry = 'MZ') {
   if (!value) return null;
   const trimmed = value.trim();
@@ -33,6 +53,7 @@ export function generateMozambicanAnalysis(
   approach = ''
 ): Omit<Analysis,'id'|'businessId'|'createdAt'> {
   const chosen = service || profile.service || 'Criação de websites';
+  const loc = cleanLocality(business.locality, business.province);
   const defaultEvidenceIds = business.evidence.map(e => e.id);
   const facts = business.evidence.slice(0, 4).map(e => ({
     text: `${e.field === 'name' ? 'Empresa' : e.field === 'location' ? 'Localização' : e.field === 'category' ? 'Ramo' : 'Contacto'}: ${e.value}`,
@@ -50,6 +71,22 @@ export function generateMozambicanAnalysis(
   let missingData: string[] = [];
   let draftMessage = '';
 
+  const isCall = approach === 'call' || 
+    customInstructions.toLowerCase().includes('chamada') || 
+    customInstructions.toLowerCase().includes('cold call') || 
+    customInstructions.toLowerCase().includes('ligar') || 
+    customInstructions.toLowerCase().includes('telefone');
+
+  const isDoor = approach === 'door' || 
+    customInstructions.toLowerCase().includes('porta a porta') || 
+    customInstructions.toLowerCase().includes('balcão') || 
+    customInstructions.toLowerCase().includes('presencial');
+
+  const isVacuo = approach === 'vacuo' || approach === 'vacuo_redes' ||
+    customInstructions.toLowerCase().includes('vácuo') ||
+    customInstructions.toLowerCase().includes('tentativa de contacto antes') ||
+    customInstructions.toLowerCase().includes('já mandei whatsapp');
+
   const isSitePronto = approach === 'site_pronto' || 
     customInstructions.toLowerCase().includes('já criei') || 
     customInstructions.toLowerCase().includes('site pronto') ||
@@ -64,11 +101,11 @@ export function generateMozambicanAnalysis(
     hypotheses = [
       business.website
         ? `Website actual não optimizado para telemóveis nem com canalização directa para conversão no WhatsApp.`
-        : `Ausência de website ou landing page própria com domínio oficial em Moçambique, reduzindo a credibilidade quando clientes locais pesquisam no Google por ${business.category.toLowerCase()} em ${business.locality}.`,
+        : `Ausência de website ou landing page própria com domínio oficial em Moçambique, reduzindo a credibilidade quando clientes locais pesquisam no Google por ${business.category.toLowerCase()} em ${loc}.`,
       `Dependência exclusiva de recomendações informais ou de ficheiros PDF e fotos soltas no WhatsApp, que dificultam a decisão imediata de compra.`,
       `Oportunidade para landing page profissional de carregamento ultra-rápido que canaliza todo o tráfego da zona directamente para o WhatsApp comercial.`
     ];
-    reason = `Uma presença digital estruturada posiciona o(a) ${business.name} como autoridade indiscutível em ${business.locality}. Para o segmento de ${business.category}, o investimento típico de ${pricing.formattedRange} paga-se logo nos primeiros clientes conquistados.`;
+    reason = `Uma presença digital estruturada posiciona o(a) ${business.name} como autoridade indiscutível em ${loc}. Para o segmento de ${business.category}, o investimento típico de ${pricing.formattedRange} paga-se logo nos primeiros clientes conquistados.`;
     missingData = [
       business.website ? 'Métricas de conversão do website actual' : 'Website oficial com domínio .co.mz próprio',
       'Catálogo estruturado de produtos/serviços optimizado para telemóvel'
@@ -79,7 +116,7 @@ export function generateMozambicanAnalysis(
 
 ${repName ? `O meu nome é ${repName}, sou ` : 'Sou '}especialista em websites e landing pages em ${business.province}.
 
-Reparei que o vosso espaço em ${business.locality} tem uma óptima procura, mas ${business.website ? 'a página actual pode canalizar muito mais pedidos directos para o WhatsApp' : 'ainda não tem uma landing page com botão directo para o WhatsApp'}.
+Reparei que o vosso espaço em ${loc} tem uma óptima procura, mas ${business.website ? 'a página actual pode canalizar muito mais pedidos directos para o WhatsApp' : 'ainda não tem uma landing page com botão directo para o WhatsApp'}.
 
 Faz sentido enviar-vos um rascunho visual de 2 minutos sem qualquer compromisso?
 
@@ -90,7 +127,7 @@ ${signName}`;
 
 ${repName ? `O meu nome é ${repName}, sou ` : 'Sou '}especialista em criação de websites e presença digital aqui em ${business.province}.
 
-Estive a analisar empresas de ${business.category.toLowerCase()} na zona de ${business.locality} e reparei que o vosso negócio tem um excelente trabalho, mas ${business.website ? 'a vossa página web pode converter muito mais se direcionar os visitantes logo ao WhatsApp' : 'ainda não tem uma página web profissional optimizada para receber clientes directamente no WhatsApp'}.
+Estive a analisar empresas de ${business.category.toLowerCase()} na zona de ${loc} e reparei que o vosso negócio tem um excelente trabalho, mas ${business.website ? 'a vossa página web pode converter muito mais se direcionar os visitantes logo ao WhatsApp' : 'ainda não tem uma página web profissional optimizada para receber clientes directamente no WhatsApp'}.
 
 Preparei uma proposta rápida mostrando exactamente como podemos estruturar uma página moderna e rápida, com adesão simples (inclusive com pagamentos práticos via M-Pesa / e-Mola).
 
@@ -101,7 +138,7 @@ ${signName}`;
     }
   } else if (sLower.includes('tráfego') || sLower.includes('anúncio') || sLower.includes('ads')) {
     hypotheses = [
-      `Falta de campanhas activas e geolocalizadas no Meta (Instagram/Facebook) para captar clientes na zona de ${business.locality}.`,
+      `Falta de campanhas activas e geolocalizadas no Meta (Instagram/Facebook) para captar clientes na zona de ${loc}.`,
       `Concorrentes directos na província de ${business.province} estão a captar quota de mercado enquanto esta empresa depende de procura passiva.`,
       `Escala previsível com campanhas de WhatsApp onde pequenos orçamentos em Moçambique geram contacto directo com quem tem intenção de compra.`
     ];
@@ -116,7 +153,7 @@ ${signName}`;
 
 ${repName ? `O meu nome é ${repName}, ` : ''}especialista em anúncios no Instagram e Google em ${business.province}.
 
-Notei a óptima reputação do vosso negócio em ${business.locality} e preparei uma estratégia rápida para trazer mais clientes de ${business.category.toLowerCase()} a chamar no vosso WhatsApp todos os dias.
+Notei a óptima reputação do vosso negócio em ${loc} e preparei uma estratégia rápida para trazer mais clientes de ${business.category.toLowerCase()} a chamar no vosso WhatsApp todos os dias.
 
 Podemos conversar 3 minutinhos sobre isto hoje? Prometo ser breve!
 
@@ -127,7 +164,7 @@ ${signName}`;
 
 ${repName ? `O meu nome é ${repName}, ` : ''}especialista em tráfego pago e captação de clientes em ${business.province}.
 
-Notei que o vosso negócio em ${business.locality} tem uma óptima reputação no sector de ${business.category.toLowerCase()}, mas ainda não está a atrair clientes todos os dias de forma automática com anúncios no Instagram e Google na vossa zona.
+Notei que o vosso negócio em ${loc} tem uma óptima reputação no sector de ${business.category.toLowerCase()}, mas ainda não está a atrair clientes todos os dias de forma automática com anúncios no Instagram e Google na vossa zona.
 
 Desenvolvi uma estratégia objectiva para colocar clientes qualificados a chamar directamente no vosso WhatsApp com um orçamento bastante acessível.
 
@@ -151,7 +188,7 @@ ${signName}`;
     if (length === 'curta') {
       draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-${repName ? `O meu nome é ${repName}, ajudo ` : 'Ajudo '}empresas de ${business.category.toLowerCase()} em ${business.locality} a responderem orçamentos no WhatsApp 24h sem demora para nunca perderem clientes.
+${repName ? `O meu nome é ${repName}, ajudo ` : 'Ajudo '}empresas de ${business.category.toLowerCase()} em ${loc} a responderem orçamentos no WhatsApp 24h sem demora para nunca perderem clientes.
 
 Faz sentido conversarmos 3 minutinhos sobre como funciona para o vosso caso?
 
@@ -162,7 +199,7 @@ ${signName}`;
 
 ${repName ? `O meu nome é ${repName}, ajudo ` : 'Ajudo '}empresas em ${business.province} a automatizarem o atendimento no WhatsApp para nunca deixarem clientes à espera.
 
-Notei que vocês têm bastante procura em ${business.locality}, mas responder orçamentos na mão fora de horas custa vendas todos os meses.
+Notei que vocês têm bastante procura em ${loc}, mas responder orçamentos na mão fora de horas custa vendas todos os meses.
 
 Podemos agendar uma demonstração rápida de como um assistente inteligente pode qualificar e fechar clientes no vosso WhatsApp 24h por dia?
 
@@ -171,7 +208,7 @@ ${signName}`;
     }
   } else {
     hypotheses = [
-      `Oportunidade para modernizar o posicionamento e autoridade comercial no mercado de ${business.locality}.`,
+      `Oportunidade para modernizar o posicionamento e autoridade comercial no mercado de ${loc}.`,
       `Comunicação que pode ser mais assertiva para atrair clientes de maior valor no nicho de ${business.category.toLowerCase()}.`,
       `Potencial de fechar novas contratações aplicando a metodologia e scripts directos do mercado moçambicano.`
     ];
@@ -186,7 +223,7 @@ ${signName}`;
 
 ${repName ? `O meu nome é ${repName}, actuo ` : 'Actuo '}com ${chosen.toLowerCase()} em Moçambique.
 
-Identifiquei 2 melhorias práticas para aumentarem o fecho de clientes de ${business.category.toLowerCase()} em ${business.locality}.
+Identifiquei 2 melhorias práticas para aumentarem o fecho de clientes de ${business.category.toLowerCase()} em ${loc}.
 
 Posso enviar-vos uma ideia rápida de 2 minutos sem compromisso?
 
@@ -197,7 +234,7 @@ ${signName}`;
 
 ${repName ? `O meu nome é ${repName}, actuo ` : 'Actuo '}com ${chosen.toLowerCase()} em Moçambique.
 
-Estive a acompanhar a vossa actuação no segmento de ${business.category.toLowerCase()} em ${business.locality} e identifiquei 2 melhorias práticas que podem aumentar directamente a vossa taxa de fecho de clientes.
+Estive a acompanhar a vossa actuação no segmento de ${business.category.toLowerCase()} em ${loc} e identifiquei 2 melhorias práticas que podem aumentar directamente a vossa taxa de fecho de clientes.
 
 Faz sentido conversarmos 5 minutos esta semana para vos mostrar essa proposta sem qualquer custo?
 
@@ -206,10 +243,38 @@ ${signName}`;
     }
   }
 
-  if (isSitePronto) {
+  if (isCall) {
+    draftMessage = `📞 GUIÃO DE CHAMADA TELEFÓNICA — ${business.name} (${loc})
+
+[1. ABERTURA & SAUDAÇÃO]
+"Bom dia! Daqui fala ${repName || 'o consultor'}, tudo bem consigo?"
+
+[2. FILTRO DA RECEPÇÃO]
+"Estou a ligar a respeito da presença digital e captação de clientes do(a) ${business.name} aqui na zona de ${loc}. Por favor, o responsável ou o Dr./gerente encontra-se disponível um instante?"
+
+[3. SE A RECEPCIONISTA DISSER: 'TEM DE MANDAR NO WHATSAPP' / 'MANDE MENSAGEM']
+"Compreendo perfeitamente e agradeço a orientação! Como eu já enviei anteriormente no vosso WhatsApp comercial e sei que vocês recebem dezenas de mensagens todos os dias, liguei só 1 minuto para não deixar perder no fluxo. Consegue apenas confirmar se o responsável viu ou indicar-me o primeiro nome dele para eu direcionar diretamente?"
+
+[4. SE O RESPONSÁVEL NÃO SE ENCONTRAR NO MOMENTO]
+"Sem qualquer problema! A que horas costuma ser o melhor momento para conseguir falar com ele directamente? Ou posso deixar uma breve mensagem com o seu nome?"
+
+[5. PITCH DIRECTO QUANDO PASSAR AO DECISOR]
+"Bom dia / Boa tarde! Daqui fala ${repName || 'o consultor'}. Serei direto em 1 minuto: analisei o posicionamento do(a) ${business.name} aqui em ${loc}. Vocês têm um óptimo serviço em ${business.category.toLowerCase()}, mas notamos que muitos potenciais clientes têm dúvidas básicas ou acabam por não marcar consultas/pedidos por falta de um website oficial com ligação direta ao WhatsApp. Tomei a iniciativa de desenhar uma demonstração prática sem qualquer compromisso. Posso partilhar o link convosco?"`;
+  } else if (isDoor) {
+    draftMessage = `🚪 GUIÃO DE ABORDAGEM NO BALCÃO (30 SEGUNDOS) — ${business.name} (${loc})
+
+[1. CHEGADA AO BALCÃO COM O TELEMÓVEL NA MÃO]
+"Bom dia / Boa tarde! Tudo bem consigo? Não quero tomar nem 1 minuto do vosso trabalho..."
+
+[2. MOSTRAR O PROTÓTIPO NO TELEMÓVEL]
+"Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${loc} e tomei a iniciativa de desenhar um modelo visual moderno para o(a) ${business.name} com botão direto para os clientes agendarem no WhatsApp."
+
+[3. PERGUNTAR PELO DECISOR]
+"O proprietário ou gerente da empresa encontra-se cá hoje para dar uma vista de olhos rápida de 30 segundos, ou consegue indicar-me o contacto dele para eu partilhar o link?"`;
+  } else if (isSitePronto) {
     draftMessage = `Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?
 
-${repName ? `O meu nome é ${repName}. Estive ` : 'Estive '}a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de adiantar e desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.
+${repName ? `O meu nome é ${repName}. Estive ` : 'Estive '}a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${loc} e tomei a iniciativa de adiantar e desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.
 
 Sei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?
 
@@ -217,19 +282,23 @@ Posso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo 
 
 Um abraço e continuação de bom trabalho!
 ${signName}`;
-  } else if (approach === 'vacuo' || approach === 'vacuo_redes') {
-    draftMessage = `Tudo ótimo obrigado, fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens que recebem 😅
+  } else if (isVacuo) {
+    draftMessage = `Olá, equipa do(a) ${business.name}! Tudo bem?
 
-Então, estive a ver a vossa presença e redes sociais em ${business.locality}. Entretanto, tal como outros negócios e clínicas que venho ajudando, os contactos muitas vezes chegam desqualificados ou com dúvidas básicas por falta de um website próprio onde possam consultar informações e ficar contextualizados com os vossos excelentes serviços.
+Enviei-vos uma mensagem anteriormente aqui no WhatsApp, mas compreendo que com tantas mensagens e marcações que recebem todos os dias possa ter ficado para trás 😅
 
-Gostava de vos mostrar uma demonstração grátis de como isso ficaria, sem nenhum compromisso 👏
+Estive a acompanhar a procura pelos vossos serviços de ${business.category.toLowerCase()} aqui em ${loc}. Notei que muitas pessoas chegam com dúvidas básicas ou desqualificadas por falta de um website oficial informativo com informações claras e directas.
 
-Com os melhores cumprimentos,
+Tomei a iniciativa de preparar um rascunho visual/demonstração de como ficaria para o(a) ${business.name}, sem qualquer compromisso.
+
+Faz sentido partilhar o link convosco aqui mesmo para darem uma vista de olhos rápida?
+
+Um abraço,
 ${signName}`;
   } else if (isAtendente) {
     draftMessage = `Olá, bom dia! Tudo bem com quem está a atender no WhatsApp do(a) ${business.name}?
 
-${repName ? `O meu nome é ${repName}. Estive ` : 'Estive '}a ver a óptima reputação da vossa empresa no Google Maps em ${business.locality} e notei uma grande procura pelos vossos serviços.
+${repName ? `O meu nome é ${repName}. Estive ` : 'Estive '}a ver a óptima reputação da vossa empresa no Google Maps em ${loc} e notei uma grande procura pelos vossos serviços.
 
 Preparei uma proposta rápida para trazer ainda mais clientes directamente para este vosso WhatsApp através de uma presença digital moderna.
 
@@ -267,6 +336,7 @@ export async function analyse(
   approach = ''
 ): Promise<Omit<Analysis,'id'|'businessId'|'createdAt'>> {
   const chosen=service || profile.service || 'Criação de websites';
+  const loc = cleanLocality(business.locality, business.province);
   const repName = (name && name.trim() && name.trim().toLowerCase() !== 'droop store' && name.trim().toLowerCase() !== 'utilizador' && name.trim() !== 'Chelton' && name.trim() !== 'Chelton Madime') ? name.trim() : '';
   const key=process.env.GEMINI_API_KEY;
   const rawModel=process.env.GEMINI_MODEL;
@@ -276,7 +346,7 @@ export async function analyse(
   const vaultMatrix = buildVaultPromptMatrix({
     businessName: business.name,
     category: business.category,
-    locality: business.locality,
+    locality: loc,
     province: business.province,
     hasWebsite: !!business.website,
     hasPhone: !!business.phone,
@@ -293,6 +363,22 @@ export async function analyse(
     ? 'A mensagem (draftMessage) deve ser detalhada, completa, com quebra antecipada de objeções e menção a facilidade de pagamento via M-Pesa / e-Mola.'
     : 'A mensagem (draftMessage) deve ser equilibrada e consultiva (apresentação, benefício claro e convite sem compromisso).';
 
+  const isCall = approach === 'call' || 
+    customInstructions.toLowerCase().includes('chamada') || 
+    customInstructions.toLowerCase().includes('cold call') || 
+    customInstructions.toLowerCase().includes('ligar') || 
+    customInstructions.toLowerCase().includes('telefone');
+
+  const isDoor = approach === 'door' || 
+    customInstructions.toLowerCase().includes('porta a porta') || 
+    customInstructions.toLowerCase().includes('balcão') || 
+    customInstructions.toLowerCase().includes('presencial');
+
+  const isVacuo = approach === 'vacuo' || approach === 'vacuo_redes' ||
+    customInstructions.toLowerCase().includes('vácuo') ||
+    customInstructions.toLowerCase().includes('tentativa de contacto antes') ||
+    customInstructions.toLowerCase().includes('já mandei whatsapp');
+
   const isSitePronto = approach === 'site_pronto' || 
     customInstructions.toLowerCase().includes('já criei') || 
     customInstructions.toLowerCase().includes('site pronto') ||
@@ -304,7 +390,45 @@ export async function analyse(
     customInstructions.toLowerCase().includes('responsável');
 
   let approachDirective = '';
-  if (isSitePronto) {
+  if (isCall) {
+    approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: CHAMADA TELEFÓNICA (COLD CALL / FOLLOW-UP POR VOZ)
+ATENÇÃO: NÃO gere uma mensagem escrita para WhatsApp! A saída draftMessage DEVE SER OBRIGATORIAMENTE um GUIÃO FALADO DE DIÁLOGO PASSO A PASSO para o vendedor falar ao telefone com a clínica/empresa ${business.name} (${loc}), formatado com marcadores claros e travessões de fala:
+
+📞 GUIÃO DE CHAMADA TELEFÓNICA — ${business.name} (${loc})
+
+[1. ABERTURA & SAUDAÇÃO]
+Cumprimento natural e educado por telefone:
+"Bom dia! Daqui fala ${repName || 'o consultor'}, tudo bem consigo?"
+
+[2. FILTRO DA RECEPÇÃO]
+Como passar pela secretária/atendente com autoridade e respeito:
+"Estou a ligar a respeito da presença digital e captação de clientes do(a) ${business.name} aqui na zona de ${loc}. Por favor, o responsável ou o Dr./gerente encontra-se disponível um instante?"
+
+[3. SE A RECEPCIONISTA DISSER: 'TEM DE MANDAR NO WHATSAPP' / 'MANDE MENSAGEM']
+Resposta precisa e desarmadora quando a secretária empurra para o WhatsApp:
+"Compreendo perfeitamente e agradeço a orientação! Como eu já enviei anteriormente no vosso WhatsApp comercial e sei que vocês recebem dezenas de mensagens todos os dias, liguei só 1 minuto para não deixar perder no fluxo. Consegue apenas confirmar se o responsável viu ou indicar-me o primeiro nome dele para eu direcionar diretamente?"
+
+[4. SE O RESPONSÁVEL NÃO SE ENCONTRAR NO MOMENTO]
+"Sem qualquer problema! A que horas costuma ser o melhor momento para conseguir falar com ele directamente? Ou posso deixar uma breve mensagem com o seu nome?"
+
+[5. PITCH DIRECTO QUANDO PASSAR AO DECISOR]
+Pitch falado de 60 segundos com gancho forte sobre ${chosen} e o nicho de ${business.category} em ${loc}, direto ao ponto, oferecendo uma demonstração prática ou protótipo visual sem compromisso.`;
+  } else if (isDoor) {
+    approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: VISITA PRESENCIAL / PORTA A PORTA NO BALCÃO
+A saída draftMessage DEVE SER um GUIÃO DE DIÁLOGO DE 30 SEGUNDOS para falar ao vivo na recepção/balcão com o telemóvel na mão:
+[1. CHEGADA AO BALCÃO COM O PROTÓTIPO NO TELEMÓVEL]
+[2. APRESENTAÇÃO DE 15 SEGUNDOS]
+[3. PERGUNTA PELO DECISOR / PEDIDO DE CONTACTO DIRECTO]`;
+  } else if (isVacuo) {
+    approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: ANTI-VÁCUO & FOLLOW-UP NO WHATSAPP
+O profissional já enviou mensagem no WhatsApp anteriormente e não obteve resposta.
+REGRAS CRÍTICAS:
+- NUNCA use "Tudo ótimo obrigado" ou saudações sem sentido!
+- NUNCA despeje endereços compridos de rua ou dados de mapas (use apenas a localidade limpa "${loc}").
+1. Comece de forma educada e compreensiva com o grande volume de mensagens que a empresa (${business.name}) recebe diariamente.
+2. Mencione que esteve a ver a procura por ${business.category} em ${loc} e que a ausência de um website informativo oficial faz a empresa perder clientes e receber dúvidas desqualificadas.
+3. Ofereça mostrar um rascunho visual/demonstração prática sem compromisso.`;
+  } else if (isSitePronto) {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM (DEMONSTRAÇÃO / SITE JÁ CRIADO):
 O profissional (${repName || 'o consultor'}) JÁ CRIOU previamente um modelo/site/rascunho visual pronto para esta empresa (${business.name}) antes mesmo de falar com eles.
 A mensagem gerada (draftMessage) DEVE ser pensada especificamente para o WhatsApp comercial da empresa, onde quem lê é a recepcionista / atendente da equipa:
@@ -315,35 +439,13 @@ A mensagem gerada (draftMessage) DEVE ser pensada especificamente para o WhatsAp
 5. NÃO invente nomes de pessoas inexistentes. Mantenha o tom profissional, caloroso e de alta conversão.`;
   } else if (isAtendente) {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM (PORTA DE ENTRADA / ATENDENTE):
-A mensagem é enviada ao WhatsApp comercial geral da empresa. Deve ser respeitosa, breve e directa à recepcionista/atendente: elogiar a empresa pelo trabalho em ${business.locality}, explicar resumidamente que preparou uma melhoria para a presença digital deles e perguntar gentilmente com quem deve falar sobre isso ou se ela pode reencaminhar ao responsável.`;
+A mensagem é enviada ao WhatsApp comercial geral da empresa. Deve ser respeitosa, breve e directa à recepcionista/atendente: elogiar a empresa pelo trabalho em ${loc}, explicar resumidamente que preparou uma melhoria para a presença digital deles e perguntar gentilmente com quem deve falar sobre isso ou se ela pode reencaminhar ao responsável.`;
   } else if (approach === 'mpesa') {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM (FACILIDADE COM M-PESA):
 Apresentar a solução com ênfase na entrega ágil, quebra antecipada de objeção de preço e facilidade de pagamento parcelado via M-Pesa / e-Mola em Moçambique.`;
   } else if (approach === 'direta') {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM (DIAGNÓSTICO E PROPOSTA DIRETA):
-Abordar o tomador de decisão diretamente com 2 falhas/oportunidades identificadas no Google Maps em ${business.locality} e propor uma conversa rápida de 5 minutos.`;
-  } else if (approach === 'call') {
-    approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: CHAMADA TELEFÓNICA (COLD CALL)
-Redija um guião falado natural para chamada de prospecção em português de Moçambique:
-1. Saudação respeitosa e natural: "Bom dia, daqui fala ${repName || 'o consultor'}, tudo bem consigo?"
-2. Como ultrapassar a recepcionista/secretária sem parecer vendedor insistente: explicar que está a ligar a pedido da direcção técnica sobre a presença digital da empresa em ${business.locality}.
-3. Perguntar se o proprietário ou Dr./gerente se encontra disponível 2 minutos ou qual o melhor contacto directo.
-4. Plano de contingência caso o responsável esteja ocupado ou ausente.`;
-  } else if (approach === 'door') {
-    approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: VISITA PRESENCIAL / PORTA A PORTA
-Redija um guião de abordagem no balcão para o vendedor presencial em ${business.locality}:
-1. Postura ágil e educada, segurando o telemóvel na mão com o protótipo pronto a mostrar em 30 segundos.
-2. Dizer que não quer tomar o tempo da equipa, mas preparou um modelo interactivo no telemóvel para ${business.name}.
-3. Perguntar se o responsável está no local para dar uma vista de olhos de 1 minuto sem compromisso.`;
-  } else if (approach === 'vacuo' || approach === 'vacuo_redes') {
-    approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: ANTI-VÁCUO & REDES SOCIAIS (QUALIFICAÇÃO DE LEADS / DEMO GRÁTIS):
-A empresa ou clínica (${business.name}) não respondeu à tentativa de contacto anterior ou ficou em silêncio.
-Redija uma mensagem calorosa, natural e humana em português de Moçambique:
-1. Comece simpático e compreensivo: "Tudo ótimo obrigado, fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens que recebem 😅".
-2. Mencione que esteve a ver a presença e redes sociais deles em ${business.locality}.
-3. Aponte a dor comum de empresas e clínicas da área: leads e contactos que chegam muitas vezes desqualificados (desde faltas e não comparecimento a dúvidas básicas por falta de informações), por não terem um website oficial rápido onde os clientes possam consultar informações e ficar contextualizados com os seus serviços.
-4. Faça uma oferta irresistível e de risco zero: oferecer mostrar uma demonstração grátis de como isso ficaria, sem nenhum compromisso 👏.
-5. Se o profissional tiver treinado objeções de preço ou tempo, antecipe-as com naturalidade.`;
+Abordar o tomador de decisão diretamente com 2 falhas/oportunidades identificadas no Google Maps em ${loc} e propor uma conversa rápida de 5 minutos.`;
   } else if (approach === 'retorno') {
     approachDirective = `ESTRATÉGIA PRIORITÁRIA DE ABORDAGEM: RETORNO DE PROMESSA
 Foi feito um contacto anterior onde prometeram que o responsável ligaria de volta, mas ninguém retornou.

@@ -297,7 +297,8 @@ export function userById(userId: string): User | null {
     const rawEmail = (row.email || '').toLowerCase().trim();
     const emailPrefix = rawEmail ? rawEmail.split('@')[0] : '';
     const rawName = row.name;
-    const safeName = (rawName && rawName.toLowerCase() !== 'droop store') ? rawName : (emailPrefix || 'Utilizador');
+    const isGenericDefault = (n: string | undefined | null) => !n || n.trim().toLowerCase() === 'droop store' || n.trim().toLowerCase() === 'chelton madime' || n.trim().toLowerCase() === 'chelton' || n.trim().toLowerCase() === 'utilizador';
+    const safeName = !isGenericDefault(rawName) ? (rawName as string) : (emailPrefix || 'Utilizador');
     const isAdmin = rawEmail === 'sheltonmad55@gmail.com' || row.role === 'admin';
     if (isAdmin) {
       parsedProfile.onboarded = true;
@@ -354,7 +355,7 @@ export function ensureUserAndWorkspace(user: {
         INSERT INTO users (id, name, email, password_hash, role, marketing, created_at)
         VALUES (?, ?, ?, '', ?, 0, ?)
         ON CONFLICT(id) DO UPDATE SET
-          name = CASE WHEN excluded.name != '' AND excluded.name != 'droop store' AND excluded.name != 'Chelton Madime' AND excluded.name != 'Chelton' THEN excluded.name ELSE users.name END,
+          name = CASE WHEN excluded.name != '' AND LOWER(excluded.name) NOT IN ('droop store', 'chelton madime', 'chelton', 'utilizador') THEN excluded.name WHEN LOWER(users.name) IN ('droop store', 'chelton madime', 'chelton', 'utilizador') THEN excluded.name ELSE users.name END,
           email = CASE WHEN excluded.email != '' THEN excluded.email ELSE users.email END,
           role = CASE WHEN excluded.role = 'admin' THEN 'admin' ELSE users.role END
       `).run(user.id, safeName, (user.email || '').toLowerCase(), role, timestamp);

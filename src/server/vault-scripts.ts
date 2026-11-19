@@ -1400,10 +1400,11 @@ Se for 1, fico tranquilo e não vos tomo mais tempo; se for acima de 6, podemos 
     title: 'Quebra de Vácuo Clínicas/Empresas (Redes Sociais & Demonstração Grátis)',
     scenario: 'Disparou para clínicas ou empresas locais e não teve retorno. Quebra o silêncio tocando na desqualificação dos leads recebidos e oferecendo uma demonstração sem compromisso.',
     keyPhrases: ['saída do vácuo', 'redes sociais', 'leads desqualificados', 'demonstração grátis', 'clínicas'],
-    template: `Tudo óptimo obrigado, fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens que recebem 😅
-Então, estive a ver a vossa presença e redes sociais em [LOCALIDADE]. Entretanto, tal como outras clínicas e empresas que venho ajudando, os leads chegam muitas vezes desqualificados — seja desde a marcação e não comparecimento até dúvidas básicas por falta de informações.
-O mais importante para resolver isso é um website oficial onde os clientes possam consultar informações e ficar contextualizados com os vossos excelentes serviços antes de chamar no WhatsApp.
-Gostava de vos mostrar uma demonstração grátis de como isso ficaria, sem nenhum compromisso 👏 Faz sentido partilhar o link convosco?`
+    template: `Olá, equipa do(a) [EMPRESA]! Tudo bem? Enviei-vos uma mensagem anterior aqui no WhatsApp, mas como sei que recebem muitas mensagens diariamente, compreendo que possa ter ficado para trás 😅
+
+Estive a acompanhar a vossa presença em [LOCALIDADE]. Tal como outras empresas e clínicas locais que venho ajudando, notei que muitos contactos chegam desqualificados ou com dúvidas básicas por falta de um website oficial informativo onde os clientes possam consultar horários e serviços antes de chamar no WhatsApp.
+
+Tomei a iniciativa de adiantar uma demonstração visual rápida de como ficaria para o vosso caso, sem qualquer compromisso 👏 Faz sentido partilhar o link convosco?`
   },
 
   // ─── 11. QUEBRA DE OBJEÇÕES MOÇAMBIQUE ──────────────────────────────────
@@ -1580,11 +1581,16 @@ export function buildVaultPromptMatrix(params?: {
 
   let canalDirective = '';
   if (params?.approach === 'call') {
-    canalDirective = `\n- CANAL ESCOLHIDO: CHAMADA TELEFÓNICA (COLD CALL). Redija um script falado natural, com cumprimentos respeitosos em Moçambique, passando pela recepção para falar com o proprietário/doutor.`;
+    canalDirective = `\n- CANAL ESCOLHIDO: CHAMADA TELEFÓNICA (COLD CALL / FOLLOW-UP POR VOZ). Redija um GUIÃO FALADO DE DIÁLOGO PASSO A PASSO para o vendedor falar ao telefone, incluindo:
+[1. ABERTURA & SAUDAÇÃO]
+[2. FILTRO DA RECEPÇÃO - passar pela atendente com educação e autoridade]
+[3. SE A RECEPCIONISTA DISSER 'TEM DE MANDAR NO WHATSAPP' - responder que já enviou e está a ligar apenas 1 minuto para confirmar se o responsável viu e não se perdeu no fluxo de mensagens]
+[4. SE O RESPONSÁVEL NÃO SE ENCONTRAR / ESTIVER OCUPADO - descobrir melhor horário ou nome para retorno]
+[5. PITCH DIRECTO QUANDO PASSAR AO DECISOR - gancho rápido de 60 segundos com demonstração sem compromisso]`;
   } else if (params?.approach === 'door') {
     canalDirective = `\n- CANAL ESCOLHIDO: PORTA A PORTA / PRESENCIAL. Redija um guião para o vendedor dizer no balcão com o telemóvel na mão mostrando o protótipo em 30 segundos.`;
   } else if (params?.approach === 'vacuo' || params?.approach === 'vacuo_redes') {
-    canalDirective = `\n- CANAL ESCOLHIDO: ANTI-VÁCUO / REDES SOCIAIS / FOLLOW-UP. O lead não respondeu às mensagens anteriores. Comece de forma calorosa e empática ("fiz uma tentativa de contacto antes, imagino que tenha ficado perdido por tantas mensagens"), mencione que viu a presença e redes sociais em ${locality}, aponte a dor de leads desqualificados e ofereça demonstração grátis sem compromisso.`;
+    canalDirective = `\n- CANAL ESCOLHIDO: ANTI-VÁCUO / FOLLOW-UP NO WHATSAPP. O lead não respondeu às mensagens anteriores. Comece de forma educada e compreensiva com o volume de mensagens recebidas pela empresa em ${locality}, aponte a dor de mensagens e clientes desqualificados e ofereça demonstração visual sem compromisso. NUNCA use 'Tudo ótimo obrigado' sem resposta prévia.`;
   } else if (params?.approach === 'retorno') {
     canalDirective = `\n- CANAL ESCOLHIDO: RETORNO DE PROMESSA. O contacto disse antes que o responsável iria ligar ou não se encontrava.`;
   }
