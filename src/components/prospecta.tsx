@@ -2509,7 +2509,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
 
       {/* ══ SIDEBAR ══════════════════════════════════════ */}
       <aside className={cls('sidebar', mobileMenu && 'open')}>
-        <Brand />
+        <div className="sidebar-brand-row">
+          <Brand />
+          <button type="button" className="sidebar-close-btn" aria-label="Fechar menu" onClick={() => setMobileMenu(false)}>
+            <X size={20} />
+          </button>
+        </div>
 
         {user.role === 'admin' ? (
           <>
@@ -2573,11 +2578,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           <div className="topbar-left">
             <IconButton label="Abrir menu" onClick={() => setMobileMenu(!mobileMenu)}><Menu size={20} /></IconButton>
             <span className="breadcrumb">
-              O meu espaço <ChevronRight size={13} /> <b>
+              <span className="breadcrumb-prefix">O meu espaço <ChevronRight size={13} /></span> <b>
                 {view === 'business' ? 'Ficha da empresa'
                   : view === 'outreach' ? 'Preparar abordagem'
                   : view === 'admin' ? 'Administração'
-                  : view === 'integrations' ? 'Integrações & WhatsApp'
+                  : view === 'integrations' ? 'Integrações'
                   : navMain.find(n => n.view === view)?.label || 'Configurações'}
               </b>
             </span>
@@ -2585,12 +2590,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
           <div className="topbar-right">
             <span className="country" title="Cobertura completa em toda a CPLP & PALOP"><span className="country-dot" /> CPLP & PALOP ({getCountryByCode(filters.country).flag} {getCountryByCode(filters.country).name})</span>
             {user.role === 'admin' ? (
-              <span className="balance" style={{ background: 'rgba(245, 158, 11, 0.18)', borderColor: 'rgba(245, 158, 11, 0.45)', color: '#FBBF24', fontWeight: 800 }}>
-                <ShieldCheck size={14} /> Super Administrador
+              <span className="balance balance-admin" style={{ background: 'rgba(245, 158, 11, 0.18)', borderColor: 'rgba(245, 158, 11, 0.45)', color: '#FBBF24', fontWeight: 800 }}>
+                <ShieldCheck size={14} /> <span className="balance-text">Super Admin</span>
               </span>
             ) : (
               <button
-                className="balance"
+                className="balance balance-plan"
                 onClick={() => setShowPlansModal(true)}
                 style={{
                   background: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
@@ -2607,13 +2612,17 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                 }}
               >
                 <Sparkles size={13} style={{ color: user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active' ? '#34D399' : '#FBBF24' }} />
-                {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
-                  ? (user.subscription.plan === 'pro' ? '👑 Plano Pro Ativo' : '✨ Plano Essencial Ativo')
-                  : 'Ativar Plano'}
+                <span className="balance-text">
+                  {user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active'
+                    ? (user.subscription.plan === 'pro' ? '👑 Pro' : '✨ Essencial')
+                    : 'Ativar Plano'}
+                </span>
               </button>
             )}
             {user.role !== 'admin' && (
-              <button className="balance" onClick={() => navigate('account')}><Sparkles size={14} />{user.credits.available} créditos</button>
+              <button className="balance balance-credits" onClick={() => navigate('account')}>
+                <Sparkles size={14} /> <strong>{user.credits.available}</strong> <span className="balance-credits-label">créditos</span>
+              </button>
             )}
             <span className="avatar small">{user.name.slice(0, 1)}</span>
           </div>
@@ -7761,6 +7770,50 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
             <span>Feito para os países da CPLP & PALOP <span className="country-dot" /></span>
           </footer>
         </main>
+
+        {/* ══ MOBILE BOTTOM NAVIGATION BAR ══════════════ */}
+        <nav className="mobile-bottom-nav" aria-label="Navegação rápida mobile">
+          <button
+            type="button"
+            className={cls('mobile-bottom-item', view === 'search' && 'active')}
+            onClick={() => navigate('search')}
+          >
+            <Compass size={20} />
+            <span>Busca</span>
+          </button>
+          <button
+            type="button"
+            className={cls('mobile-bottom-item', view === 'leads' && 'active')}
+            onClick={() => navigate('leads')}
+          >
+            <Bookmark size={20} />
+            <span>Leads</span>
+          </button>
+          <button
+            type="button"
+            className={cls('mobile-bottom-item', (view === 'outreach' || view === 'business') && 'active')}
+            onClick={() => navigate('outreach')}
+          >
+            <Send size={20} />
+            <span>Abordar</span>
+          </button>
+          <button
+            type="button"
+            className={cls('mobile-bottom-item', view === 'vault' && 'active')}
+            onClick={() => navigate('vault')}
+          >
+            <ShieldCheck size={20} />
+            <span>Cofre</span>
+          </button>
+          <button
+            type="button"
+            className={cls('mobile-bottom-item', mobileMenu && 'active')}
+            onClick={() => setMobileMenu(!mobileMenu)}
+          >
+            <Menu size={20} />
+            <span>Menu</span>
+          </button>
+        </nav>
       </div>
 
       {/* ══ LEAD DRAWER ══════════════════════════════════ */}
