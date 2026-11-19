@@ -893,15 +893,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   const [approach, setApproach] = useState<'site_pronto' | 'atendente' | 'direta' | 'mpesa' | 'call' | 'door' | 'vacuo' | 'vacuo_redes' | 'retorno' | 'custom'>('call');
   const [targetChannel, setTargetChannel] = useState<'call' | 'whatsapp' | 'door'>('call');
   const [contactStage, setContactStage] = useState<'primeiro_contacto' | 'ja_mandei_whatsapp' | 'ja_liguei' | 'ja_fui_presencial'>('ja_mandei_whatsapp');
-  const [stageOutcome, setStageOutcome] = useState<'vacuo' | 'mandaram_whatsapp' | 'responsavel_ausente' | 'sem_interesse'>('vacuo');
+  const [stageOutcome, setStageOutcome] = useState<'vacuo' | 'mandaram_whatsapp' | 'responsavel_ausente' | 'sem_interesse' | 'custom'>('vacuo');
+  const [customOutcomeText, setCustomOutcomeText] = useState('');
   const [activeObjection, setActiveObjection] = useState<'mande_whatsapp' | 'responsavel_ausente' | 'ja_temos_quem_faca' | 'esta_caro' | 'sem_interesse' | 'custom'>('mande_whatsapp');
   const [activePlaybookTab, setActivePlaybookTab] = useState<'whatsapp' | 'call' | 'door' | 'vacuo' | 'objecoes'>('call');
+  const [showPlaybookAccordion, setShowPlaybookAccordion] = useState(false);
 
   const syncScenarioPrompt = useCallback((
     channel: 'call' | 'whatsapp' | 'door',
     stage: 'primeiro_contacto' | 'ja_mandei_whatsapp' | 'ja_liguei' | 'ja_fui_presencial',
-    outcome: 'vacuo' | 'mandaram_whatsapp' | 'responsavel_ausente' | 'sem_interesse',
-    objection: 'mande_whatsapp' | 'responsavel_ausente' | 'ja_temos_quem_faca' | 'esta_caro' | 'sem_interesse' | 'custom'
+    outcome: 'vacuo' | 'mandaram_whatsapp' | 'responsavel_ausente' | 'sem_interesse' | 'custom',
+    objection: 'mande_whatsapp' | 'responsavel_ausente' | 'ja_temos_quem_faca' | 'esta_caro' | 'sem_interesse' | 'custom',
+    customOutcome?: string
   ) => {
     if (channel === 'call') {
       setApproach('call');
@@ -917,14 +920,16 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
         prompt += 'É o meu 1º contacto com a recepção da empresa. ';
       }
 
-      if (objection === 'mande_whatsapp' || outcome === 'mandaram_whatsapp') {
+      if (outcome === 'custom' && customOutcome && customOutcome.trim()) {
+        prompt += `O QUE ACONTECEU ANTES: "${customOutcome.trim()}". Incorpore e adapte o guião considerando exatamente esta resposta/situação anterior. `;
+      } else if (outcome === 'mandaram_whatsapp' || objection === 'mande_whatsapp') {
         prompt += 'SE A RECEPCIONISTA DISSER QUE DEVO MANDAR MENSAGEM NO WHATSAPP: contornar com elegância explicando que já enviei no WhatsApp comercial e liguei apenas 1 minuto para confirmar que não se perdeu no fluxo de mensagens, pedindo para falar com o responsável ou obter o contacto direto dele. ';
-      } else if (objection === 'responsavel_ausente') {
+      } else if (objection === 'responsavel_ausente' || outcome === 'responsavel_ausente') {
         prompt += 'SE O RESPONSÁVEL ESTIVER AUSENTE OU OCUPADO: descobrir educadamente o melhor horário para ligar ou obter o nome dele. ';
       } else if (objection === 'ja_temos_quem_faca') {
         prompt += 'SE DISSEREM QUE JÁ TÊM QUEM FAÇA: explicar que preparei um protótipo visual pronto e que podem comparar sem compromisso. ';
-      } else if (objection === 'esta_caro') {
-        prompt += 'SE LEVANTAREM CUSTO: enfatizar a facilidade com pagamentos parcelados via M-Pesa / e-Mola que se pagam nos primeiros clientes. ';
+      } else if (objection === 'esta_caro' || outcome === 'sem_interesse') {
+        prompt += 'SE LEVANTAREM CUSTO OU DESINTERESSE: enfatizar a facilidade com pagamentos parcelados via M-Pesa / e-Mola que se pagam nos primeiros clientes. ';
       }
 
       prompt += 'Estruturar como um GUIÃO FALADO DE DIÁLOGO PASSO A PASSO para ler ao telefone (Abertura, Filtro da Recepção, Quebra da objeção do WhatsApp e Pitch ao decisor).';
@@ -933,7 +938,12 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
       setActivePlaybookTab(stage === 'ja_mandei_whatsapp' ? 'vacuo' : 'whatsapp');
       if (stage === 'ja_mandei_whatsapp') {
         setApproach('vacuo');
-        setCustomPrompt('Anti-Vácuo no WhatsApp: enviei mensagem anterior e não responderam. Reativar com empatia pelo volume de mensagens que recebem na clínica/empresa, apontar a perda de pacientes ou clientes por falta de website oficial e oferecer rascunho visual sem compromisso. Sem saudações absurdas nem endereços compridos.');
+        let wPrompt = 'Anti-Vácuo no WhatsApp: enviei mensagem anterior e não responderam. ';
+        if (outcome === 'custom' && customOutcome && customOutcome.trim()) {
+          wPrompt += `Situação anterior: "${customOutcome.trim()}". `;
+        }
+        wPrompt += 'Reativar com empatia pelo volume de mensagens que recebem na clínica/empresa, apontar a perda de pacientes ou clientes por falta de website oficial e oferecer rascunho visual sem compromisso. Sem saudações absurdas nem endereços compridos.';
+        setCustomPrompt(wPrompt);
       } else {
         setApproach('site_pronto');
         setCustomPrompt('WhatsApp Comercial: mensagem amigável para a atendente/responsável informando que desenhei um rascunho de website moderno com botão direto de WhatsApp, oferecendo demonstração rápida de 1 minuto sem compromisso.');
@@ -941,7 +951,11 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
     } else if (channel === 'door') {
       setApproach('door');
       setActivePlaybookTab('door');
-      setCustomPrompt('Visita Presencial / Porta a Porta: guião de abordagem no balcão com telemóvel na mão mostrando protótipo de 30 segundos sem tomar tempo da equipa.');
+      let dPrompt = 'Visita Presencial / Porta a Porta: guião de abordagem no balcão com telemóvel na mão mostrando protótipo de 30 segundos sem tomar tempo da equipa.';
+      if (outcome === 'custom' && customOutcome && customOutcome.trim()) {
+        dPrompt += ` Contexto anterior: "${customOutcome.trim()}".`;
+      }
+      setCustomPrompt(dPrompt);
     }
   }, []);
   const [newObjectionText, setNewObjectionText] = useState('');
@@ -2083,10 +2097,14 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
   async function generate(fresh = false) {
     if (!business) return;
     await run(async () => {
+      const finalInstructions = [
+        customPrompt,
+        customOutcomeText ? `SITUAÇÃO ANTERIOR ESPECÍFICA / RESPOSTA DO LEAD: "${customOutcomeText}"` : ''
+      ].filter(Boolean).join(' | ');
       let result = await api<Job>('analyses', {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business, length: messageLength, customInstructions: customPrompt, approach })
+        body: JSON.stringify({ businessId: business.id, tone, service, fresh, businessData: business, length: messageLength, customInstructions: finalInstructions, approach })
       });
       setJob(result);
       if (result.status === 'succeeded' && result.result) {
@@ -6658,7 +6676,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                               onClick={() => {
                                 setTargetChannel('call');
                                 setApproach('call');
-                                syncScenarioPrompt('call', contactStage, stageOutcome, activeObjection);
+                                syncScenarioPrompt('call', contactStage, stageOutcome, activeObjection, customOutcomeText);
                               }}
                             >
                               <div className="approach-title">📞 Chamada por Voz</div>
@@ -6671,7 +6689,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                               onClick={() => {
                                 setTargetChannel('whatsapp');
                                 setApproach(contactStage === 'ja_mandei_whatsapp' ? 'vacuo' : 'site_pronto');
-                                syncScenarioPrompt('whatsapp', contactStage, stageOutcome, activeObjection);
+                                syncScenarioPrompt('whatsapp', contactStage, stageOutcome, activeObjection, customOutcomeText);
                               }}
                             >
                               <div className="approach-title">💬 WhatsApp</div>
@@ -6684,7 +6702,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                               onClick={() => {
                                 setTargetChannel('door');
                                 setApproach('door');
-                                syncScenarioPrompt('door', contactStage, stageOutcome, activeObjection);
+                                syncScenarioPrompt('door', contactStage, stageOutcome, activeObjection, customOutcomeText);
                               }}
                             >
                               <div className="approach-title">🚪 Presencial (Balcão)</div>
@@ -6719,7 +6737,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 onClick={() => {
                                   const nextStage = item.id as any;
                                   setContactStage(nextStage);
-                                  syncScenarioPrompt(targetChannel, nextStage, stageOutcome, activeObjection);
+                                  syncScenarioPrompt(targetChannel, nextStage, stageOutcome, activeObjection, customOutcomeText);
                                 }}
                               >
                                 {item.label}
@@ -6739,7 +6757,8 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 { id: 'vacuo', label: '⏳ Ficou no vácuo (nenhuma resposta)' },
                                 { id: 'mandaram_whatsapp', label: '📱 Mandaram mandar por WhatsApp ("envie msg no saap")' },
                                 { id: 'responsavel_ausente', label: '🔄 Disseram que o responsável ligava ou não estava' },
-                                { id: 'sem_interesse', label: '✋ Disseram que não têm interesse ou está caro' }
+                                { id: 'sem_interesse', label: '✋ Disseram que não têm interesse ou está caro' },
+                                { id: 'custom', label: '✍️ Outra situação (escrever o que aconteceu)' }
                               ].map(item => (
                                 <button
                                   key={item.id}
@@ -6755,13 +6774,32 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                   onClick={() => {
                                     const nextOutcome = item.id as any;
                                     setStageOutcome(nextOutcome);
-                                    syncScenarioPrompt(targetChannel, contactStage, nextOutcome, activeObjection);
+                                    syncScenarioPrompt(targetChannel, contactStage, nextOutcome, activeObjection, customOutcomeText);
                                   }}
                                 >
                                   {item.label}
                                 </button>
                               ))}
                             </div>
+                            {stageOutcome === 'custom' && (
+                              <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8 }}>
+                                <label style={{ fontSize: 11, color: '#38BDF8', display: 'block', marginBottom: 4, fontWeight: 700 }}>
+                                  ✍️ Escreva o que aconteceu na sua tentativa anterior:
+                                </label>
+                                <input
+                                  type="text"
+                                  className="prompt-textarea"
+                                  style={{ width: '100%', padding: '8px 12px', fontSize: 12, borderRadius: 6, color: '#FFFFFF', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid #38BDF8' }}
+                                  value={customOutcomeText}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setCustomOutcomeText(val);
+                                    syncScenarioPrompt(targetChannel, contactStage, 'custom', activeObjection, val);
+                                  }}
+                                  placeholder="Ex.: Falei com a recepcionista e ela disse que o Dr. só vem às terças; ou disseram que o proprietário está em cirurgia..."
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -6793,7 +6831,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                                 onClick={() => {
                                   const nextObj = item.id as any;
                                   setActiveObjection(nextObj);
-                                  syncScenarioPrompt(targetChannel, contactStage, stageOutcome, nextObj);
+                                  syncScenarioPrompt(targetChannel, contactStage, stageOutcome, nextObj, customOutcomeText);
                                 }}
                               >
                                 {item.label}
@@ -6830,169 +6868,18 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       </div>
                     </div>
                     <div className="editor-heading">
-                      <div className="step-label"><span>2</span><div><h2>Prepare uma boa conversa.</h2><p>{analysis ? 'Reveja, personalize e guarde a mensagem.' : 'Uma nova análise inclui a primeira mensagem.'}</p></div></div>
-                      <button className="button outline compact" disabled={busy || business.suppressed} onClick={() => generate(!!analysis)}>{busy ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} {analysis ? 'Nova análise' : 'Gerar mensagem'} · 1 crédito</button>
-                    </div>
-                    {/* ══ PLAYBOOK MULTICANAL (WHATSAPP, CHAMADA, PORTA A PORTA, OBJEÇÕES) ══ */}
-                    <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#93C5FD', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <ShieldCheck size={13} /> Playbook Comercial Moçambique:
-                          </span>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <button
-                              type="button"
-                              className={cls('vault-quick-pill', activePlaybookTab === 'whatsapp' && 'highlight')}
-                              style={activePlaybookTab === 'whatsapp' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
-                              onClick={() => setActivePlaybookTab('whatsapp')}
-                            >
-                              💬 WhatsApp
-                            </button>
-                            <button
-                              type="button"
-                              className={cls('vault-quick-pill', activePlaybookTab === 'call' && 'highlight')}
-                              style={activePlaybookTab === 'call' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
-                              onClick={() => setActivePlaybookTab('call')}
-                            >
-                              📞 Chamada (Cold Call)
-                            </button>
-                            <button
-                              type="button"
-                              className={cls('vault-quick-pill', activePlaybookTab === 'door' && 'highlight')}
-                              style={activePlaybookTab === 'door' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
-                              onClick={() => setActivePlaybookTab('door')}
-                            >
-                              🚪 Porta a Porta
-                            </button>
-                            <button
-                              type="button"
-                              className={cls('vault-quick-pill', activePlaybookTab === 'vacuo' && 'highlight')}
-                              style={activePlaybookTab === 'vacuo' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
-                              onClick={() => setActivePlaybookTab('vacuo')}
-                            >
-                              ⏳ Anti-Vácuo
-                            </button>
-                            <button
-                              type="button"
-                              className={cls('vault-quick-pill', activePlaybookTab === 'objecoes' && 'highlight')}
-                              style={activePlaybookTab === 'objecoes' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
-                              onClick={() => setActivePlaybookTab('objecoes')}
-                            >
-                              🛡️ Quebra de Objeções
-                            </button>
-                          </div>
+                      <div className="step-label">
+                        <span>2</span>
+                        <div>
+                          <h2>{targetChannel === 'call' ? 'Guião Falado de Chamada Telefónica' : 'Prepare uma boa conversa.'}</h2>
+                          <p>{targetChannel === 'call' ? 'Leia ou guie-se por este diálogo passo a passo enquanto realiza a chamada.' : analysis ? 'Reveja, personalize e guarde a mensagem.' : 'Uma nova análise inclui a primeira mensagem.'}</p>
                         </div>
-                        <button type="button" className="text-button" style={{ fontSize: 11, padding: 0 }} onClick={() => navigate('vault')}>Cofre completo <ArrowRight size={12} /></button>
                       </div>
-
-                      {/* Botões do canal selecionado */}
-                      <div className="vault-quick-bar" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
-                        {activePlaybookTab === 'whatsapp' && (
-                          <>
-                            <button
-                              type="button"
-                              className="vault-quick-pill highlight"
-                              style={{ background: 'rgba(37, 99, 235, 0.25)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 }}
-                              onClick={() => {
-                                setApproach('site_pronto');
-                                const senderName = (user?.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : '';
-                                const introName = senderName ? `O meu nome é ${senderName}. ` : '';
-                                const signName = senderName ? `\n${senderName}` : '';
-                                setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\n${introName}Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${business.locality} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!${signName}`);
-                                notify('Abordagem "Já Criei o Site (P/ Atendente)" inserida!');
-                              }}
-                            >
-                              🚀 Já Criei o Site (P/ Atendente)
-                            </button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('primeiro-contato', service, business, user.name, messageLength));
-                              notify(`Modelo de Primeiro Contato (${service}) inserido!`);
-                            }}>Primeiro Contato</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('sem-site', service, business, user.name, messageLength));
-                              notify('Modelo para Empresa Sem Site inserido!');
-                            }}>Sem Website</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('fechamento-mpesa', service, business, user.name, messageLength));
-                              notify('Modelo de Fechamento via M-Pesa inserido!');
-                            }}>Fecho M-Pesa</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('followup', service, business, user.name, messageLength));
-                              notify('Modelo de Follow-up inserido!');
-                            }}>Follow-up</button>
-                          </>
-                        )}
-
-                        {activePlaybookTab === 'call' && (
-                          <>
-                            <button type="button" className="vault-quick-pill highlight" onClick={() => {
-                              setDraft(getCoherentVaultScript('call-mande-whatsapp', service, business, user.name, messageLength));
-                              notify('Guião para contornar "Mande no WhatsApp" inserido!');
-                            }}>🛡️ Se disserem: "Mande no WhatsApp"</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('call-recepcao', service, business, user.name, messageLength));
-                              notify('Guião de Chamada: Passar da Recepção inserido!');
-                            }}>📞 Passar da Recepção / Secretária</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('call-ausente', service, business, user.name, messageLength));
-                              notify('Guião de Chamada: Dono Ausente inserido!');
-                            }}>📞 Dono Não se Encontra</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('call-retorno', service, business, user.name, messageLength));
-                              notify('Guião de Chamada: Promessa de Retorno inserido!');
-                            }}>📞 Promessa de Retorno Não Cumprida</button>
-                          </>
-                        )}
-
-                        {activePlaybookTab === 'door' && (
-                          <>
-                            <button type="button" className="vault-quick-pill highlight" onClick={() => {
-                              setDraft(getCoherentVaultScript('porta-prototipo', service, business, user.name, messageLength));
-                              notify('Guião Porta a Porta: Protótipo em 30s inserido!');
-                            }}>🚪 No Balcão com Protótipo no Telemóvel (30s)</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('porta-ausente', service, business, user.name, messageLength));
-                              notify('Guião Porta a Porta: Dono Ausente inserido!');
-                            }}>🚪 Dono Ausente (Pegar WhatsApp Direto)</button>
-                          </>
-                        )}
-
-                        {activePlaybookTab === 'vacuo' && (
-                          <>
-                            <button type="button" className="vault-quick-pill highlight" onClick={() => {
-                              setDraft(getCoherentVaultScript('vacuo-descarte', service, business, user.name, messageLength));
-                              notify('Anti-Vácuo: Descarte Elegante inserido!');
-                            }}>⏳ Descarte Elegante ("Presumo que não seja prioridade")</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('vacuo-escala', service, business, user.name, messageLength));
-                              notify('Anti-Vácuo: Pergunta 1 a 10 inserida!');
-                            }}>⏳ Pergunta Rápida de 1 a 10</button>
-                          </>
-                        )}
-
-                        {activePlaybookTab === 'objecoes' && (
-                          <>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('obj-sobrinho', service, business, user.name, messageLength));
-                              notify('Quebra de Objeção: Sobrinho/Amigo inserida!');
-                            }}>🛡️ "Já temos sobrinho/amigo"</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('obj-crise', service, business, user.name, messageLength));
-                              notify('Quebra de Objeção: Crise/Sem Dinheiro inserida!');
-                            }}>🛡️ "Mercado em crise / sem dinheiro"</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('obj-passapalavra', service, business, user.name, messageLength));
-                              notify('Quebra de Objeção: Passa-Palavra inserida!');
-                            }}>🛡️ "Só funcionamos por passa-palavra"</button>
-                            <button type="button" className="vault-quick-pill" onClick={() => {
-                              setDraft(getCoherentVaultScript('obj-email', service, business, user.name, messageLength));
-                              notify('Quebra de Objeção: Mande por Email inserida!');
-                            }}>🛡️ "Mande apresentação por email"</button>
-                          </>
-                        )}
-                      </div>
+                      <button className="button outline compact" disabled={busy || business.suppressed} onClick={() => generate(!!analysis)}>
+                        {busy ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} {analysis ? 'Nova análise' : (targetChannel === 'call' ? 'Gerar guião de chamada' : 'Gerar mensagem')} · 1 crédito
+                      </button>
                     </div>
+
                     <label className="sr-only" htmlFor="draft">{targetChannel === 'call' ? 'Guião falado da chamada' : 'Mensagem de abordagem'}</label>
                     <textarea
                       id="draft"
@@ -7005,6 +6892,7 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                       <span>{draft.length} caracteres</span>
                       <span>{targetChannel === 'call' ? 'Guião de apoio para falar ao telefone' : 'Envio decidido por si'}</span>
                     </div>
+
                     <div className="outreach-actions">
                       <button className="button outline" disabled={!draft || busy || business.suppressed} onClick={copyDraft}>
                         <Copy size={16} /> {targetChannel === 'call' ? 'Copiar guião falado' : 'Copiar mensagem'}
@@ -7116,6 +7004,180 @@ export default function Prospecta({ initialAuth = null }: { initialAuth?: AuthMo
                         </button>
                       </div>
                     )}
+
+                    {/* ══ ACORDEÃO OPCIONAL: MODELOS PRONTOS DO COFRE DE VENDAS ══ */}
+                    <div style={{ marginTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+                      <button
+                        type="button"
+                        className="text-button"
+                        style={{ fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', color: '#93C5FD', padding: '7px 10px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.2)' }}
+                        onClick={() => setShowPlaybookAccordion(!showPlaybookAccordion)}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                          <ShieldCheck size={14} /> 📚 Modelos Prontos do Cofre de Vendas (Opcional)
+                        </span>
+                        <span style={{ fontSize: 11, color: '#38BDF8' }}>{showPlaybookAccordion ? 'Ocultar ▲' : 'Ver roteiros fixos ▼'}</span>
+                      </button>
+
+                      {showPlaybookAccordion && (
+                        <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#93C5FD', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              Substituir texto por roteiro testado no mercado:
+                            </span>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className={cls('vault-quick-pill', activePlaybookTab === 'call' && 'highlight')}
+                                style={activePlaybookTab === 'call' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                                onClick={() => setActivePlaybookTab('call')}
+                              >
+                                📞 Chamada
+                              </button>
+                              <button
+                                type="button"
+                                className={cls('vault-quick-pill', activePlaybookTab === 'whatsapp' && 'highlight')}
+                                style={activePlaybookTab === 'whatsapp' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                                onClick={() => setActivePlaybookTab('whatsapp')}
+                              >
+                                💬 WhatsApp
+                              </button>
+                              <button
+                                type="button"
+                                className={cls('vault-quick-pill', activePlaybookTab === 'door' && 'highlight')}
+                                style={activePlaybookTab === 'door' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                                onClick={() => setActivePlaybookTab('door')}
+                              >
+                                🚪 Porta a Porta
+                              </button>
+                              <button
+                                type="button"
+                                className={cls('vault-quick-pill', activePlaybookTab === 'vacuo' && 'highlight')}
+                                style={activePlaybookTab === 'vacuo' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                                onClick={() => setActivePlaybookTab('vacuo')}
+                              >
+                                ⏳ Anti-Vácuo
+                              </button>
+                              <button
+                                type="button"
+                                className={cls('vault-quick-pill', activePlaybookTab === 'objecoes' && 'highlight')}
+                                style={activePlaybookTab === 'objecoes' ? { background: 'rgba(37, 99, 235, 0.3)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 } : {}}
+                                onClick={() => setActivePlaybookTab('objecoes')}
+                              >
+                                🛡️ Objeções
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Botões do canal selecionado */}
+                          <div className="vault-quick-bar" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
+                            {activePlaybookTab === 'whatsapp' && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="vault-quick-pill highlight"
+                                  style={{ background: 'rgba(37, 99, 235, 0.25)', borderColor: '#3b82f6', color: '#60a5fa', fontWeight: 700 }}
+                                  onClick={() => {
+                                    setApproach('site_pronto');
+                                    const senderName = (user?.name && user.name.toLowerCase() !== 'chelton' && user.name.toLowerCase() !== 'chelton madime' && user.name !== 'Utilizador') ? user.name : '';
+                                    const introName = senderName ? `O meu nome é ${senderName}. ` : '';
+                                    const signName = senderName ? `\n${senderName}` : '';
+                                    setDraft(`Olá, tudo bem com a equipa de atendimento do(a) ${business.name}?\n\n${introName}Estive a acompanhar o vosso trabalho de ${business.category.toLowerCase()} aqui em ${cleanLocalityClient(business.locality, business.province)} e tomei a iniciativa de desenhar um rascunho visual de website moderno para a vossa empresa, com botão directo para o WhatsApp.\n\nSei que este contacto é de atendimento — seria possível dar uma vista de olhos rápida de 1 minuto ou mostrar ao responsável/gerente da empresa?\n\nPosso partilhar o link da demonstração convosco aqui mesmo sem qualquer custo ou compromisso?\n\nUm abraço e continuação de bom trabalho!${signName}`);
+                                    notify('Abordagem "Já Criei o Site (P/ Atendente)" inserida!');
+                                  }}
+                                >
+                                  🚀 Já Criei o Site (P/ Atendente)
+                                </button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('primeiro-contato', service, business, user.name, messageLength));
+                                  notify(`Modelo de Primeiro Contato (${service}) inserido!`);
+                                }}>Primeiro Contato</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('sem-site', service, business, user.name, messageLength));
+                                  notify('Modelo para Empresa Sem Site inserido!');
+                                }}>Sem Website</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('fechamento-mpesa', service, business, user.name, messageLength));
+                                  notify('Modelo de Fechamento via M-Pesa inserido!');
+                                }}>Fecho M-Pesa</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('followup', service, business, user.name, messageLength));
+                                  notify('Modelo de Follow-up inserido!');
+                                }}>Follow-up</button>
+                              </>
+                            )}
+
+                            {activePlaybookTab === 'call' && (
+                              <>
+                                <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                                  setDraft(getCoherentVaultScript('call-mande-whatsapp', service, business, user.name, messageLength));
+                                  notify('Guião para contornar "Mande no WhatsApp" inserido!');
+                                }}>🛡️ Se disserem: "Mande no WhatsApp"</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('call-recepcao', service, business, user.name, messageLength));
+                                  notify('Guião de Chamada: Passar da Recepção inserido!');
+                                }}>📞 Passar da Recepção / Secretária</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('call-ausente', service, business, user.name, messageLength));
+                                  notify('Guião de Chamada: Dono Ausente inserido!');
+                                }}>📞 Dono Não se Encontra</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('call-retorno', service, business, user.name, messageLength));
+                                  notify('Guião de Chamada: Promessa de Retorno inserido!');
+                                }}>📞 Promessa de Retorno Não Cumprida</button>
+                              </>
+                            )}
+
+                            {activePlaybookTab === 'door' && (
+                              <>
+                                <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                                  setDraft(getCoherentVaultScript('porta-prototipo', service, business, user.name, messageLength));
+                                  notify('Guião Porta a Porta: Protótipo em 30s inserido!');
+                                }}>🚪 No Balcão com Protótipo no Telemóvel (30s)</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('porta-ausente', service, business, user.name, messageLength));
+                                  notify('Guião Porta a Porta: Dono Ausente inserido!');
+                                }}>🚪 Dono Ausente (Pegar WhatsApp Direto)</button>
+                              </>
+                            )}
+
+                            {activePlaybookTab === 'vacuo' && (
+                              <>
+                                <button type="button" className="vault-quick-pill highlight" onClick={() => {
+                                  setDraft(getCoherentVaultScript('vacuo-descarte', service, business, user.name, messageLength));
+                                  notify('Anti-Vácuo: Descarte Elegante inserido!');
+                                }}>⏳ Descarte Elegante ("Presumo que não seja prioridade")</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('vacuo-escala', service, business, user.name, messageLength));
+                                  notify('Anti-Vácuo: Pergunta 1 a 10 inserida!');
+                                }}>⏳ Pergunta Rápida de 1 a 10</button>
+                              </>
+                            )}
+
+                            {activePlaybookTab === 'objecoes' && (
+                              <>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('obj-sobrinho', service, business, user.name, messageLength));
+                                  notify('Quebra de Objeção: Sobrinho/Amigo inserida!');
+                                }}>🛡️ "Já temos sobrinho/amigo"</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('obj-crise', service, business, user.name, messageLength));
+                                  notify('Quebra de Objeção: Crise/Sem Dinheiro inserida!');
+                                }}>🛡️ "Mercado em crise / sem dinheiro"</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('obj-passapalavra', service, business, user.name, messageLength));
+                                  notify('Quebra de Objeção: Passa-Palavra inserida!');
+                                }}>🛡️ "Só funcionamos por passa-palavra"</button>
+                                <button type="button" className="vault-quick-pill" onClick={() => {
+                                  setDraft(getCoherentVaultScript('obj-email', service, business, user.name, messageLength));
+                                  notify('Quebra de Objeção: Mande por Email inserida!');
+                                }}>🛡️ "Mande apresentação por email"</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {selectedLead && <button className="text-button" disabled={busy} onClick={() => run(async () => { await api('leads/' + selectedLead.id, { method: 'PATCH', body: JSON.stringify({ stage: 'Contactado' }) }); notify('Contacto confirmado por si. Etapa actualizada.'); })}><CheckCheck size={16} /> Já realizei o contacto · Marcar como Contactado</button>}
                   </section>
                   <aside className="message-preview">
